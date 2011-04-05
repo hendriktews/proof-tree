@@ -6,19 +6,46 @@ class proof_window top_window
   drawing_h_adjustment drawing_v_adjustment (drawing_area : GMisc.drawing_area)
   drawable_arg 
   =
-  let start_node = (new turnstile drawable_arg "top" :> proof_tree_element) in
 object (self)
   val top_window = top_window
   val drawing_h_adjustment = drawing_h_adjustment
   val drawing_v_adjustment = drawing_v_adjustment
   val drawing_area = drawing_area
-  val drawable = drawable_arg
-
-  val mutable current_leafs = [start_node]
+  val drawable : better_drawable = drawable_arg
 
   val mutable top_left = 0
+  val top_top = 0
 
-  val mutable tree = start_node
+  val mutable root = None
+
+  val mutable current_node = None
+  val mutable current_node_offset_cache = None
+  val mutable position_to_current_node = true
+
+  method set_root r = 
+    root <- Some (r : proof_tree_element)
+
+  method disconnect_proof =
+    match root with
+      | None -> ()
+      | Some root -> root#disconnect_proof
+
+  method set_current_node n =
+    current_node_offset_cache <- None;
+    current_node <- Some (n : proof_tree_element)
+
+  method get_current_offset =
+    match current_node_offset_cache with
+      | Some _ as res -> res
+      | None -> match current_node with
+	  | None -> None
+	  | Some node ->
+	    let width_2 = node#width / 2 in
+	    let height_2 = node#height / 2 in
+	    let (x_off, y_off) = node#x_y_offsets in
+	    let res = Some((x_off, y_off, width_2, height_2)) in
+	    current_node_offset_cache <- res;
+	    res
 
   method scroll (adjustment : GData.adjustment) direction =
     let a = adjustment in
@@ -39,8 +66,6 @@ object (self)
     match GdkEvent.Key.keyval ev with 
       | ks when (ks = GdkKeysyms._Q or ks = GdkKeysyms._q)  -> 
 	self#delete_proof_window_event ev
-      | ks when (ks = GdkKeysyms._E or ks = GdkKeysyms._e)  -> 
-	self#extend_leaf; true
       | ks when ks = GdkKeysyms._Left -> 
 	self#scroll drawing_h_adjustment (-1); true
       | ks when ks = GdkKeysyms._Right -> 
@@ -49,6 +74,7 @@ object (self)
 	self#scroll drawing_v_adjustment (-1); true
       | ks when ks = GdkKeysyms._Down -> 
 	self#scroll drawing_v_adjustment 1; true
+
       | _ -> false
 
   method erase = 
@@ -58,56 +84,112 @@ object (self)
     drawable#polygon ~filled:true [(0,0); (x,0); (x,y); (0,y)];
     drawable#set_foreground (`COLOR fg)
 
-  method proof_tree_changed =
-    let (current_width, current_height) = drawable#size in
-    let new_width = tree#subtree_width in
-    let new_height = tree#subtree_height in
-    (* 
-     * Printf.eprintf "RS %d x %d -> %d x %d\n%!"
-     *   current_width current_height new_width new_height;
-     *)
-    if new_width > current_width || new_height > current_height then
-      drawing_area#misc#set_size_request
-	~width:(max current_width new_width)
-	~height:(max current_height new_height) ();
-    let (new_width, _) = drawable#size in
-    top_left <- max 0 ((new_width - tree#subtree_width) / 2);
-    self#redraw
+  method try_adjustment = 
+    if position_to_current_node = true then
+      match self#get_current_offset with
+	| None -> ()
+	| Some((x_off, y_off, width_2, height_2)) ->
+	  let x_l = float_of_int(top_left + x_off - width_2) in
+	  let x_u = float_of_int(top_left + x_off + width_2) in
+	  let y_l = float_of_int(top_top + y_off - height_2) in
+	  let y_u = float_of_int(top_top + y_off + height_2) in
+          (* The following two clamp_page calls might immediately trigger
+	   * expose events, which will call try_adjustment again. To avoid
+	   * entering this function a second time before leaving it, I
+	   * temporarily switch position_to_current_node off.
+	   *)
+	  position_to_current_node <- false;
+	  drawing_h_adjustment#clamp_page ~lower:x_l ~upper:x_u;
+	  drawing_v_adjustment#clamp_page ~lower:y_l ~upper:y_u;
+	  let x_val = drawing_h_adjustment#value in
+	  let x_size = drawing_h_adjustment#page_size in
+	  let y_val = drawing_v_adjustment#value in
+	  let y_size = drawing_v_adjustment#page_size in
+	  if x_l >= x_val && x_u <= x_val +. x_size &&
+	    y_l >= y_val && y_u <= y_val +. y_size
+	  then
+	    () (* Do nothing: leave position_to_current_node disabled *)
+	  else
+	    (* Schedule the adjustment again, hope that we are more
+	     * successful next time.
+	     *)
+	    position_to_current_node <- true;
+          (* 
+	   * (let a = drawing_v_adjustment in
+	   *  Printf.eprintf 
+	   * 	 "TA %s VADJ low %f val %f up %f size %f step %f page %f\n%!"
+	   * 	 (match scheduled_adjustment with | None -> "N" | Some _ -> "S")
+	   * 	 a#lower a#value a#upper a#page_size 
+	   * 	 a#step_increment a#page_increment)
+	   *)
 
-  val mutable extend_counter = 1
+  method expand_drawing_area =
+    match root with
+      | None -> ()
+      | Some root -> 
+	let new_width = root#subtree_width in
+	let new_height = root#subtree_height in
+	(* 
+         * if new_width > current_width || new_height > current_height then
+	 *   drawing_area#misc#set_size_request
+	 *     ~width:(max current_width new_width)
+	 *     ~height:(max current_height new_height) ();
+         *)
+	drawing_area#misc#set_size_request
+	  ~width:new_width ~height:new_height ();
 
-  method extend_leaf =
-    let leaf = List.hd current_leafs in
-    let e1 = 
-      new proof_command drawable_arg
-	(* "abcdefghijklmnopqrstuvwxyz0123456789" *)
-	"destruct bla blup"
-	(Printf.sprintf "com %d" extend_counter )
-    in
-    let t1 = (new turnstile drawable_arg 
-		(Printf.sprintf "turn %d" (extend_counter + 1))
-	      :> proof_tree_element) 
-    in
-    let t2 = (new turnstile drawable_arg
-		(Printf.sprintf "turn %d" (extend_counter + 2))
-	      :> proof_tree_element)
-    in
-    let t3 = (new turnstile drawable_arg
-		(Printf.sprintf "turn %d" (extend_counter + 3))
-	      :> proof_tree_element)
-    in
-    extend_counter <- extend_counter + 4;
-    set_children leaf [e1];
-    set_children e1 [t1; t2; t3];
-    current_leafs <- (List.tl current_leafs) @ [t1; t2; t3];
-    self#proof_tree_changed
+
+  method position_tree =
+    match root with
+      | None -> ()
+      | Some root -> 
+	let (width, _) = drawable#size in
+	top_left <- max 0 ((width - root#subtree_width) / 2);
 
   method redraw =
+    (* 
+     * (let a = drawing_v_adjustment in
+     *  Printf.eprintf 
+     *    "RD %s VADJ low %f val %f up %f size %f step %f page %f\n%!"
+     *    (match scheduled_adjustment with | None -> "N" | Some _ -> "S")
+     *    a#lower a#value a#upper a#page_size 
+     *    a#step_increment a#page_increment);
+     *)
+    self#try_adjustment;
     self#erase;
     (* let left = 0 in *)
-    ignore(tree#draw_subtree top_left 0)
+    match root with
+      | None -> ()
+      | Some root ->
+	ignore(root#draw_subtree top_left top_top)
+
+  method refresh_and_position =
+    position_to_current_node <- true;
+    self#expand_drawing_area;
+    self#position_tree;
+    self#try_adjustment;
+    GtkBase.Widget.queue_draw drawing_area#as_widget
+
+  method draw_scroll_size_allocate_callback (_size : Gtk.rectangle) =
+    (* Printf.eprintf "SIZE ALLOC\n%!"; *)
+    self#position_tree;
+    (* 
+     * (let a = drawing_v_adjustment in
+     *  Printf.eprintf 
+     *    "SA %s VADJ low %f val %f up %f size %f step %f page %f\n%!"
+     *    (match scheduled_adjustment with | None -> "N" | Some _ -> "S")
+     *    a#lower a#value a#upper a#page_size 
+     *    a#step_increment a#page_increment);
+     *)
+    self#try_adjustment
 
   method expose_callback (ev : GdkEvent.Expose.t) =
+    (* 
+     * (let a = drawing_v_adjustment in
+     *  Printf.eprintf "EX VADJ low %f val %f up %f size %f step %f page %f\n%!"
+     *    a#lower a#value a#upper a#page_size 
+     *    a#step_increment a#page_increment);
+     *)
     (* 
      * (let a = drawing_h_adjustment in
      *  Printf.eprintf "HADJ low %f val %f up %f size %f step %f page %f\n"
@@ -136,12 +218,22 @@ object (self)
      * let mod_list = Gdk.Convert.modifier state in
      * let _ = Gdk.Convert.test_modifier `SHIFT state in
      *)
-    (* Printf.printf "Button %d at %d x %d\n%!" button x y; *)
-    tree#mouse_button_tree top_left 0 x y button;
+    Printf.printf "Button %d at %d x %d\n%!" button x y;
+    (match root with 
+      | None -> ()
+      | Some root ->
+	root#mouse_button_tree top_left top_top x y button
+    );
     true
+
+  method new_turnstile debug_name sequent_text =
+    new turnstile drawable debug_name sequent_text
+
+  method new_proof_command command =
+    new proof_command drawable command command
 end
 
-let make_proof_window geometry_string =
+let make_proof_window _name geometry_string =
   let top_window = GWindow.window () in
   top_window#set_default_size ~width:400 ~height:400;
   let top_v_box = GPack.vbox ~packing:top_window#add () in
@@ -192,6 +284,8 @@ let make_proof_window geometry_string =
       drawing_h_adjustment drawing_v_adjustment drawing_area
       drawable
   in
+  ignore(drawing_scrolling#misc#connect#size_allocate
+	   ~callback:proof_window#draw_scroll_size_allocate_callback);
   ignore(top_window#connect#destroy ~callback:proof_window#delete_proof_window);
   (* the delete event yields a destroy signal if not handled *)
     (* ignore(top_window#event#connect#delete 
@@ -215,6 +309,5 @@ let make_proof_window geometry_string =
   top_window#show ();
   if geometry_string <> "" then
     ignore(top_window#parse_geometry geometry_string);
-  proof_window#proof_tree_changed;
 
   proof_window

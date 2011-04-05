@@ -44,3 +44,6 @@ let default_configuration =
 
 
 let current_config = ref default_configuration
+
+
+let geometry_string = ref ""

@@ -2,6 +2,31 @@ open Util
 open Configuration
 open Gtk_ext
 
+type branch_state_type = 
+  | Unproven
+  | Current
+  | NonCurrent
+  | Proven
+
+
+let safe_and_set_gc drawable state =
+  match state with
+    | NonCurrent -> assert false
+    | Unproven -> None
+    | Current ->
+      let res = Some drawable#get_foreground in
+      drawable#set_foreground (`NAME("brown"));
+      res
+    | Proven -> 
+      let res = Some drawable#get_foreground in
+      drawable#set_foreground (`NAME("blue"));
+      res
+
+let restore_gc drawable fc_opt = match fc_opt with
+  | None -> ()
+  | Some fc -> drawable#set_foreground (`COLOR fc)
+
+
 class virtual proof_tree_element (drawable : better_drawable) debug_name = 
 object (self)
   inherit [proof_tree_element] doubly_linked_tree as super
@@ -17,11 +42,14 @@ object (self)
   val mutable first_child_offset = 0
   val mutable x_offset = 0
   val mutable subtree_levels = 0
+  val mutable branch_state = Unproven
 
+  method width = width
   method height = height
   method subtree_width = subtree_width
   method subtree_levels = subtree_levels
   method x_offset = x_offset
+  method branch_state = branch_state
 
   method iter_children left top (f : int -> int -> proof_tree_element -> unit) =
     let left = left + first_child_offset in
@@ -39,13 +67,15 @@ object (self)
       2 * !current_config.turnstile_radius +
       2 * !current_config.turnstile_line_width
 
-  method get_x_position left (children_koord_rev : (int * int * int) list) = 
-    match children_koord_rev with
-      | [] -> left + width / 2
-      | [(child_koord_x, _, _)] -> child_koord_x
-      | (last_x, _, _) :: rest ->
-	let (first_x, _, _) = list_last rest in
-	(first_x + last_x) / 2
+  (* 
+   * method get_x_position left (children_koord_rev : (int * int * int) list) = 
+   *   match children_koord_rev with
+   *     | [] -> left + width / 2
+   *     | [(child_koord_x, _, _)] -> child_koord_x
+   *     | (last_x, _, _) :: rest ->
+   * 	let (first_x, _, _) = list_last rest in
+   * 	(first_x + last_x) / 2
+   *)
 
   method update_subtree_size =
     let (children_width, max_levels, last_child) = 
@@ -140,11 +170,37 @@ object (self)
     self#update_sizes_in_branch
     (* prerr_endline "END CHILD CHANGED" *)
 
+  method child_offset child =
+    let rec sumup left = function
+      | [] -> assert false
+      | oc::rest -> 
+	if child = oc 
+	then left
+	else sumup (left + oc#subtree_width) rest
+    in
+    sumup first_child_offset children
+
+  method left_top_offsets =
+    match parent with
+      | None -> (0, 0)
+      | Some p ->
+	let (parent_left, parent_top) = p#left_top_offsets in
+	let top_off = parent_top + !current_config.level_distance in
+	let left_off = 
+	  parent_left + p#child_offset (self :> proof_tree_element) 
+	in
+	(left_off, top_off)
+
+  method x_y_offsets =
+    let (left, top) = self#left_top_offsets in
+    (left + x_offset, top + height / 2)
+
   method get_koordinates left top = (left + x_offset, top + height / 2)
 
   (* draw left top => unit *)
   method virtual draw : int -> int -> unit
 
+  (* line_offset inverse_slope => (x_off, y_off) *)
   method virtual line_offset : float -> (int * int)
 
   method draw_lines left top =
@@ -155,8 +211,24 @@ object (self)
        let slope = float_of_int(cx - x) /. float_of_int(cy - y) in
        let (d_x, d_y) = self#line_offset slope in
        let (c_d_x, c_d_y) = child#line_offset slope in
+       let child_state = child#branch_state in
+       let line_state = match (branch_state, child_state) with
+	 | (Unproven, Current)
+	 | (NonCurrent, _)
+	 | (_, NonCurrent)
+	 | (Proven, Unproven)
+	 | (Proven, Current) -> assert false
+	 | (Unproven, Unproven)
+	 | (Unproven, Proven) 
+	 | (Current, Unproven)
+	 | (Current, Current)
+	 | (Current, Proven) 
+	 | (Proven, Proven) -> child_state
+       in
+       let gc_opt = safe_and_set_gc drawable line_state in
        drawable#line ~x:(x + d_x) ~y:(y + d_y) 
-	 ~x:(cx - c_d_x) ~y:(cy - c_d_y))
+	 ~x:(cx - c_d_x) ~y:(cy - c_d_y);
+       restore_gc drawable gc_opt)
 
   method draw_subtree left top =
     (* 
@@ -169,7 +241,10 @@ object (self)
      *   width
      *   subtree_width;
      *)
+    let gc_opt = safe_and_set_gc drawable branch_state in
     self#draw left top;
+    restore_gc drawable gc_opt;
+
     self#draw_lines left top;
     self#iter_children left top 
       (fun left top child -> child#draw_subtree left top)
@@ -195,11 +270,46 @@ object (self)
 	self#iter_children left top
 	  (fun left top child ->
 	    child#mouse_button_tree left top bx by button)
+
+  method mark_branch mark =
+    let mark = 
+      if mark = Proven
+      then
+	if (List.for_all (fun c -> c#branch_state = Proven) children)
+	then Proven
+	else Unproven
+      else mark
+    in
+    branch_state <- (match (mark, branch_state) with
+      | (NonCurrent, Unproven)
+      | (NonCurrent, Proven) 
+      | (NonCurrent, NonCurrent) -> branch_state
+      | (NonCurrent, Current) -> Unproven
+      | (Unproven, _)
+      | (Current, _)
+      | (Proven, _) -> mark
+    );
+    match parent with
+      | Some p -> p#mark_branch mark
+      | None -> ()
+
+  method mark_current = self#mark_branch Current
+  method mark_proved = self#mark_branch Proven
+  method unmark_current = self#mark_branch NonCurrent
+
+  method disconnect_proof =
+    if branch_state = Current 
+    then branch_state <- Unproven;
+    List.iter (fun c -> c#disconnect_proof) children;
 end
 
-class turnstile (drawable : better_drawable) debug_name =
+class turnstile (drawable : better_drawable) debug_name sequent_text =
 object (self)
   inherit proof_tree_element drawable debug_name
+
+  val mutable sequent_text = (sequent_text : string)
+
+  method update_sequent new_text = sequent_text <- new_text
 
   method draw_turnstile x y =
     let radius = !current_config.turnstile_radius in

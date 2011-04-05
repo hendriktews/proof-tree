@@ -1,11 +1,9 @@
 
 module U = Unix
-open Proof_window
-
-let geometry_string = ref ""
+open Input
 
 let arguments = Arg.align [
-  ("-geometry", Arg.Set_string geometry_string,
+  ("-geometry", Arg.Set_string Configuration.geometry_string,
    " X geometry");
 ]
 
@@ -15,8 +13,9 @@ let anon_fun s =
 
 
 let main () =
-  Arg.parse arguments anon_fun "gtk testbed";
-  let _pw = make_proof_window !geometry_string in
+  Arg.parse arguments anon_fun "prooftree";
+  setup_input();
+  (* let _pw = make_proof_window !geometry_string in *)
   GMain.Main.main ()
 
 
@@ -41,9 +40,3 @@ let main_ex () =
 
 let _ = main_ex()
 
-
-(*** Local Variables: ***)
-(*** compile-command: "ocamlopt.opt -I +lablgtk2 -o prooftree unix.cmxa \***)
-(*** lablgtk.cmxa gtkInit.cmx util.ml gtk_ext.ml draw_tree.ml \***)
-(*** proof_window.ml main.ml" ***)
-(*** End: ***)
