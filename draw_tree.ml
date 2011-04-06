@@ -1,9 +1,13 @@
-open Util
 open Configuration
 open Gtk_ext
 
+type node_kind =
+  | Proof_command
+  | Turnstile
+
 type branch_state_type = 
   | Unproven
+  | CurrentNode
   | Current
   | NonCurrent
   | Proven
@@ -13,6 +17,7 @@ let safe_and_set_gc drawable state =
   match state with
     | NonCurrent -> assert false
     | Unproven -> None
+    | CurrentNode
     | Current ->
       let res = Some drawable#get_foreground in
       drawable#set_foreground (`NAME("brown"));
@@ -27,12 +32,42 @@ let restore_gc drawable fc_opt = match fc_opt with
   | Some fc -> drawable#set_foreground (`COLOR fc)
 
 
+class virtual ['a] doubly_linked_tree =
+object 
+  val mutable parent = None
+  val mutable children = []
+
+  method parent = parent
+  method set_parent (p : 'a) = parent <- Some p
+
+  method children = children
+  method set_children (cs : 'a list) = 
+    children <- cs
+
+  method virtual children_changed : unit
+end
+
+(* 
+ * let set_children parent children =
+ *   parent#set_children children;
+ *   List.iter (fun c -> c#set_parent parent) children;
+ *   parent#children_changed
+ *)
+
+let add_child parent child =
+  parent#set_children (parent#children @ [child]);
+  child#set_parent parent;
+  parent#children_changed
+
+
 class virtual proof_tree_element (drawable : better_drawable) debug_name = 
 object (self)
   inherit [proof_tree_element] doubly_linked_tree as super
 
   val debug_name = (debug_name : string)
   method debug_name = debug_name
+
+  method virtual node_kind : node_kind
 
   val drawable = drawable
 
@@ -43,6 +78,7 @@ object (self)
   val mutable x_offset = 0
   val mutable subtree_levels = 0
   val mutable branch_state = Unproven
+  val mutable selected = false
 
   method width = width
   method height = height
@@ -50,32 +86,35 @@ object (self)
   method subtree_levels = subtree_levels
   method x_offset = x_offset
   method branch_state = branch_state
+  method selected b = selected <- b
 
-  method iter_children left top (f : int -> int -> proof_tree_element -> unit) =
+  method virtual content : string
+
+  method iter_children : 
+    'a . int -> int -> 'a -> 
+      (int -> int -> 'a -> proof_tree_element -> ('a * bool)) -> 'a =
+    fun left top a f ->
     let left = left + first_child_offset in
     let top = top + !current_config.level_distance in
-    ignore(
-      List.fold_left
-	(fun left child -> 
-	  f left top child;
-	  left + child#subtree_width)
-	left
-	children)
-    
+    let rec doit left a = function
+      | [] -> a
+      | c::cs -> 
+	let (na, cont) = f left top a c in
+	if cont
+	then doit (left + c#subtree_width) na cs
+	else na
+    in
+    doit left a children
+
+  method iter_all_children_unit left top 
+    (f : int -> int -> proof_tree_element -> unit) =
+    self#iter_children left top ()
+      (fun left top () c -> f left top c; ((), true))
+
   method subtree_height = 
     (subtree_levels - 1) * !current_config.level_distance + 
       2 * !current_config.turnstile_radius +
       2 * !current_config.turnstile_line_width
-
-  (* 
-   * method get_x_position left (children_koord_rev : (int * int * int) list) = 
-   *   match children_koord_rev with
-   *     | [] -> left + width / 2
-   *     | [(child_koord_x, _, _)] -> child_koord_x
-   *     | (last_x, _, _) :: rest ->
-   * 	let (first_x, _, _) = list_last rest in
-   * 	(first_x + last_x) / 2
-   *)
 
   method update_subtree_size =
     let (children_width, max_levels, last_child) = 
@@ -171,14 +210,7 @@ object (self)
     (* prerr_endline "END CHILD CHANGED" *)
 
   method child_offset child =
-    let rec sumup left = function
-      | [] -> assert false
-      | oc::rest -> 
-	if child = oc 
-	then left
-	else sumup (left + oc#subtree_width) rest
-    in
-    sumup first_child_offset children
+    self#iter_children 0 0 0 (fun left _top _a oc -> (left, child <> oc))
 
   method left_top_offsets =
     match parent with
@@ -205,7 +237,7 @@ object (self)
 
   method draw_lines left top =
     let (x, y) = self#get_koordinates left top in
-    self#iter_children left top
+    self#iter_all_children_unit left top
       (fun left top child ->
        let (cx, cy) = child#get_koordinates left top in
        let slope = float_of_int(cx - x) /. float_of_int(cy - y) in
@@ -214,15 +246,17 @@ object (self)
        let child_state = child#branch_state in
        let line_state = match (branch_state, child_state) with
 	 | (Unproven, Current)
+	 | (Unproven, CurrentNode)
 	 | (NonCurrent, _)
 	 | (_, NonCurrent)
 	 | (Proven, Unproven)
-	 | (Proven, Current) -> assert false
+	 | (Proven, Current) 
+	 | (Proven, CurrentNode) -> assert false
 	 | (Unproven, Unproven)
 	 | (Unproven, Proven) 
-	 | (Current, Unproven)
-	 | (Current, Current)
-	 | (Current, Proven) 
+	 | ((Current|CurrentNode), Unproven)
+	 | ((Current|CurrentNode), (Current|CurrentNode))
+	 | ((Current|CurrentNode), Proven) 
 	 | (Proven, Proven) -> child_state
        in
        let gc_opt = safe_and_set_gc drawable line_state in
@@ -246,18 +280,10 @@ object (self)
     restore_gc drawable gc_opt;
 
     self#draw_lines left top;
-    self#iter_children left top 
+    self#iter_all_children_unit left top 
       (fun left top child -> child#draw_subtree left top)
 
-  method virtual mouse_button_1 : unit
-
-  method mouse_button button = 
-    (* Printf.eprintf "%s Button %d\n%!" self#debug_name button; *)
-    match button with
-      | 1 -> self#mouse_button_1
-      | _ -> ()
-
-  method mouse_button_tree left top bx by button =
+  method mouse_button_tree left top bx by =
     if bx >= left && bx <= left + subtree_width &&
       by >= top && by <= top + self#subtree_height
     then
@@ -265,11 +291,14 @@ object (self)
       if bx >= x - width/2 && bx <= x + width/2 &&
 	by >= y - height/2 && by <= y + height/2
       then
-	self#mouse_button button
+	Some (self :> proof_tree_element)
       else
-	self#iter_children left top
-	  (fun left top child ->
-	    child#mouse_button_tree left top bx by button)
+	self#iter_children left top None
+	  (fun left top _a child ->
+	    let cres = child#mouse_button_tree left top bx by in
+	    (cres, cres = None))
+    else
+      None
 
   method mark_branch mark =
     let mark = 
@@ -281,9 +310,11 @@ object (self)
       else mark
     in
     branch_state <- (match (mark, branch_state) with
+      | (CurrentNode, _) -> assert false
       | (NonCurrent, Unproven)
       | (NonCurrent, Proven) 
       | (NonCurrent, NonCurrent) -> branch_state
+      | (NonCurrent, CurrentNode)
       | (NonCurrent, Current) -> Unproven
       | (Unproven, _)
       | (Current, _)
@@ -293,7 +324,10 @@ object (self)
       | Some p -> p#mark_branch mark
       | None -> ()
 
-  method mark_current = self#mark_branch Current
+  method mark_current = 
+    self#mark_branch Current;
+    branch_state <- CurrentNode
+      
   method mark_proved = self#mark_branch Proven
   method unmark_current = self#mark_branch NonCurrent
 
@@ -309,14 +343,23 @@ object (self)
 
   val mutable sequent_text = (sequent_text : string)
 
+  method node_kind = Turnstile
+
+  method content = sequent_text
   method update_sequent new_text = sequent_text <- new_text
 
   method draw_turnstile x y =
     let radius = !current_config.turnstile_radius in
-    drawable#set_line_attributes 
-      ~width:(!current_config.turnstile_line_width) ();
-    drawable#arc ~x:(x - radius) ~y:(y - radius) 
-      ~width:(2 * radius) ~height:(2 * radius) ();
+    if branch_state = CurrentNode
+    then
+      drawable#arc ~x:(x - radius) ~y:(y - radius) 
+	~width:(2 * radius) ~height:(2 * radius) ();
+    (if selected 
+     then
+	let wh_2 = radius + !current_config.turnstile_line_width in
+	drawable#rectangle 
+	  ~x:(x - wh_2) ~y:(y - wh_2) ~width:(2 * wh_2) ~height:(2 * wh_2) ();
+    );
     drawable#line 
       ~x:(x + !current_config.turnstile_left_bar_x_offset)
       ~y:(y - !current_config.turnstile_left_bar_y_offset)
@@ -338,9 +381,6 @@ object (self)
     let d_x = slope *. d_y in
     (int_of_float(d_x +. 0.5), int_of_float(d_y +. 0.5))
 
-  method mouse_button_1 =
-    Printf.eprintf "%s Button1\n%!" self#debug_name;
-
   initializer
     width <- 
       2 * !current_config.turnstile_radius +
@@ -357,26 +397,23 @@ class proof_command (drawable_arg : better_drawable) command debug_name =
 object (self)
   inherit proof_tree_element drawable_arg debug_name
 
+  val command = command
   val layout = drawable_arg#pango_context#create_layout
   val mutable layout_width = 0
   val mutable layout_height = 0
 
-  initializer
-    Pango.Layout.set_text layout command;
-    let (w,h) = Pango.Layout.get_pixel_size layout in
-    layout_width <- w;
-    layout_height <- h;
-    width <- w + !current_config.subtree_sep;
-    height <- h;
-    (* 
-     * Printf.eprintf "INIT %s w %d width %d height %d\n%!"
-     *   self#debug_name w width height;
-     *)
-    self#update_subtree_size
+  method node_kind = Proof_command
+  method content = command
 
   method draw left top = 
     let (x, y) = self#get_koordinates left top in
     drawable#put_layout ~x:(x - layout_width/2) ~y:(y - layout_height/2) layout;
+    if selected 
+    then
+      let w = layout_width + !current_config.turnstile_line_width in
+      let h = layout_height + !current_config.turnstile_line_width in
+      drawable#rectangle 
+	~x:(x - w/2) ~y:(y - h/2) ~width:w ~height:h ();
 
   method line_offset slope = 
     let sign = if slope >= 0.0 then 1 else -1 in
@@ -394,7 +431,17 @@ object (self)
       ((width/2 + line_sep) * sign,
        int_of_float(float_of_int(width/2 + line_sep) /. slope +. 0.5) * sign)
 
-  method mouse_button_1 =
-    Printf.eprintf "%s Button1\n%!" self#debug_name;
+  initializer
+    Pango.Layout.set_text layout command;
+    let (w,h) = Pango.Layout.get_pixel_size layout in
+    layout_width <- w;
+    layout_height <- h;
+    width <- w + !current_config.subtree_sep;
+    height <- h;
+    (* 
+     * Printf.eprintf "INIT %s w %d width %d height %d\n%!"
+     *   self#debug_name w width height;
+     *)
+    self#update_subtree_size
 
 end

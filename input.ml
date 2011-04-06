@@ -13,6 +13,7 @@
  *)
 
 open Util
+open Gtk_ext
 
 module U = Unix
 

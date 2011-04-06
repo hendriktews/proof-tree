@@ -1,10 +1,11 @@
-open Util
+open Configuration
 open Gtk_ext
 open Draw_tree
 
+
 class proof_window top_window 
   drawing_h_adjustment drawing_v_adjustment (drawing_area : GMisc.drawing_area)
-  drawable_arg 
+  drawable_arg labeled_sequent_frame sequent_window
   =
 object (self)
   val top_window = top_window
@@ -12,6 +13,8 @@ object (self)
   val drawing_v_adjustment = drawing_v_adjustment
   val drawing_area = drawing_area
   val drawable : better_drawable = drawable_arg
+  val labeled_sequent_frame = labeled_sequent_frame
+  val sequent_window = sequent_window
 
   val mutable top_left = 0
   val top_top = 0
@@ -22,6 +25,8 @@ object (self)
   val mutable current_node_offset_cache = None
   val mutable position_to_current_node = true
 
+  val mutable selected_node = None
+
   method set_root r = 
     root <- Some (r : proof_tree_element)
 
@@ -30,9 +35,20 @@ object (self)
       | None -> ()
       | Some root -> root#disconnect_proof
 
+  method update_sequent label content =
+    labeled_sequent_frame#set_label (Some label);
+    sequent_window#buffer#set_text content;
+
   method set_current_node n =
     current_node_offset_cache <- None;
-    current_node <- Some (n : proof_tree_element)
+    current_node <- Some (n : proof_tree_element);
+    if selected_node = None && n#node_kind = Turnstile then
+      match n#parent with
+	| None -> ()
+	| Some p -> match p#parent with
+	    | None -> ()
+	    | Some p ->
+	      self#update_sequent "Previous sequent" p#content
 
   method get_current_offset =
     match current_node_offset_cache with
@@ -163,12 +179,15 @@ object (self)
       | Some root ->
 	ignore(root#draw_subtree top_left top_top)
 
+  method invalidate_drawing_area =
+    GtkBase.Widget.queue_draw drawing_area#as_widget
+
   method refresh_and_position =
     position_to_current_node <- true;
     self#expand_drawing_area;
     self#position_tree;
     self#try_adjustment;
-    GtkBase.Widget.queue_draw drawing_area#as_widget
+    self#invalidate_drawing_area;
 
   method draw_scroll_size_allocate_callback (_size : Gtk.rectangle) =
     (* Printf.eprintf "SIZE ALLOC\n%!"; *)
@@ -209,6 +228,30 @@ object (self)
     (* prerr_endline "END EXPOSE EVENT"; *)
     false
 
+  method locate_button_node x y f =
+    let node_opt = match root with 
+      | None -> None
+      | Some root ->
+	root#mouse_button_tree top_left top_top x y
+    in
+    match node_opt with
+      | None -> ()
+      | Some node -> f node
+
+  method button_1_press node =
+    (* Printf.eprintf "Click on %s\n%!" node#debug_name; *)
+    (match selected_node with
+      | None -> ()
+      | Some onode -> onode#selected false);
+    selected_node <- Some node;
+    node#selected true;
+    self#invalidate_drawing_area;
+    let frame_text = match node#node_kind with
+      | Turnstile -> "Selected sequent"
+      | Proof_command -> "Selected command"
+    in
+    self#update_sequent frame_text node#content
+
   method button_press ev =
     let x = int_of_float(GdkEvent.Button.x ev +. 0.5) in
     let y = int_of_float(GdkEvent.Button.y ev +. 0.5) in
@@ -218,12 +261,10 @@ object (self)
      * let mod_list = Gdk.Convert.modifier state in
      * let _ = Gdk.Convert.test_modifier `SHIFT state in
      *)
-    Printf.printf "Button %d at %d x %d\n%!" button x y;
-    (match root with 
-      | None -> ()
-      | Some root ->
-	root#mouse_button_tree top_left top_top x y button
-    );
+    (* Printf.printf "Button %d at %d x %d\n%!" button x y; *)
+    (match button with
+      | 1 -> self#locate_button_node x y self#button_1_press
+      | _ -> ());
     true
 
   method new_turnstile debug_name sequent_text =
@@ -254,23 +295,21 @@ let make_proof_window _name geometry_string =
     new better_drawable drawing_area#misc#window 
       drawing_area#misc#create_pango_context
   in
-  let sequent_frame_1 = GBin.frame (* ~label:"Sequent" ~label_xalign:1.0  *)
-    (* ~border_width:1 *) ~shadow_type:`IN 
+  let outer_sequent_frame = GBin.frame ~shadow_type:`IN 
     ~packing:(top_paned#pack2 ~resize:false ~shrink:false) () 
   in
-  let sequent_frame_2 = GBin.frame ~label:"Sequent" (* ~label_xalign:1.0 *)
-    (* ~border_width:0 *) ~shadow_type:`NONE
-    ~packing:sequent_frame_1#add ()
+  let labeled_sequent_frame = GBin.frame ~label:"Sequent" ~shadow_type:`NONE
+    ~packing:outer_sequent_frame#add ()
   in
   let sequent_scrolling = GBin.scrolled_window 
     ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC 
-    ~packing:sequent_frame_2#add () 
+    ~packing:labeled_sequent_frame#add () 
   in
   (* 
    * let sequent_v_adjustment = drawing_scrolling#vadjustment in
    * let sequent_h_adjustment = drawing_scrolling#hadjustment in
    *)
-  let _sequent_window = GText.view ~editable:false ~cursor_visible:false
+  let sequent_window = GText.view ~editable:false ~cursor_visible:false
     (* ~height:50 *)
     ~packing:sequent_scrolling#add () 
   in
@@ -282,8 +321,10 @@ let make_proof_window _name geometry_string =
   let proof_window = 
     new proof_window top_window 
       drawing_h_adjustment drawing_v_adjustment drawing_area
-      drawable
+      drawable labeled_sequent_frame sequent_window
   in
+  drawable#set_line_attributes 
+    ~width:(!current_config.turnstile_line_width) ();
   ignore(drawing_scrolling#misc#connect#size_allocate
 	   ~callback:proof_window#draw_scroll_size_allocate_callback);
   ignore(top_window#connect#destroy ~callback:proof_window#delete_proof_window);
