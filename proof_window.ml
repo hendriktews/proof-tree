@@ -2,19 +2,21 @@ open Configuration
 open Gtk_ext
 open Draw_tree
 
+let delete_proof_tree_callback = ref (fun (_ : string) -> ())
 
 class proof_window top_window 
   drawing_h_adjustment drawing_v_adjustment (drawing_area : GMisc.drawing_area)
-  drawable_arg labeled_sequent_frame sequent_window
+  drawable_arg labeled_sequent_frame sequent_window proof_name
   =
 object (self)
-  val top_window = top_window
+  val top_window = (top_window : GWindow.window)
   val drawing_h_adjustment = drawing_h_adjustment
   val drawing_v_adjustment = drawing_v_adjustment
   val drawing_area = drawing_area
   val drawable : better_drawable = drawable_arg
   val labeled_sequent_frame = labeled_sequent_frame
   val sequent_window = sequent_window
+  val proof_name = proof_name
 
   val mutable top_left = 0
   val top_top = 0
@@ -29,6 +31,8 @@ object (self)
 
   method set_root r = 
     root <- Some (r : proof_tree_element)
+
+  method clear_root = root <- None
 
   method disconnect_proof =
     match root with
@@ -71,11 +75,15 @@ object (self)
     let new_val = if new_val > max then max else new_val in
     a#set_value new_val
 
-  method delete_proof_window () =
-    GMain.quit()
+  method delete_proof_window =
+    top_window#destroy()
+
+  method user_delete_proof_window () =
+    !delete_proof_tree_callback proof_name;
+    self#delete_proof_window
 
   method delete_proof_window_event _ =
-    self#delete_proof_window ();
+    self#user_delete_proof_window ();
     true
 
   method key_pressed_callback ev =
@@ -267,14 +275,14 @@ object (self)
       | _ -> ());
     true
 
-  method new_turnstile debug_name sequent_text =
-    new turnstile drawable debug_name sequent_text
+  method new_turnstile sequent_id sequent_text =
+    new turnstile drawable sequent_id sequent_text
 
   method new_proof_command command =
     new proof_command drawable command command
 end
 
-let make_proof_window _name geometry_string =
+let make_proof_window name geometry_string =
   let top_window = GWindow.window () in
   top_window#set_default_size ~width:400 ~height:400;
   let top_v_box = GPack.vbox ~packing:top_window#add () in
@@ -321,13 +329,14 @@ let make_proof_window _name geometry_string =
   let proof_window = 
     new proof_window top_window 
       drawing_h_adjustment drawing_v_adjustment drawing_area
-      drawable labeled_sequent_frame sequent_window
+      drawable labeled_sequent_frame sequent_window name
   in
   drawable#set_line_attributes 
     ~width:(!current_config.turnstile_line_width) ();
   ignore(drawing_scrolling#misc#connect#size_allocate
 	   ~callback:proof_window#draw_scroll_size_allocate_callback);
-  ignore(top_window#connect#destroy ~callback:proof_window#delete_proof_window);
+  ignore(top_window#connect#destroy 
+	   ~callback:proof_window#user_delete_proof_window);
   (* the delete event yields a destroy signal if not handled *)
     (* ignore(top_window#event#connect#delete 
        ~callback:proof_window#delete_proof_window); *)
@@ -345,7 +354,7 @@ let make_proof_window _name geometry_string =
 	   ~callback:proof_window#button_press);
   
   ignore(dismiss_button#connect#clicked 
-	   ~callback:proof_window#delete_proof_window);
+	   ~callback:proof_window#user_delete_proof_window);
 
   top_window#show ();
   if geometry_string <> "" then

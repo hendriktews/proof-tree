@@ -17,6 +17,7 @@ let error_message_dialog message =
     ~message_type:`ERROR
     ~buttons:GWindow.Buttons.ok () 
   in
-  ignore(err#connect#response ~callback:(fun _ -> err#destroy()));
+  (* ignore(err#connect#response ~callback:(fun _ -> err#destroy())); *)
+  ignore(err#connect#response ~callback:(fun _ -> exit 1));
   err#show()
 

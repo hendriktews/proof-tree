@@ -5,6 +5,10 @@ open Input
 let arguments = Arg.align [
   ("-geometry", Arg.Set_string Configuration.geometry_string,
    " X geometry");
+  ("-tee", Arg.String (fun s -> Configuration.tee_input_file := Some s),
+   "file save input in file");
+  ("-debug", Arg.Set Configuration.debug,
+   " print more details on errors");
 ]
 
 let anon_fun s = 
@@ -15,7 +19,10 @@ let anon_fun s =
 let main () =
   Arg.parse arguments anon_fun "prooftree";
   setup_input();
-  (* let _pw = make_proof_window !geometry_string in *)
+  Printf.printf 
+    ("Prooftree version %s awaiting input on stdin.\n" ^^
+	"Entering LablGTK main loop ...\n\n%!")
+    Version.version;
   GMain.Main.main ()
 
 

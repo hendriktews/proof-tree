@@ -1,15 +1,17 @@
 (* 
- * start-tree coq name-bytes %d <data>
+ * start-tree Coq state %d name-bytes %d <data>
  * 
- * sequent %d sequent-bytes %d <data>
+ * sequent %s state %d sequent-bytes %d <data>
  * 
- * proof-step command-bytes %d <data>
+ * proof-step state %d command-bytes %d <data>
  * 
- * apparently-finished
+ * apparently-finished state %d
  * 
- * switch-to %d
+ * switch-to %d state %d
  * 
- * proof-completed
+ * proof-completed state %d
+ * 
+ * undo-up-to state %d
  *)
 
 open Util
@@ -17,13 +19,13 @@ open Gtk_ext
 
 module U = Unix
 
-exception Protocol_error of string
+exception Protocol_error of string * (exn * string) option
 
 
 let match_proof_assistant = function
-  | "coq" -> ()
+  | "Coq" -> ()
   | pa -> 
-    raise (Protocol_error ("unknown proof assistant " ^ pa))
+    raise (Protocol_error ("unknown proof assistant " ^ pa, None))
 
 
 let read_command_line_parser = ref (fun () -> ())
@@ -51,107 +53,140 @@ let init_string len =
    *)
   (s, n)  
 
+let input_backup_oc = ref None
+
+let local_input buf start len =
+  let read_len = input stdin buf start len in
+  (match !input_backup_oc with
+    | None -> ()
+    | Some oc ->
+      output oc buf start read_len;
+      flush oc
+  );
+  read_len
+
 
 (******************************************************************************
- * start-tree coq name-bytes %d <data>
+ * start-tree Coq state %d name-bytes %d <data>
  *)
 
-let rec parse_start_tree_cont proof_name len i () =
+let rec parse_start_tree_cont state proof_name len i () =
   if i = len
   then begin
     (* prerr_endline "dispatch start tree"; *)
-    Proof_tree.start proof_name;
+    Proof_tree.start state proof_name;
     current_parser := !read_command_line_parser;
   end
   else
-    let n = input stdin proof_name i (len - i) in
-    current_parser := (parse_start_tree_cont proof_name len (n + i))
+    let n = local_input proof_name i (len - i) in
+    current_parser := (parse_start_tree_cont state proof_name len (n + i))
 
 
 let parse_start_tree com_buf =
-  Scanf.bscanf com_buf " %s name-bytes %d"
-    (fun coq len ->
+  Scanf.bscanf com_buf " %s state %d name-bytes %d"
+    (fun coq state len ->
       match_proof_assistant coq;
       let (proof_name, n) = init_string len in
-      current_parser := (parse_start_tree_cont proof_name len n)
+      current_parser := (parse_start_tree_cont state proof_name len n)
     )      
 
 
 (******************************************************************************
- * sequent %d sequent-bytes %d <data>
+ * sequent %s state %d sequent-bytes %d <data>
  *)
 
-let rec parse_sequent_cont sequent_id sequent len i () =
+let rec parse_sequent_cont sequent_id state sequent len i () =
   if i = len
   then begin
     (* prerr_endline "dispatch sequent"; *)
-    Proof_tree.add_or_update_sequent sequent_id sequent;
+    Proof_tree.add_or_update_sequent state sequent_id sequent;
     current_parser := !read_command_line_parser;
   end
   else
-    let n = input stdin sequent i (len - i) in
-    current_parser := (parse_sequent_cont sequent_id sequent len (n + i))
+    let n = local_input sequent i (len - i) in
+    current_parser := (parse_sequent_cont sequent_id state sequent len (n + i))
 
 let parse_sequent com_buf = 
-  Scanf.bscanf com_buf " %s sequent-bytes %d"
-    (fun sequent_id len ->
+  Scanf.bscanf com_buf " %s state %d sequent-bytes %d"
+    (fun sequent_id state len ->
       let (sequent, n) = init_string len in
-      current_parser := (parse_sequent_cont sequent_id sequent len n)
+      current_parser := (parse_sequent_cont sequent_id state sequent len n)
     )
 
 
 (******************************************************************************
- * proof-step command-bytes %d <data>
+ * proof-step state %d command-bytes %d <data>
  *)
 
-let rec parse_proof_step_cont proof_command len i () =
+let rec parse_proof_step_cont state proof_command len i () =
   if i = len
   then begin
     (* prerr_endline "dispatch proof step"; *)
-    Proof_tree.add_proof_command proof_command;
+    Proof_tree.add_proof_command state proof_command;
     current_parser := !read_command_line_parser;
   end
   else
-    let n = input stdin proof_command i (len - i) in
-    current_parser := (parse_proof_step_cont proof_command len (n + i))
+    let n = local_input proof_command i (len - i) in
+    current_parser := (parse_proof_step_cont state proof_command len (n + i))
 
 let parse_proof_step com_buf =
-  Scanf.bscanf com_buf " command-bytes %d" 
-    (fun len ->
+  Scanf.bscanf com_buf " state %d command-bytes %d" 
+    (fun state len ->
       let (proof_command, n) = init_string len in
-      current_parser := (parse_proof_step_cont proof_command len n)
+      current_parser := (parse_proof_step_cont state proof_command len n)
     )
 
 
 (******************************************************************************
- * apparently-finished
+ * apparently-finished state %d
  *)
 
-let do_apparently_finished () =
-  (* prerr_endline "dispatch apparently-finished"; *)
-  Proof_tree.finish_branch ()
-
-
-(******************************************************************************
- * switch-to %d
- *)
-
-let parse_switch_to com_buf = 
-  Scanf.bscanf com_buf " %s"
-    (fun id ->
-      (* prerr_endline "dispatch switch to"; *)
-      Proof_tree.switch_to_sequent id;
+let do_apparently_finished com_buf =
+  Scanf.bscanf com_buf " state %d"
+    (fun state ->
+      (* prerr_endline "dispatch apparently-finished"; *)
+      Proof_tree.finish_branch state;
       current_parser := !read_command_line_parser	  
     )
 
 
 (******************************************************************************
- * proof-completed
+ * switch-to %d state %d
  *)
 
-let do_proof_completed () =
-  (* prerr_endline "dispatch proof completed"; *)
-  Proof_tree.finish_proof()
+let parse_switch_to com_buf = 
+  Scanf.bscanf com_buf " %s state %d"
+    (fun id state ->
+      (* prerr_endline "dispatch switch to"; *)
+      Proof_tree.switch_to_sequent state id;
+      current_parser := !read_command_line_parser	  
+    )
+
+
+(******************************************************************************
+ * proof-completed state %d
+ *)
+
+let do_proof_completed com_buf =
+  Scanf.bscanf com_buf " state %d"
+    (fun state ->
+      (* prerr_endline "dispatch proof completed"; *)
+      Proof_tree.finish_proof state;
+      current_parser := !read_command_line_parser	  
+    )
+
+
+(******************************************************************************
+ * undo-up-to state %d
+ *)
+
+let do_undo com_buf =
+  Scanf.bscanf com_buf " state %d"
+    (fun state -> 
+      Proof_tree.undo state;
+      current_parser := !read_command_line_parser	  
+    )
+
 
 (*****************************************************************************
  *
@@ -160,23 +195,38 @@ let do_proof_completed () =
  *****************************************************************************)
 
 let parse_command command =
+  (* Printf.eprintf "PC %s\n%!" command; *)
   let com_buf = Scanf.Scanning.from_string command in
-  Scanf.bscanf com_buf "%s " 
-    (function
-      | "start-tree" -> parse_start_tree com_buf 
-      | "sequent" -> parse_sequent com_buf 
-      | "proof-step" -> parse_proof_step com_buf 
-      | "apparently-finished" -> do_apparently_finished()
-      | "switch-to" -> parse_switch_to com_buf 
-      | "proof-completed" -> do_proof_completed()
-      | x -> raise (Protocol_error ("Unknown command " ^ x))
-    )
+  try
+    Scanf.bscanf com_buf "%s " 
+      (function
+	| "start-tree" -> parse_start_tree com_buf 
+	| "sequent" -> parse_sequent com_buf 
+	| "proof-step" -> parse_proof_step com_buf 
+	| "apparently-finished" -> do_apparently_finished com_buf
+	| "switch-to" -> parse_switch_to com_buf 
+	| "proof-completed" -> do_proof_completed com_buf
+	| "undo-up-to" -> do_undo com_buf
+	| x -> 
+	  raise (Protocol_error ("Parse error on input \"" ^ command ^ "\"",
+				 None))
+      )
+  with
+    | Scanf.Scan_failure _msg as e ->
+      let bt = Printexc.get_backtrace() in
+      raise (Protocol_error ("Parse error on input \"" ^ command ^ "\"", 
+			     Some(e, bt)))
 	
 
 let read_command_line () =
+  (* Printf.eprintf "RCL start\n%!"; *)
   let old_index = !command_buffer_index in
-  let bytes_read = 
-    input stdin command_buffer old_index (command_buffer_len - old_index)
+  let (blocked, bytes_read) = 
+    try
+      (false,
+       local_input command_buffer old_index (command_buffer_len - old_index))
+    with
+      | Sys_blocked_io -> (true, 0)
   in
   let new_index = old_index + bytes_read in
   command_buffer_index := new_index;
@@ -186,12 +236,15 @@ let read_command_line () =
    *)
   match search_char command_buffer 0 new_index '\n' with
     | None ->
-      if new_index = 0 
+      if blocked
+      then
+	raise Sys_blocked_io
+      else if bytes_read = 0 
       then
 	raise End_of_file
       else if new_index = command_buffer_len
       then
-	raise (Protocol_error "No newline in command line")
+	raise (Protocol_error ("No newline in command line", None))
       else ()
     | Some i ->
       let command = String.sub command_buffer 0 i in
@@ -206,12 +259,15 @@ let read_command_line () =
 
 let parse_input () =
   try
+    (* Printf.eprintf "PI first\n%!"; *)
     while true do
+      (* Printf.eprintf "PI next\n%!"; *)
       !current_parser ()
     done;
     true
   with
     | Sys_blocked_io -> 
+      (* Printf.eprintf "PI finished\n%!"; *)
       Proof_tree.finish_drawing ();
       true
 
@@ -229,7 +285,8 @@ let parse_input_callback = function
 		      | `ERR  -> "ERR"
 		      | `HUP  -> "HUP"
 		      | `NVAL -> "NVAL")
-		       clist))))
+		       clist)),
+	     None))
 
 let error_counter = ref 0
 
@@ -242,24 +299,39 @@ let parse_input_callback_ex clist =
       if !error_counter > 20 then exit 2;
       let backtrace = Printexc.get_backtrace() in
       let buf = Buffer.create 4095 in
+      let print_backtrace = ref !Configuration.debug in
+      let prev_exception = ref None in
       (match e with
-	| Protocol_error err ->
-	  Printf.bprintf buf "Protocol error %s\nClosing connection." err
+	| Protocol_error(err, prev_e) ->
+	  Printf.bprintf buf "Protocol error %s\nClosing connection." err;
+	  prev_exception := prev_e
 	| End_of_file ->
 	  Buffer.add_string buf "Connection closed."
 	| e ->
 	  Buffer.add_string buf
-	    "Internal error: Escaping exception in parse_input\n";
-	  Buffer.add_string buf (Printexc.to_string e);
-	  (match e with
-	    | U.Unix_error(error, _func, _info) ->
-	      Buffer.add_string buf (U.error_message error);
-	      Buffer.add_string buf "\n"
-	    | _ -> ()
-	  );
-	  Buffer.add_string buf "\n";
-	  Buffer.add_string buf backtrace;
+	    "Internal error: Escaping exception in parse_input";
+	  print_backtrace := true;
       );
+      if !print_backtrace then begin
+	Buffer.add_char buf '\n';
+	Buffer.add_string buf (Printexc.to_string e);
+	(match e with
+	  | U.Unix_error(error, _func, _info) ->
+	    Buffer.add_string buf (U.error_message error);
+	    Buffer.add_string buf "\n"
+	  | _ -> ()
+	);
+	Buffer.add_char buf '\n';
+	Buffer.add_string buf backtrace;
+	(match !prev_exception with
+	  | None -> ()
+	  | Some(e, bt) ->
+	    Buffer.add_string buf "Caused by ";
+	    Buffer.add_string buf (Printexc.to_string e);
+	    Buffer.add_char buf '\n';
+	    Buffer.add_string buf bt
+	);
+      end;
       prerr_endline (Buffer.contents buf);
       error_message_dialog (Buffer.contents buf);
       false
@@ -275,6 +347,11 @@ let setup_input () =
   U.set_nonblock U.stdin;
   read_command_line_parser := read_command_line;
   current_parser := read_command_line;
+  (match !Configuration.tee_input_file with
+    | None -> ()
+    | Some f ->
+      input_backup_oc := Some(open_out f)
+  );
   ignore(GMain.Io.add_watch 
 	   ~cond:[ `IN ]
 	   ~callback:parse_input_callback_ex

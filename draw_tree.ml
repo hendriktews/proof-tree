@@ -9,13 +9,11 @@ type branch_state_type =
   | Unproven
   | CurrentNode
   | Current
-  | NonCurrent
   | Proven
 
 
 let safe_and_set_gc drawable state =
   match state with
-    | NonCurrent -> assert false
     | Unproven -> None
     | CurrentNode
     | Current ->
@@ -39,6 +37,7 @@ object
 
   method parent = parent
   method set_parent (p : 'a) = parent <- Some p
+  method clear_parent = parent <- None
 
   method children = children
   method set_children (cs : 'a list) = 
@@ -59,6 +58,13 @@ let add_child parent child =
   child#set_parent parent;
   parent#children_changed
 
+let remove_child child =
+  match child#parent with
+    | None -> ()
+    | Some p -> 
+      p#set_children (List.filter (fun c -> c <> child) p#children);
+      child#clear_parent;
+      p#children_changed
 
 class virtual proof_tree_element (drawable : better_drawable) debug_name = 
 object (self)
@@ -86,9 +92,11 @@ object (self)
   method subtree_levels = subtree_levels
   method x_offset = x_offset
   method branch_state = branch_state
+  method set_branch_state s = branch_state <- s
   method selected b = selected <- b
 
   method virtual content : string
+  method virtual id : string
 
   method iter_children : 
     'a . int -> int -> 'a -> 
@@ -247,8 +255,6 @@ object (self)
        let line_state = match (branch_state, child_state) with
 	 | (Unproven, Current)
 	 | (Unproven, CurrentNode)
-	 | (NonCurrent, _)
-	 | (_, NonCurrent)
 	 | (Proven, Unproven)
 	 | (Proven, Current) 
 	 | (Proven, CurrentNode) -> assert false
@@ -300,36 +306,49 @@ object (self)
     else
       None
 
-  method mark_branch mark =
-    let mark = 
-      if mark = Proven
-      then
-	if (List.for_all (fun c -> c#branch_state = Proven) children)
-	then Proven
-	else Unproven
-      else mark
-    in
-    branch_state <- (match (mark, branch_state) with
-      | (CurrentNode, _) -> assert false
-      | (NonCurrent, Unproven)
-      | (NonCurrent, Proven) 
-      | (NonCurrent, NonCurrent) -> branch_state
-      | (NonCurrent, CurrentNode)
-      | (NonCurrent, Current) -> Unproven
-      | (Unproven, _)
-      | (Current, _)
-      | (Proven, _) -> mark
-    );
-    match parent with
-      | Some p -> p#mark_branch mark
-      | None -> ()
+  method mark_branch (f : proof_tree_element -> bool) =
+    if f (self :> proof_tree_element) then
+      match parent with
+	| Some p -> p#mark_branch f
+	| None -> ()
 
-  method mark_current = 
-    self#mark_branch Current;
+  method mark_current =
+    self#mark_branch 
+      (fun (self : proof_tree_element) -> 
+	if self#branch_state = Current 
+	then false
+	else
+	  (self#set_branch_state Current; true));
     branch_state <- CurrentNode
-      
-  method mark_proved = self#mark_branch Proven
-  method unmark_current = self#mark_branch NonCurrent
+
+  method mark_proved =
+    self#mark_branch
+      (fun (self : proof_tree_element) ->
+	if (List.for_all (fun c -> c#branch_state = Proven) self#children)
+	then (self#set_branch_state Proven; 
+	      (* Printf.eprintf "Mark %s proven\n%!" self#debug_name; *)
+	      true)
+	else false
+      )
+
+  method unmark_current =
+    self#mark_branch
+      (fun (self : proof_tree_element) ->
+	match self#branch_state with
+	  | CurrentNode
+	  | Current -> 
+	    self#set_branch_state Unproven; true
+	  | Unproven -> false
+	  | Proven -> assert false
+      )
+
+  method unmark_proved =
+    self#mark_branch
+      (fun (self : proof_tree_element) ->
+	if self#branch_state = Proven
+	then (self#set_branch_state Unproven; true)
+	else false
+      )
 
   method disconnect_proof =
     if branch_state = Current 
@@ -337,15 +356,17 @@ object (self)
     List.iter (fun c -> c#disconnect_proof) children;
 end
 
-class turnstile (drawable : better_drawable) debug_name sequent_text =
+class turnstile (drawable : better_drawable) sequent_id sequent_text =
 object (self)
-  inherit proof_tree_element drawable debug_name
+  inherit proof_tree_element drawable sequent_id
 
+  val mutable sequent_id = sequent_id
   val mutable sequent_text = (sequent_text : string)
 
   method node_kind = Turnstile
 
   method content = sequent_text
+  method id = sequent_id
   method update_sequent new_text = sequent_text <- new_text
 
   method draw_turnstile x y =
@@ -404,6 +425,7 @@ object (self)
 
   method node_kind = Proof_command
   method content = command
+  method id = ""
 
   method draw left top = 
     let (x, y) = self#get_koordinates left top in
