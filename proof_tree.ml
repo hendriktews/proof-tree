@@ -16,6 +16,7 @@ type proof_tree = {
   window : proof_window;
   proof_name : string;
   pa_start_state : int;
+  mutable pa_end_state : int;		(* -1 if not finished yet *)
   mutable state : proof_tree_state;
   sequent_hash : (string, turnstile) Hashtbl.t;
   mutable need_redraw : bool;
@@ -40,8 +41,9 @@ let all_proof_trees = ref []
 let current_proof_tree = ref None
 
 
-let stop_proof_tree pt = 
+let stop_proof_tree pt pa_state = 
   (* pt.undo_actions??? *)
+  pt.pa_end_state <- pa_state;
   pt.window#disconnect_proof;
   pt.window#refresh_and_position;
   pt.need_redraw <- false;
@@ -76,11 +78,15 @@ let rec fire_undo_actions undo_state = function
       undo_list
 
 let undo_tree pt pa_state =
-  if pt.pa_start_state >= pa_state 
+  if pa_state <= pt.pa_start_state
   then begin
     pt.window#delete_proof_window;
     PT_undo_delete
-  end else begin
+  end 
+  else if pt.pa_end_state >= 0 && pa_state > pt.pa_end_state 
+  then PT_undo_keep
+  else begin
+    pt.pa_end_state <- -1;
     pt.undo_actions <- fire_undo_actions pa_state pt.undo_actions;
     (match pt.state with
       | Start 
@@ -90,7 +96,6 @@ let undo_tree pt pa_state =
       | Current_sequent(_, pte) ->
 	pte#mark_current;
 	pt.window#set_current_node pte;
-
     );
     pt.need_redraw <- true;
     PT_undo_current
@@ -110,12 +115,13 @@ let undo pa_state =
 
 let start pa_state proof_name =
   (match !current_proof_tree with
-    | Some pt -> stop_proof_tree pt
+    | Some pt -> stop_proof_tree pt pa_state
     | None -> ());
   let new_pt = {
     window = make_proof_window proof_name !geometry_string;
     proof_name = proof_name;
     pa_start_state = pa_state;
+    pa_end_state = -1;
     state = Start;
     sequent_hash = Hashtbl.create 503;
     need_redraw = true;
@@ -146,7 +152,7 @@ let finish_proof pa_state =
 	  pte#mark_proved;
 	  add_undo_action pt pa_state undo
       );
-      stop_proof_tree pt
+      stop_proof_tree pt pa_state
 
 
 let add_sequent pt pa_state sequent_id sequent_text =
