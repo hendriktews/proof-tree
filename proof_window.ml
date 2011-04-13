@@ -14,10 +14,12 @@
  * General Public License in file COPYING in this or one of the
  * parent directories for more details.
  * 
- * $Id: proof_window.ml,v 1.5 2011/04/13 07:56:47 tews Exp $
- * 
- * Commentary: creation/display/drawing of the proof tree window
+ * $Id: proof_window.ml,v 1.6 2011/04/13 10:47:09 tews Exp $
  *)
+
+
+(** Creation, display and drawing of the proof tree window *)
+
 
 open Configuration
 open Gtk_ext
@@ -60,7 +62,7 @@ object (self)
       | None -> ()
       | Some root -> root#disconnect_proof
 
-  method update_sequent label content =
+  method private update_sequent label content =
     labeled_sequent_frame#set_label (Some label);
     sequent_window#buffer#set_text content;
 
@@ -75,7 +77,7 @@ object (self)
 	    | Some p ->
 	      self#update_sequent "Previous sequent" p#content
 
-  method get_current_offset =
+  method private get_current_offset =
     match current_node_offset_cache with
       | Some _ as res -> res
       | None -> match current_node with
@@ -88,7 +90,7 @@ object (self)
 	    current_node_offset_cache <- res;
 	    res
 
-  method scroll (adjustment : GData.adjustment) direction =
+  method private scroll (adjustment : GData.adjustment) direction =
     let a = adjustment in
     let new_val = a#value +. float_of_int(direction) *. a#step_increment in
     let new_val = if new_val < 0.0 then 0.0 else new_val in
@@ -103,7 +105,7 @@ object (self)
     !delete_proof_tree_callback proof_name;
     self#delete_proof_window
 
-  method delete_proof_window_event _ =
+  method private delete_proof_window_event _ =
     self#user_delete_proof_window ();
     true
 
@@ -122,14 +124,14 @@ object (self)
 
       | _ -> false
 
-  method erase = 
+  method private erase = 
     let (x,y) = drawable#size in
     let fg = drawable#get_foreground in
     drawable#set_foreground (`NAME("white"));
     drawable#polygon ~filled:true [(0,0); (x,0); (x,y); (0,y)];
     drawable#set_foreground (`COLOR fg)
 
-  method try_adjustment = 
+  method private try_adjustment = 
     if position_to_current_node = true then
       match self#get_current_offset with
 	| None -> ()
@@ -168,7 +170,7 @@ object (self)
 	   * 	 a#step_increment a#page_increment)
 	   *)
 
-  method expand_drawing_area =
+  method private expand_drawing_area =
     match root with
       | None -> ()
       | Some root -> 
@@ -184,14 +186,14 @@ object (self)
 	  ~width:new_width ~height:new_height ();
 
 
-  method position_tree =
+  method private position_tree =
     match root with
       | None -> ()
       | Some root -> 
 	let (width, _) = drawable#size in
 	top_left <- max 0 ((width - root#subtree_width) / 2);
 
-  method redraw =
+  method private redraw =
     (* 
      * (let a = drawing_v_adjustment in
      *  Printf.eprintf 
@@ -208,7 +210,7 @@ object (self)
       | Some root ->
 	ignore(root#draw_subtree top_left top_top)
 
-  method invalidate_drawing_area =
+  method private invalidate_drawing_area =
     GtkBase.Widget.queue_draw drawing_area#as_widget
 
   method refresh_and_position =
@@ -257,7 +259,7 @@ object (self)
     (* prerr_endline "END EXPOSE EVENT"; *)
     false
 
-  method locate_button_node x y f =
+  method private locate_button_node x y f =
     let node_opt = match root with 
       | None -> None
       | Some root ->
@@ -267,7 +269,7 @@ object (self)
       | None -> ()
       | Some node -> f node
 
-  method button_1_press node =
+  method private button_1_press node =
     (* Printf.eprintf "Click on %s\n%!" node#debug_name; *)
     (match selected_node with
       | None -> ()

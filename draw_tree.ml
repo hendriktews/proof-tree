@@ -14,10 +14,11 @@
  * General Public License in file COPYING in this or one of the
  * parent directories for more details.
  * 
- * $Id: draw_tree.ml,v 1.7 2011/04/13 07:56:46 tews Exp $
- * 
- * Commentary: layout and drawing of the elements of the proof tree
+ * $Id: draw_tree.ml,v 1.8 2011/04/13 10:47:08 tews Exp $
  *)
+
+
+(** Layout and drawing of the elements of the proof tree *)
 
 
 open Configuration
@@ -93,7 +94,7 @@ object (self)
   inherit [proof_tree_element] doubly_linked_tree as super
 
   val debug_name = (debug_name : string)
-  method debug_name = debug_name
+  method private debug_name = debug_name
 
   method virtual node_kind : node_kind
 
@@ -120,7 +121,7 @@ object (self)
   method virtual content : string
   method virtual id : string
 
-  method iter_children : 
+  method private iter_children : 
     'a . int -> int -> 'a -> 
       (int -> int -> 'a -> proof_tree_element -> ('a * bool)) -> 'a =
     fun left top a f ->
@@ -136,7 +137,7 @@ object (self)
     in
     doit left a children
 
-  method iter_all_children_unit left top 
+  method private iter_all_children_unit left top 
     (f : int -> int -> proof_tree_element -> unit) =
     self#iter_children left top ()
       (fun left top () c -> f left top c; ((), true))
@@ -146,7 +147,7 @@ object (self)
       2 * !current_config.turnstile_radius +
       2 * !current_config.turnstile_line_width
 
-  method update_subtree_size =
+  method private update_subtree_size =
     let (children_width, max_levels, last_child) = 
       List.fold_left 
 	(fun (sum_width, max_levels, last_child) c -> 
@@ -260,12 +261,12 @@ object (self)
   method get_koordinates left top = (left + x_offset, top + height / 2)
 
   (* draw left top => unit *)
-  method virtual draw : int -> int -> unit
+  method private virtual draw : int -> int -> unit
 
   (* line_offset inverse_slope => (x_off, y_off) *)
   method virtual line_offset : float -> (int * int)
 
-  method draw_lines left top =
+  method private draw_lines left top =
     let (x, y) = self#get_koordinates left top in
     self#iter_all_children_unit left top
       (fun left top child ->
@@ -378,6 +379,8 @@ object (self)
     List.iter (fun c -> c#disconnect_proof) children;
 end
 
+
+
 class turnstile (drawable : better_drawable) sequent_id sequent_text =
 object (self)
   inherit proof_tree_element drawable sequent_id
@@ -391,7 +394,7 @@ object (self)
   method id = sequent_id
   method update_sequent new_text = sequent_text <- new_text
 
-  method draw_turnstile x y =
+  method private draw_turnstile x y =
     let radius = !current_config.turnstile_radius in
     if branch_state = CurrentNode
     then
@@ -414,7 +417,7 @@ object (self)
       ~x:(x + !current_config.turnstile_horiz_bar_x_offset)
       ~y
 
-  method draw left top =
+  method private draw left top =
     let (x, y) = self#get_koordinates left top in
     self#draw_turnstile x y
 
@@ -455,7 +458,7 @@ object (self)
   method content = command
   method id = ""
 
-  method draw left top = 
+  method private draw left top = 
     let (x, y) = self#get_koordinates left top in
     drawable#put_layout ~x:(x - layout_width/2) ~y:(y - layout_height/2) layout;
     if selected 

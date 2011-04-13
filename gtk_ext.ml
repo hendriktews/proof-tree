@@ -14,10 +14,11 @@
  * General Public License in file COPYING in this or one of the
  * parent directories for more details.
  * 
- * $Id: gtk_ext.ml,v 1.4 2011/04/13 07:56:47 tews Exp $
- * 
- * Commentary: some misc LablGtk extensions
+ * $Id: gtk_ext.ml,v 1.5 2011/04/13 10:47:08 tews Exp $
  *)
+
+
+(** Some misc LablGtk extensions *)
 
 
 class better_drawable ?colormap w pc = 

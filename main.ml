@@ -14,10 +14,11 @@
  * General Public License in file COPYING in this or one of the
  * parent directories for more details.
  * 
- * $Id: main.ml,v 1.4 2011/04/13 07:56:47 tews Exp $
- * 
- * Commentary: main --- argument parsing and start
+ * $Id: main.ml,v 1.5 2011/04/13 10:47:08 tews Exp $
  *)
+
+
+(** Main --- Argument parsing and start *)
 
 
 module U = Unix

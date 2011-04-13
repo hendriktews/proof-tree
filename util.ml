@@ -14,10 +14,11 @@
  * General Public License in file COPYING in this or one of the
  * parent directories for more details.
  * 
- * $Id: util.ml,v 1.5 2011/04/13 07:56:47 tews Exp $
- * 
- * Commentary: misc utility functions
+ * $Id: util.ml,v 1.6 2011/04/13 10:47:09 tews Exp $
  *)
+
+
+(** Misc utility functions *)
 
 
 let rec list_last = function

@@ -14,20 +14,23 @@
 ## General Public License in file COPYING in this or one of the
 ## parent directories for more details.
 ## 
-## $Id: Makefile,v 1.4 2011/04/13 07:56:46 tews Exp $
+## $Id: Makefile,v 1.5 2011/04/13 10:47:08 tews Exp $
 ## 
 ## Commentary: Makefile
 ## 
 
 
 SOURCES:=\
+	version.mli \
 	version.ml \
 	util.ml \
 	configuration.ml \
 	gtk_ext.ml \
 	draw_tree.ml \
 	proof_window.ml \
+	proof_tree.mli \
 	proof_tree.ml \
+	input.mli \
 	input.ml \
 	main.ml
 

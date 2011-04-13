@@ -14,44 +14,44 @@
  * General Public License in file COPYING in this or one of the
  * parent directories for more details.
  * 
- * $Id: input.ml,v 1.4 2011/04/13 07:56:47 tews Exp $
- * 
- * Commentary: reading/parsing commands from nonblocking stdin
+ * $Id: input.ml,v 1.5 2011/04/13 10:47:08 tews Exp $
  *)
 
 
+(** Reading and commands from nonblocking stdin *)
+
+
 (*****************************************************************************
- *****************************************************************************
- * 
- * The communication protocol with Proof General is one-way (only 
- * Proof General sends commands to prooftree). All data is UTF-8 
- * encoded. Prooftree understands the following 7 commands in the
- * following format:
- * 
- * 
- *   start-tree Coq state %d name-bytes %d\n<data>
- *   
- *   sequent %s state %d sequent-bytes %d\n<data>
- *   
- *   proof-step state %d command-bytes %d\n<data>
- *   
- *   apparently-finished state %d
- *   
- *   switch-to %d state %d
- *   
- *   proof-completed state %d
- *   
- *   undo-up-to state %d
- * 
- * 
- * Here ``%d'' stands for a positive integer. Following the keyword 
- * state it is a state number. Following a keyword xxx-bytes it denotes 
- * the number of bytes of the following <data>, including the final newline 
- * in <data>.
- * 
- * 
- *****************************************************************************
  *****************************************************************************)
+(** The communication protocol with Proof General is one-way (only 
+    Proof General sends commands to prooftree). All data is UTF-8 
+    encoded. Prooftree understands the following 7 commands in the
+    following format:
+    
+    
+      start-tree Coq state %d name-bytes %d\n<data>
+      
+      sequent %s state %d sequent-bytes %d\n<data>
+      
+      proof-step state %d command-bytes %d\n<data>
+      
+      apparently-finished state %d
+      
+      switch-to %d state %d
+      
+      proof-completed state %d
+      
+      undo-up-to state %d
+    
+    
+    Here ``%d'' stands for a positive integer. Following the keyword 
+    state it is a state number. Following a keyword xxx-bytes it denotes 
+    the number of bytes of the following <data>, including the final newline 
+    in <data>.
+*)
+(*****************************************************************************
+ *****************************************************************************)
+
 
 open Util
 open Gtk_ext

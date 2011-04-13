@@ -14,10 +14,12 @@
  * General Public License in file COPYING in this or one of the
  * parent directories for more details.
  * 
- * $Id: proof_tree.ml,v 1.4 2011/04/13 07:56:47 tews Exp $
- * 
- * Commentary: internal representation of proof trees with undo info
+ * $Id: proof_tree.ml,v 1.5 2011/04/13 10:47:08 tews Exp $
  *)
+
+
+(** Internal representation of proof trees with undo info *)
+
 
 open Util
 open Configuration

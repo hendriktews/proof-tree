@@ -14,10 +14,12 @@
  * General Public License in file COPYING in this or one of the
  * parent directories for more details.
  * 
- * $Id: configuration.ml,v 1.5 2011/04/13 07:56:46 tews Exp $
- * 
- * Commentary: configuration record and global variables
+ * $Id: configuration.ml,v 1.6 2011/04/13 10:47:08 tews Exp $
  *)
+
+
+(** Configuration record and global variables *)
+
 
 
 type t = {
