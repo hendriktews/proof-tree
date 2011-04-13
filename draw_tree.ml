@@ -1,3 +1,25 @@
+(* 
+ * prooftree --- proof tree display for Proof General
+ * 
+ * Copyright (C) 2011 Hendrik Tews
+ * 
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License in file COPYING in this or one of the
+ * parent directories for more details.
+ * 
+ * $Id: draw_tree.ml,v 1.7 2011/04/13 07:56:46 tews Exp $
+ * 
+ * Commentary: layout and drawing of the elements of the proof tree
+ *)
+
+
 open Configuration
 open Gtk_ext
 
