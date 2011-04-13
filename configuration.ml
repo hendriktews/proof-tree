@@ -6,6 +6,8 @@ type t = {
   turnstile_horiz_bar_x_offset : int;
   turnstile_line_width : int;
 
+  proof_command_length : int;
+
   subtree_sep : int;
   line_sep : int;
 
@@ -31,6 +33,7 @@ let default_configuration =
   let c = {
     turnstile_radius = radius;
     turnstile_line_width = 2;
+    proof_command_length = 15;
     subtree_sep = 10;
     line_sep = 3;
 

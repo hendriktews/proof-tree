@@ -418,6 +418,12 @@ class proof_command (drawable_arg : better_drawable) command debug_name =
 object (self)
   inherit proof_tree_element drawable_arg debug_name
 
+  val displayed_command =
+    if Util.utf8_string_length command <= !current_config.proof_command_length
+    then command
+    else (Util.utf8_string_sub command 
+	    (!current_config.proof_command_length - 1))
+      ^ "\226\128\166" 			(* append horizontal ellipsis *)
   val command = command
   val layout = drawable_arg#pango_context#create_layout
   val mutable layout_width = 0
@@ -454,7 +460,7 @@ object (self)
        int_of_float(float_of_int(width/2 + line_sep) /. slope +. 0.5) * sign)
 
   initializer
-    Pango.Layout.set_text layout command;
+    Pango.Layout.set_text layout displayed_command;
     let (w,h) = Pango.Layout.get_pixel_size layout in
     layout_width <- w;
     layout_height <- h;
