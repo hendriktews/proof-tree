@@ -14,7 +14,7 @@
  * General Public License in file COPYING in this or one of the
  * parent directories for more details.
  * 
- * $Id: util.ml,v 1.7 2011/04/15 09:59:48 tews Exp $
+ * $Id: util.ml,v 1.8 2011/04/15 19:32:24 tews Exp $
  *)
 
 
@@ -40,7 +40,7 @@ let list_set_diff_rev s1 s2 =
     (fun res e -> 
       if List.mem e s2 then res 
       else e :: res)
-    s1 []
+    [] s1
 
 
 let rec search_char buf start stop c =

@@ -14,7 +14,7 @@
  * General Public License in file COPYING in this or one of the
  * parent directories for more details.
  * 
- * $Id: proof_tree.ml,v 1.6 2011/04/15 09:59:48 tews Exp $
+ * $Id: proof_tree.ml,v 1.7 2011/04/15 19:32:24 tews Exp $
  *)
 
 
@@ -167,6 +167,8 @@ let add_new_goal pt state proof_command current_sequent_id
     then []
     else list_set_diff_rev additional_ids pt.other_open_goals
   in
+  assert(List.for_all 
+	   (fun id -> not (Hashtbl.mem pt.sequent_hash id)) new_goal_ids_rev);
   let new_goals =
     List.fold_left
       (fun res id ->
