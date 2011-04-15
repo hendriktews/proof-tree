@@ -1,5 +1,9 @@
 2011-04-15  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
+	* scroll sequent window to bottom
+
+2011-04-15  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
 	* redesign communication protocol (send complete states
 	  now)
 	* fix idle proof command problem

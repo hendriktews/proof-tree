@@ -14,7 +14,7 @@
  * General Public License in file COPYING in this or one of the
  * parent directories for more details.
  * 
- * $Id: proof_window.ml,v 1.6 2011/04/13 10:47:09 tews Exp $
+ * $Id: proof_window.ml,v 1.7 2011/04/15 11:32:10 tews Exp $
  *)
 
 
@@ -29,7 +29,8 @@ let delete_proof_tree_callback = ref (fun (_ : string) -> ())
 
 class proof_window top_window 
   drawing_h_adjustment drawing_v_adjustment (drawing_area : GMisc.drawing_area)
-  drawable_arg labeled_sequent_frame sequent_window proof_name
+  drawable_arg labeled_sequent_frame sequent_window sequent_v_adjustment
+  proof_name
   =
 object (self)
   val top_window = (top_window : GWindow.window)
@@ -39,10 +40,13 @@ object (self)
   val drawable : better_drawable = drawable_arg
   val labeled_sequent_frame = labeled_sequent_frame
   val sequent_window = sequent_window
+  val sequent_v_adjustment = sequent_v_adjustment
   val proof_name = proof_name
 
   val mutable top_left = 0
   val top_top = 0
+
+  val mutable sequent_window_scroll_to_bottom = false
 
   val mutable root = None
 
@@ -62,9 +66,15 @@ object (self)
       | None -> ()
       | Some root -> root#disconnect_proof
 
-  method private update_sequent label content =
+  method sequent_area_changed () =
+    if sequent_window_scroll_to_bottom then
+      let a = sequent_v_adjustment in
+      a#set_value (max a#lower (a#upper -. a#page_size))
+
+  method private update_sequent label content scroll_to_bottom =
     labeled_sequent_frame#set_label (Some label);
     sequent_window#buffer#set_text content;
+    sequent_window_scroll_to_bottom <- scroll_to_bottom
 
   method set_current_node n =
     current_node_offset_cache <- None;
@@ -75,7 +85,7 @@ object (self)
 	| Some p -> match p#parent with
 	    | None -> ()
 	    | Some p ->
-	      self#update_sequent "Previous sequent" p#content
+	      self#update_sequent "Previous sequent" p#content true
 
   method private get_current_offset =
     match current_node_offset_cache with
@@ -277,11 +287,11 @@ object (self)
     selected_node <- Some node;
     node#selected true;
     self#invalidate_drawing_area;
-    let frame_text = match node#node_kind with
-      | Turnstile -> "Selected sequent"
-      | Proof_command -> "Selected command"
+    let (frame_text, scroll_to_bottom) = match node#node_kind with
+      | Turnstile -> ("Selected sequent", true)
+      | Proof_command -> ("Selected command", false)
     in
-    self#update_sequent frame_text node#content
+    self#update_sequent frame_text node#content scroll_to_bottom
 
   method button_press ev =
     let x = int_of_float(GdkEvent.Button.x ev +. 0.5) in
@@ -329,7 +339,7 @@ let make_proof_window name geometry_string =
   let outer_sequent_frame = GBin.frame ~shadow_type:`IN 
     ~packing:(top_paned#pack2 ~resize:false ~shrink:false) () 
   in
-  let labeled_sequent_frame = GBin.frame ~label:"Sequent" ~shadow_type:`NONE
+  let labeled_sequent_frame = GBin.frame ~label:"no sequent" ~shadow_type:`NONE
     ~packing:outer_sequent_frame#add ()
   in
   let sequent_scrolling = GBin.scrolled_window 
@@ -337,9 +347,9 @@ let make_proof_window name geometry_string =
     ~packing:labeled_sequent_frame#add () 
   in
   (* 
-   * let sequent_v_adjustment = drawing_scrolling#vadjustment in
    * let sequent_h_adjustment = drawing_scrolling#hadjustment in
    *)
+  let sequent_v_adjustment = sequent_scrolling#vadjustment in
   let sequent_window = GText.view ~editable:false ~cursor_visible:false
     (* ~height:50 *)
     ~packing:sequent_scrolling#add () 
@@ -352,7 +362,8 @@ let make_proof_window name geometry_string =
   let proof_window = 
     new proof_window top_window 
       drawing_h_adjustment drawing_v_adjustment drawing_area
-      drawable labeled_sequent_frame sequent_window name
+      drawable labeled_sequent_frame sequent_window sequent_v_adjustment
+      name
   in
   drawable#set_line_attributes 
     ~width:(!current_config.turnstile_line_width) ();
@@ -375,7 +386,10 @@ let make_proof_window name geometry_string =
   ignore(drawing_area#event#add [`BUTTON_PRESS]);
   ignore(drawing_area#event#connect#button_press 
 	   ~callback:proof_window#button_press);
-  
+
+  ignore(sequent_v_adjustment#connect#changed 
+	   ~callback:proof_window#sequent_area_changed);
+
   ignore(dismiss_button#connect#clicked 
 	   ~callback:proof_window#user_delete_proof_window);
 
