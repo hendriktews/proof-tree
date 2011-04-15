@@ -14,7 +14,7 @@
  * General Public License in file COPYING in this or one of the
  * parent directories for more details.
  * 
- * $Id: draw_tree.ml,v 1.8 2011/04/13 10:47:08 tews Exp $
+ * $Id: draw_tree.ml,v 1.9 2011/04/15 09:59:48 tews Exp $
  *)
 
 
@@ -69,17 +69,22 @@ object
   method virtual children_changed : unit
 end
 
+let set_children parent children =
+  parent#set_children children;
+  List.iter (fun c -> c#set_parent parent) children;
+  parent#children_changed
+
+let clear_children parent =
+  List.iter (fun c -> c#clear_parent) parent#children;
+  parent#set_children [];
+  parent#children_changed
+
 (* 
- * let set_children parent children =
- *   parent#set_children children;
- *   List.iter (fun c -> c#set_parent parent) children;
+ * let add_child parent child =
+ *   parent#set_children (parent#children @ [child]);
+ *   child#set_parent parent;
  *   parent#children_changed
  *)
-
-let add_child parent child =
-  parent#set_children (parent#children @ [child]);
-  child#set_parent parent;
-  parent#children_changed
 
 let remove_child child =
   match child#parent with

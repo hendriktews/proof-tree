@@ -14,7 +14,7 @@
  * General Public License in file COPYING in this or one of the
  * parent directories for more details.
  * 
- * $Id: input.mli,v 1.1 2011/04/13 10:47:08 tews Exp $
+ * $Id: input.mli,v 1.2 2011/04/15 09:59:48 tews Exp $
  *)
 
 
@@ -25,29 +25,32 @@
  *****************************************************************************)
 (** The communication protocol with Proof General is one-way (only 
     Proof General sends commands to prooftree). All data is UTF-8 
-    encoded. Prooftree understands the following 7 commands in the
+    encoded. Prooftree understands the following commands in the
     following format:
     
+      current-goals state %d current-sequent %s proof-name-bytes %d \
+      command-bytes %d sequent-text-bytes %d additional-id-bytes %d\n\
+      <data-proof-name>\n\
+      <data-command>\n\
+      <data-current-sequent>\n\
+      <data-additional-ids>\n
+
+      update-sequent state %d sequent %s proof-name-bytes %d \
+      sequent-text-bytes %d\n\
+      <data-proof-name>\n\
+      <data-sequent>\n
+
+      proof-complete state %d proof-name-bytes %d command-bytes %d\n\
+      <data-proof-name>\n\
+      <data-command>\n
+      
+      undo-to state %d\n
     
-      start-tree Coq state %d name-bytes %d\n<data>
-      
-      sequent %s state %d sequent-bytes %d\n<data>
-      
-      proof-step state %d command-bytes %d\n<data>
-      
-      apparently-finished state %d
-      
-      switch-to %d state %d
-      
-      proof-completed state %d
-      
-      undo-up-to state %d
-    
-    
-    Here ``%d'' stands for a positive integer. Following the keyword 
-    state it is a state number. Following a keyword xxx-bytes it denotes 
-    the number of bytes of the following <data>, including the final newline 
-    in <data>.
+    Here ``%d'' stands for a positive integer and %s for a string
+    which contains no white space. Following the keyword state the
+    integer is a state number. Following a keyword xxx-bytes it
+    denotes the number of bytes of the following <data>, including the
+    final newline after <data>.
 *)
 (*****************************************************************************
  *****************************************************************************)

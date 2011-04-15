@@ -14,62 +14,43 @@
  * General Public License in file COPYING in this or one of the
  * parent directories for more details.
  * 
- * $Id: proof_tree.mli,v 1.1 2011/04/13 10:47:08 tews Exp $
+ * $Id: proof_tree.mli,v 1.2 2011/04/15 09:59:48 tews Exp $
  *)
 
 
 (** Internal representation of proof trees with undo info *)
 
 
-(** Starts a new proof tree for the proof [proof_name] and
-    (re-)displays its window. The proof tree starts in state [state],
-    that is, undos to or beyone [state] will delete the tree and its
-    window.
+(** Process the new current goal, updating the display accordingly.
 
-    @param state
+    @param state state for undo
     @param proof_name name of the proof
+    @param proof_command command issued to the prover
+    @param current_sequent_id ID of current sequent
+    @param current_sequent_text the current sequent itself
+    @param additional_ids ID's of the additionally open goals
 *)
-val start : int -> string -> unit
+val process_current_goals :
+  int -> string -> string -> string -> string -> string list -> unit
 
 
-(** Add or update a sequent.
+(** Update the sequent to show the new sequent text.
 
-    @param state for undo
-    @sequent_id the id of the sequent to add or update
-    @sequent_text the UTF-8 encoded text of the sequent
+    @param state state for undo
+    @param proof_name name of proof
+    @param sequent_id ID of sequent to update
+    @param sequent_text new sequent text
 *)
-val add_or_update_sequent : int -> string -> string -> unit
-
-
-(** Add a proof command.
-
-    @param state for undo
-    @param text the UTF-8 encoded proof command
-*)
-val add_proof_command : int -> string -> unit
-
-
-(** Finish the current branch.
-
-    @param state for undo
-*)
-val finish_branch : int -> unit
-
-
-(** Switch to a different sequent and mark it current.
-
-    @param state for undo
-    @param sequent_id id of the sequent
-*)
-val switch_to_sequent : int -> string -> unit
+val update_sequent : int -> string -> string -> string -> unit
 
 
 (** Finish the current proof.
 
-    @param state for undo
+    @param state state for undo
+    @param proof_name name of the proof
+    @param proof_command last command
 *)
-val finish_proof : int -> unit
-
+val process_proof_complete : int -> string -> string -> unit
 
 (** Undo all changes up to and including state [state]. Proof trees started 
     later than [state] will be deleted. Those finished earlier than [state]

@@ -14,7 +14,7 @@
  * General Public License in file COPYING in this or one of the
  * parent directories for more details.
  * 
- * $Id: input.ml,v 1.5 2011/04/13 10:47:08 tews Exp $
+ * $Id: input.ml,v 1.6 2011/04/15 09:59:48 tews Exp $
  *)
 
 
@@ -25,32 +25,35 @@
  *****************************************************************************)
 (** The communication protocol with Proof General is one-way (only 
     Proof General sends commands to prooftree). All data is UTF-8 
-    encoded. Prooftree understands the following 7 commands in the
+    encoded. Prooftree understands the following commands in the
     following format:
     
+      current-goals state %d current-sequent %s proof-name-bytes %d \
+      command-bytes %d sequent-text-bytes %d additional-id-bytes %d\n\
+      <data-proof-name>\n\
+      <data-command>\n\
+      <data-current-sequent>\n\
+      <data-additional-ids>\n
+
+      update-sequent state %d sequent %s proof-name-bytes %d \
+      sequent-text-bytes %d\n\
+      <data-proof-name>\n\
+      <data-sequent>\n
+
+      proof-complete state %d proof-name-bytes %d command-bytes %d\n\
+      <data-proof-name>\n\
+      <data-command>\n
+      
+      undo-to state %d\n
     
-      start-tree Coq state %d name-bytes %d\n<data>
-      
-      sequent %s state %d sequent-bytes %d\n<data>
-      
-      proof-step state %d command-bytes %d\n<data>
-      
-      apparently-finished state %d
-      
-      switch-to %d state %d
-      
-      proof-completed state %d
-      
-      undo-up-to state %d
-    
-    
-    Here ``%d'' stands for a positive integer. Following the keyword 
-    state it is a state number. Following a keyword xxx-bytes it denotes 
-    the number of bytes of the following <data>, including the final newline 
-    in <data>.
+    Here ``%d'' stands for a positive integer and %s for a string
+    which contains no white space. Following the keyword state the
+    integer is a state number. Following a keyword xxx-bytes it
+    denotes the number of bytes of the following <data>, including the
+    final newline after <data>.
 *)
 (*****************************************************************************
- *****************************************************************************)
+*****************************************************************************)
 
 
 open Util
@@ -71,7 +74,7 @@ let read_command_line_parser = ref (fun () -> ())
 
 let current_parser = ref (fun () -> ())
 
-let command_buffer_len = 100
+let command_buffer_len = 4096
 
 let command_buffer = String.create command_buffer_len
 
@@ -105,125 +108,114 @@ let local_input buf start len =
   read_len
 
 
-(******************************************************************************
- * start-tree Coq state %d name-bytes %d <data>
- *)
-
-let rec parse_start_tree_cont state proof_name len i () =
+let rec get_string_cont s i len continuation_fn () =
   if i = len
-  then begin
-    (* prerr_endline "dispatch start tree"; *)
-    Proof_tree.start state proof_name;
-    current_parser := !read_command_line_parser;
+  then continuation_fn s
+  else begin
+    current_parser := (get_string_cont s i len continuation_fn);
+    let n = local_input s i (len - i) in
+    get_string_cont s (i + n) len continuation_fn ()
   end
-  else
-    let n = local_input proof_name i (len - i) in
-    current_parser := (parse_start_tree_cont state proof_name len (n + i))
 
-
-let parse_start_tree com_buf =
-  Scanf.bscanf com_buf " %s state %d name-bytes %d"
-    (fun coq state len ->
-      match_proof_assistant coq;
-      let (proof_name, n) = init_string len in
-      current_parser := (parse_start_tree_cont state proof_name len n)
-    )      
+let get_string len continuation_fn =
+  let (s, n) = init_string len in
+  get_string_cont s n len continuation_fn ()
 
 
 (******************************************************************************
- * sequent %s state %d sequent-bytes %d <data>
+ * current-goals state %d current-sequent %s proof-name-bytes %d \
+ * command-bytes %d sequent-text-bytes %d additional-id-bytes %d\n\
+ * <data-proof-name>\n
+ * <data-command>\n
+ * <data-current-sequent>\n
+ * <data-additional-ids>\n
  *)
 
-let rec parse_sequent_cont sequent_id state sequent len i () =
-  if i = len
-  then begin
-    (* prerr_endline "dispatch sequent"; *)
-    Proof_tree.add_or_update_sequent state sequent_id sequent;
-    current_parser := !read_command_line_parser;
-  end
-  else
-    let n = local_input sequent i (len - i) in
-    current_parser := (parse_sequent_cont sequent_id state sequent len (n + i))
-
-let parse_sequent com_buf = 
-  Scanf.bscanf com_buf " %s state %d sequent-bytes %d"
-    (fun sequent_id state len ->
-      let (sequent, n) = init_string len in
-      current_parser := (parse_sequent_cont sequent_id state sequent len n)
-    )
+let parse_current_goals_finish state current_sequent_id proof_name 
+    proof_command current_sequent_text additional_ids_string =
+  let proof_name = chop_final_newlines proof_name in
+  let proof_command = chop_final_newlines proof_command in
+  let current_sequent_text = chop_final_newlines current_sequent_text in
+  let additional_ids_string = chop_final_newlines additional_ids_string in
+  let additional_ids = string_split ' ' additional_ids_string in
+  current_parser := !read_command_line_parser;
+  Proof_tree.process_current_goals state proof_name proof_command
+    current_sequent_id current_sequent_text additional_ids
+    
+let parse_current_goals com_buf =
+  Scanf.bscanf com_buf 
+    (" state %d current-sequent %s proof-name-bytes %d "
+     ^^ "command-bytes %d sequent-text-bytes %d additional-id-bytes %d")
+    (fun state current_sequent_id proof_name_bytes command_bytes 
+      sequent_text_bytes additional_id_bytes ->
+	get_string proof_name_bytes
+	  (fun proof_name ->
+	    get_string command_bytes
+	      (fun proof_command ->
+		get_string sequent_text_bytes
+		  (fun current_sequent_text ->
+		    get_string additional_id_bytes
+		      (fun additional_ids_string ->
+			parse_current_goals_finish state current_sequent_id
+			  proof_name proof_command current_sequent_text
+			  additional_ids_string)))))
 
 
 (******************************************************************************
- * proof-step state %d command-bytes %d <data>
+ * update-sequent state %d sequent %s proof-name-bytes %d \
+ * sequent-text-bytes %d\n\
+ * <data-proof-name>\n
+ * <data-sequent>\n
  *)
 
-let rec parse_proof_step_cont state proof_command len i () =
-  if i = len
-  then begin
-    (* prerr_endline "dispatch proof step"; *)
-    Proof_tree.add_proof_command state proof_command;
-    current_parser := !read_command_line_parser;
-  end
-  else
-    let n = local_input proof_command i (len - i) in
-    current_parser := (parse_proof_step_cont state proof_command len (n + i))
+let parse_update_sequent_finish state sequent_id proof_name sequent_text =
+  let proof_name = chop_final_newlines proof_name in
+  let sequent_text = chop_final_newlines sequent_text in
+  current_parser := !read_command_line_parser;
+  Proof_tree.update_sequent state proof_name sequent_id sequent_text
 
-let parse_proof_step com_buf =
-  Scanf.bscanf com_buf " state %d command-bytes %d" 
-    (fun state len ->
-      let (proof_command, n) = init_string len in
-      current_parser := (parse_proof_step_cont state proof_command len n)
-    )
+let parse_update_sequent com_buf =
+  Scanf.bscanf com_buf
+    " state %d sequent %s proof-name-bytes %d sequent-text-bytes %d"
+    (fun state sequent_id proof_name_bytes sequent_text_bytes ->
+      get_string proof_name_bytes
+	(fun proof_name ->
+	  get_string sequent_text_bytes
+	    (fun sequent_text ->
+	      parse_update_sequent_finish state sequent_id 
+		proof_name sequent_text)))
 
 
 (******************************************************************************
- * apparently-finished state %d
+ * proof-complete state %d proof-name-bytes %d command-bytes %d\n\
+ * <data-proof-name>\n
+ * <data-command>\n
  *)
 
-let do_apparently_finished com_buf =
-  Scanf.bscanf com_buf " state %d"
-    (fun state ->
-      (* prerr_endline "dispatch apparently-finished"; *)
-      Proof_tree.finish_branch state;
-      current_parser := !read_command_line_parser	  
-    )
+let parse_proof_complete_finish state proof_name proof_command =
+  let proof_name = chop_final_newlines proof_name in
+  let proof_command = chop_final_newlines proof_command in
+  current_parser := !read_command_line_parser;
+  Proof_tree.process_proof_complete state proof_name proof_command
 
-
-(******************************************************************************
- * switch-to %d state %d
- *)
-
-let parse_switch_to com_buf = 
-  Scanf.bscanf com_buf " %s state %d"
-    (fun id state ->
-      (* prerr_endline "dispatch switch to"; *)
-      Proof_tree.switch_to_sequent state id;
-      current_parser := !read_command_line_parser	  
-    )
-
+let parse_proof_complete com_buf =
+  Scanf.bscanf com_buf " state %d proof-name-bytes %d command-bytes %d"
+    (fun state proof_name_bytes command_bytes ->
+      get_string proof_name_bytes 
+	(fun proof_name ->
+	  get_string command_bytes
+	    (fun proof_command ->
+	      parse_proof_complete_finish state proof_name proof_command)))
 
 (******************************************************************************
- * proof-completed state %d
- *)
-
-let do_proof_completed com_buf =
-  Scanf.bscanf com_buf " state %d"
-    (fun state ->
-      (* prerr_endline "dispatch proof completed"; *)
-      Proof_tree.finish_proof state;
-      current_parser := !read_command_line_parser	  
-    )
-
-
-(******************************************************************************
- * undo-up-to state %d
+ * undo-to state %d\n
  *)
 
 let do_undo com_buf =
   Scanf.bscanf com_buf " state %d"
     (fun state -> 
-      Proof_tree.undo state;
-      current_parser := !read_command_line_parser	  
+      current_parser := !read_command_line_parser;
+      Proof_tree.undo state
     )
 
 
@@ -239,13 +231,10 @@ let parse_command command =
   try
     Scanf.bscanf com_buf "%s " 
       (function
-	| "start-tree" -> parse_start_tree com_buf 
-	| "sequent" -> parse_sequent com_buf 
-	| "proof-step" -> parse_proof_step com_buf 
-	| "apparently-finished" -> do_apparently_finished com_buf
-	| "switch-to" -> parse_switch_to com_buf 
-	| "proof-completed" -> do_proof_completed com_buf
-	| "undo-up-to" -> do_undo com_buf
+	| "current-goals" -> parse_current_goals com_buf
+	| "update-sequent" -> parse_update_sequent com_buf
+	| "proof-complete" -> parse_proof_complete com_buf
+	| "undo-to" -> do_undo com_buf
 	| x -> 
 	  raise (Protocol_error ("Parse error on input \"" ^ command ^ "\"",
 				 None))

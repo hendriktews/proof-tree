@@ -14,7 +14,7 @@
  * General Public License in file COPYING in this or one of the
  * parent directories for more details.
  * 
- * $Id: util.ml,v 1.6 2011/04/13 10:47:09 tews Exp $
+ * $Id: util.ml,v 1.7 2011/04/15 09:59:48 tews Exp $
  *)
 
 
@@ -25,6 +25,22 @@ let rec list_last = function
   | [] -> assert false
   | [a] -> a
   | _ :: rest -> list_last rest
+
+
+let list_set_subset s1 s2 =
+  List.for_all (fun e -> List.mem e s2) s1
+
+
+(** Return the set-difference of s1 and s2. That is, return a list
+    with all elements of [s1] that are not in [s2]. In the returned list 
+    the elements are reversed with respect to the order of [s1].
+*)
+let list_set_diff_rev s1 s2 =
+  List.fold_left
+    (fun res e -> 
+      if List.mem e s2 then res 
+      else e :: res)
+    s1 []
 
 
 let rec search_char buf start stop c =
@@ -41,6 +57,28 @@ let chop_final_newlines s =
     decr i
   done;
   String.sub s 0 !i
+
+(** Split string [s] at occurrences of [c]. Return the list of (non-zero)
+    strings between sequences of [c].
+
+    @param c split character
+    @param s string to split
+*)
+let string_split c s =
+  let len = String.length s in
+  let rec iter i res =
+    if i >= len 
+    then List.rev res
+    else
+      let j =
+	try String.index_from s i c 
+	with Not_found -> len
+      in
+      iter (j + 1)
+	(if i = j then res
+	 else (String.sub s i (j - i)) :: res)
+  in
+  iter 0 []
 
 
 let utf8_sequence_length s i =
