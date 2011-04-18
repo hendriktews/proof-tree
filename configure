@@ -1,0 +1,123 @@
+#!/bin/sh
+
+##############################################################################
+#
+# Configuration script for prooftree
+# 
+# Hendrik Tews Copyright (C) 2011
+# 
+# This file is part of "prooftree".
+# 
+# "prooftree" is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+# 
+# "prooftree" is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License in file COPYING in this or one of the parent
+# directories for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with "Otags reloaded". If not, see
+# <http://www.gnu.org/licenses/>.
+# 
+# $Id: configure,v 1.1 2011/04/18 07:10:46 tews Exp $
+# 
+##############################################################################
+
+root=/usr/local
+bindir=$root/bin
+mandir=$root/share/man
+native=
+ocamlc=
+
+usage (){
+    echo "Usage:"
+    echo "./configure [OPTION]..."
+    echo
+    echo "Recognized options are:"
+    echo "  --prefix <path>	installation prefix [/usr/local]"
+    echo "  --bindir <path>	user executables [PREFIX/bin]"
+    echo "  --mandir <path>	man pages [PREFIX/share/man]"
+}
+
+while : ; do
+  case "$1" in
+    "") break;;
+    -help|--help) usage; exit 2;;
+    -prefix|--prefix) bindir=$2/bin
+                      mandir=$2/share/man
+		      shift;;
+    -bindir|--bindir) bindir=$2
+		      shift;;
+    -mandir|--mandir) mandir=$2
+		      shift;;
+     *) echo "Unknown option \"$1\"." 1>&2; usage; exit 2;;
+  esac
+  shift
+done
+
+
+# check for ocamlc
+ocbv=$(ocamlc -version)
+if [ $? -ne 0 ] ; then
+    echo compiler ocamlc not found. 
+    echo Please install ocaml and/or adjust \$PATH
+    exit 1
+else
+    echo ocamlc version $ocbv found.
+fi
+
+# check for ocamlopt.opt
+ocvo=$(ocamlopt.opt -version)
+if [ $? -eq 0 ] ; then
+    echo ocamlopt.opt version $ocvo found. Native compilation enabled.
+    native=true
+else
+    echo ocamlopt.opt not found. Native compilation disabled.
+    native=false
+fi
+
+if [ $native = "true" ] ; then
+    ocamlc=ocamlopt.opt
+    prooftree=prooftree.opt
+else
+    ocamlc=ocamlc
+    prooftree=prooftree.byte
+fi
+
+# check for lablgtk
+if [ $native = "true" ] ; then
+    $ocamlc -o /dev/null -I +lablgtk2 lablgtk.cmxa gtkInit.cmx
+    lablgtk=$?
+else
+    $ocamlc -o /dev/null -I +lablgtk2 lablgtk.cma gtkInit.cmo
+    lablgtk=$?
+fi
+
+if [ $lablgtk -ne 0 ] ; then
+    echo library LablGtk not found. Please install package liblablgtk2-ocaml-dev.
+    exit 1
+fi
+
+
+# Summary of the configuration
+echo
+echo "  Configuration summary:"
+echo "    binaries   will be copied to $bindir"
+echo "    man pages  will be copied to $mandir"
+if [ $native = "true" ] ; then
+    echo "    native-code compilation enabled"
+else
+    echo "    native-code compilation disabled"
+fi
+
+
+# Make the Makefile
+sed -e "s|@BINDIR@|$bindir|" \
+    -e "s|@MANDIR@|$mandir|" \
+    -e "s|@PROOFTREE@|$prooftree|" \
+    Makefile.in > Makefile
+

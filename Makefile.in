@@ -14,10 +14,37 @@
 ## General Public License in file COPYING in this or one of the
 ## parent directories for more details.
 ## 
-## $Id: Makefile,v 1.5 2011/04/13 10:47:08 tews Exp $
+## $Id: Makefile.in,v 1.1 2011/04/18 07:10:46 tews Exp $
 ## 
 ## Commentary: Makefile
 ## 
+
+#############################################################################
+##
+## CONFIGURATION SECTION
+##
+#############################################################################
+
+# The following variables are normally set by the configure script. 
+# If this fails for some reason you can also rename Makefile.in to Makefile
+# and set these variables manually.
+
+# BINDIR: Directory where binaries are to be instelled. 
+BINDIR=@BINDIR@
+
+# MANDIR: Directory where the man page is to be installed.
+MANDIR=@MANDIR@
+
+# Should be ``prooftree.opt'' if you have ocamlopt.opt available.
+# Should be ``prooftree.byte'' if you only have ocamlc.
+prooftree: @PROOFTREE@
+
+
+#############################################################################
+##
+## END OF CONFIGURATION SECTION
+##
+#############################################################################
 
 
 SOURCES:=\
@@ -35,17 +62,16 @@ SOURCES:=\
 	main.ml
 
 TOCLEAN+=prooftree
-prooftree: prooftree.opt
 
 .PHONY: prooftree.opt
 prooftree.opt: $(SOURCES)
-	ocamlopt.opt -inline 0 -g -I +lablgtk2 -o prooftree \
+	ocamlopt.opt -g -I +lablgtk2 -o prooftree \
 		unix.cmxa lablgtk.cmxa \
 		gtkInit.cmx $(SOURCES)
 
 .PHONY: prooftree.byte
 prooftree.byte: $(SOURCES)
-	ocamlc.opt -g -I +lablgtk2 -o prooftree \
+	ocamlc -g -I +lablgtk2 -o prooftree \
 		unix.cma lablgtk.cma \
 		gtkInit.cmo $(SOURCES)
 

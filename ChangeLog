@@ -1,3 +1,7 @@
+2011-04-18  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* configure
+
 2011-04-15  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* fix bug with new subgoals and their order
