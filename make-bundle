@@ -1,0 +1,32 @@
+#!/bin/bash
+
+set -x
+set -e
+
+timestamp=$(date '+%Y-%m-%d')
+
+dir="prooftree-bundle-$timestamp"
+
+coqversion=8.3pl1
+coqdir=/home/tews/src/qsrc
+coqorig=orig-$coqversion
+coqpatch=patch-$coqversion
+
+pushd /tmp/tews
+
+rm -rf prooftree-bundle-*
+
+mkdir $dir
+cd $dir
+
+cvs -d :pserver:tews@cvs.inf.ed.ac.uk:/disk/cvs/proofgen \
+    export -r ProofTreeBranch -d ProofGeneral_ProofTreeBranch ProofGeneral
+
+cvs -d /home/tews/Store export -r HEAD -d prooftree src/proof-tree
+
+mkdir coq-patch-$coqversion
+(cd $coqdir; diff -ru $coqorig $coqpatch) \
+    | grep -v '^Only in' \
+    | sed -e "s/^+++ $coqpatch/+++ coq-$coqversion/" \
+    > coq-patch-$coqversion/patch
+

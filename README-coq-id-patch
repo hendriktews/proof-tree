@@ -1,0 +1,74 @@
+============================================================================
+            COQ PATCH FOR UNIQUE GOAL IDENTIFIERS
+============================================================================
+
+This patch adds unique identification numbers to Coq goals. They are
+printed when coqtop is started with the -emacs or -emacs-U option. Further,
+the patch causes Coq to print all instantiated existential variables of the
+current proof. With option -emacs-U the output for a goal typically looks
+as follows:
+
+    2 subgoals, subgoal 1 (ID 55)
+
+      P1 : Prop
+      P2 : Prop
+      P3 : Prop
+      P4 : Prop
+      p12 : P1 -> P2
+      p123 : (P1 -> P2) -> P3
+      p34 : P3 -> P4
+      ============================
+       (P1 -> P2) -> (P3 -> P4) /\ P3
+
+    subgoal 2 (ID 56) is:
+     P1 -> P2
+    Instantiated existentials: ?26 ?27 ?28 ?29 
+    <prompt>p14 < 41 |p14| 8 < </prompt>
+
+
+The subgoal identifiers are used to identify new and old subgoals in
+prooftree (see http://askra.de/software/prooftree/). The list of
+instantiated existentials will be used in the future to efficiently update
+existential variables in prooftree.
+
+
+============================================================================
+  INSTALLATION
+============================================================================
+
+1. Download Coq version 8.3pl1 from
+   http://coq.inria.fr/distrib/V8.3pl1/files/coq-8.3pl1.tar.gz 
+
+2. untar
+
+   tar -xzf coq-8.3pl1.tar.gz
+
+3. apply the patch
+
+   patch -p0 < coq-id-patch
+
+4. install Coq as usual
+
+   cd coq-8.3pl1
+   configure
+   make world
+   make install
+
+
+============================================================================
+CONTACT / COPYRIGHT
+============================================================================
+
+Please send bug reports, comments, patches, donations to 
+Hendrik Tews <prooftree@askra.de>
+
+The ID-patch is distributed under GPL version 3.
+Copyright (C) 2011 Hendrik Tews
+
+
+============================================================================
+
+Local Variables:
+mode: indented-text
+fill-column: 75
+End:

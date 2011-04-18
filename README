@@ -1,0 +1,129 @@
+============================================================================
+           prooftree --- proof tree display for Proof General
+============================================================================
+
+
+Prooftree is a program for proof tree visualization during interactive
+proof development in a theorem prover. It is currently being developed for
+Coq and Proof General. See http://askra.de/software/prooftree/ for more
+information.
+
+Currently prooftree only works with a special development version of Proof
+General (cvs version branch ProofTreeBranch) and a patched version of 
+Coq 8.3pl1. It is therefore strongly suggested that you download a
+consistent bundle of Proof General and prooftree together with a suitable
+patch for Coq from the prooftree website. 
+
+
+============================================================================
+  PREREQUISITES
+============================================================================
+
+You need ocaml with the Gtk bindings from the LablGtk2 library installed.
+The configure script checks if 
+
+    ocamlopt.opt -I +lablgtk2 lablgtk.cmxa gtkInit.cmx
+
+runs without errors. For Debian installing the packages ocaml-nox and
+liblablgtk2-ocaml-dev suffice.
+
+
+============================================================================
+  INSTALLATION
+============================================================================
+
+1. Configure with
+
+   ./configure
+
+   optionally supply -prefix <dir> or -bindir <dir> to set the installation
+   directories. 
+
+2. Compile with
+
+   make all
+
+3. Acquire the necessary rights and install with
+
+   make install
+
+
+============================================================================
+  EMACS CONFIGURATION
+============================================================================
+
+Before you can enjoy prooftree you have to configure Emacs to find
+prooftree and use the right versions of Proof General and Coq. Of course
+you have to disable any other setting that select a particular Proof
+General or Coq version.
+
+1. Prooftree is controlled by Proof General as a subprocess of Emacs. You
+   therefore have to make sure Emacs loads the right version of Proof
+   General (from the ProofTreeBranch). Put
+
+   (load-file "<pg-dir>/generic/proof-site.el")
+
+   in your .emacs, where <pg-dir> is the installation directory of the
+   ProofTreeBranch version of Proof General.
+
+2. Further, you have to ensure that Proof General launches the Coq version
+   with the ID patches. 
+
+   Either globally set coq-prog-name by inserting
+
+   (setq coq-prog-name "<coq-id-dir>/bin/coqtop")
+
+   into your .emacs or extend Emacs' exec-path by inserting
+
+   (setq exec-path (cons "<coq-id-dir>/bin" exec-path))
+
+   into your .emacs. In both cases <coq-id-dir> stands for the installation
+   directory of Coq containing the ID patches.
+
+3. If you installed prooftree in a non-standard location, you have to set
+   proof-tree-program: Put
+
+   (setq proof-tree-program "<pt-dir>/bin/prooftree")
+
+   where <pt-dir> is the prooftree installation directory. (Alternatively
+   you can extend exec-path, see point 2 above.)
+
+
+============================================================================
+  USAGE
+============================================================================
+
+Start Emacs and load any Coq file. Proof display with prooftree is
+initially disabled. To enable it, select menu 
+Proof-General -> Quick Options -> Display -> prooftree display
+or type C-c C-d. 
+
+Make sure you enable prooftree before asserting the Lemma or Theorem
+command. Strange things will happen otherwise.
+
+Disable prooftree before you assert a large portion of a Coq file.
+Otherwise you display will get plastered with prooftree windows.
+
+
+============================================================================
+CREDITS / CONTACT / COPYRIGHT
+============================================================================
+
+Prooftree is more or less a reimplementation of the graphical proof display
+of Pvs. The Pvs version is implemented in Tcl/Tk and controlled directly by
+the Pvs prover process, which has some advantages over the prooftree
+approach. 
+
+Please send bug reports, comments, patches, donations to 
+Hendrik Tews <prooftree@askra.de>
+
+Prooftree is distributed under GPL version 3.
+Copyright (C) 2011 Hendrik Tews
+
+
+============================================================================
+
+Local Variables:
+mode: indented-text
+fill-column: 75
+End:
