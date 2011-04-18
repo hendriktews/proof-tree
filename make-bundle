@@ -131,14 +131,14 @@ if [  ${answer:=n} = n -o $answer = N ] ; then
     exit 0
 fi
 
-pt_version=$(sed -e 's/0\.//' < version.txt)
-pt_version=$(($pt_version + 1))
+pt_old_version=$(sed -e 's/0\.//' < version.txt)
+pt_version=$(($pt_old_version + 1))
 
 
 cp version.txt version.txt.$(date +%s)~
 echo 0.$pt_version > version.txt
 
-cvsmessage="* release version $pt_version"
+cvsmessage="* release version 0.$pt_old_version"
 
 cat - ChangeLog > newchangelog <<EOF
 $(date +%Y-%m-%d)  Hendrik Tews <prooftree@askra.de>
