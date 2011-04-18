@@ -59,8 +59,10 @@ existential variables in prooftree.
 CONTACT / COPYRIGHT
 ============================================================================
 
-Please send bug reports, comments, patches, donations to 
+Please send bug reports, comments, patches, donations regarding the patch to 
 Hendrik Tews <prooftree@askra.de>
+
+Please send general question about Coq to the coq-club mailing list.
 
 The ID-patch is distributed under GPL version 3.
 Copyright (C) 2011 Hendrik Tews

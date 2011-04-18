@@ -17,16 +17,32 @@ pushd /tmp/tews
 rm -rf prooftree-bundle-*
 
 mkdir $dir
-cd $dir
+pushd $dir
 
 cvs -d :pserver:tews@cvs.inf.ed.ac.uk:/disk/cvs/proofgen \
     export -r ProofTreeBranch -d ProofGeneral_ProofTreeBranch ProofGeneral
 
 cvs -d /home/tews/Store export -r HEAD -d prooftree src/proof-tree
 
-mkdir coq-patch-$coqversion
+pushd prooftree
+
+rm -f make-bundle
+
+popd
+
+
+coq_patch_dir=coq-patch-$coqversion
+mkdir $coq_patch_dir
 (cd $coqdir; diff -ru $coqorig $coqpatch) \
     | grep -v '^Only in' \
     | sed -e "s/^+++ $coqpatch/+++ coq-$coqversion/" \
-    > coq-patch-$coqversion/patch
+    > $coq_patch_dir/coq-id-patch
 
+
+mv prooftree/README-bundle README
+mv prooftree/README-coq-id-patch $coq_patch_dir/README
+
+
+popd
+
+tar -czf $dir.tar.gz $dir
