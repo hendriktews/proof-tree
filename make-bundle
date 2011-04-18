@@ -45,4 +45,121 @@ mv prooftree/README-coq-id-patch $coq_patch_dir/README
 
 popd
 
-tar -czf $dir.tar.gz $dir
+tgzfile="$dir.tar.gz"
+
+tar -czf $tgzfile $dir
+
+
+webdir=/home/tews/www/alfa-www/askra-root/software/prooftree
+
+echo
+echo copy README-bundle $tgzfile
+echo to $webdir
+echo -n [N/y]?
+read answer
+
+if [  ${answer:=n} = n -o $answer = N ] ; then
+    exit 0
+fi
+
+cp $dir/README $webdir/README-bundle
+cp $tgzfile $webdir/releases
+
+
+popd
+
+release_tag=prooftree-release-$timestamp
+
+echo
+echo Fix download links in website ?
+echo -n [N/y]?
+read answer
+
+if [  ${answer:=n} = n -o $answer = N ] ; then
+    exit 0
+fi
+
+oldlink=$(sed -n -e '/LATEST VERSION LINK/ {s/<![^>]*>//
+       	  	   	   	            s/\[prooftree-bundle-//
+				            s/.tar.gz\]//
+                                            s/>$/>,/
+                                            p
+				           }' < $webdir/index.html)
+
+
+newlink="<!-- LATEST VERSION LINK --><A HREF=\"releases/$tgzfile\">[$tgzfile]<\\/A>."
+
+cp $webdir/index.html $webdir/index.html.$(date +%s)~
+
+sed -e "/LATEST VERSION LINK/ c$newlink" \
+    -e "/^<P>Previous versions:/ {p
+                             c$oldlink
+                            }" \
+    < $webdir/index.html > $webdir/indexnew.html
+
+mv $webdir/indexnew.html $webdir/index.html
+
+
+echo
+echo Upload website?
+echo -n [N/y]?
+read answer
+
+if [  ${answer:=n} = n -o $answer = N ] ; then
+    exit 0
+fi
+
+/home/tews/www/update-sys
+
+echo
+echo cvs tag $release_tag ?
+echo -n [N/y]?
+read answer
+
+if [ ${answer:=n} = n -o $answer = N ] ; then
+    exit 0
+fi
+
+cvs tag $release_tag
+
+echo
+echo bump version number?
+echo -n [N/y]?
+read answer
+
+if [  ${answer:=n} = n -o $answer = N ] ; then
+    exit 0
+fi
+
+pt_version=$(sed -e 's/0\.//' < version.txt)
+pt_version=$(($pt_version + 1))
+
+
+cp version.txt version.txt.$(date +%s)~
+echo 0.$pt_version > version.txt
+
+cvsmessage="* release version $pt_version"
+
+cat - ChangeLog > newchangelog <<EOF
+$(date +%Y-%m-%d)  Hendrik Tews <prooftree@askra.de>
+
+	$cvsmessage
+
+EOF
+
+mv newchangelog ChangeLog
+
+cvs update | grep -v '^?' | grep -v '^cvs update: Updating'
+
+
+echo
+echo cvs commit -m "$cvsmessage" . ??
+echo -n [N/y]?
+read answer
+
+if [  ${answer:=n} = n -o $answer = N ] ; then
+    exit 0
+fi
+
+cvs commit -m "$cvsmessage" .
+
