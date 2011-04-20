@@ -21,7 +21,7 @@ fi
 webdir=/home/tews/www/alfa-www/askra-root/software/prooftree
 
 cp changes.html changes.html.$(date +%s)~
-sed -e "s/^<DT>XXX-XX-XX/<DT>$timestamp/" < changes.html > changesnew.html
+sed -e "s/^<DT>XXXX-XX-XX/<DT>$timestamp/" < changes.html > changesnew.html
 mv changesnew.html changes.html
 
 cvsmessage="* prepare changes.html for release"
@@ -47,7 +47,7 @@ if [  ${answer:=n} = n -o $answer = N ] ; then
 fi
 
 cvs commit -m "$cvsmessage" .
-cp changes.html $wwwdir
+cp changes.html $webdir
 
 
 pushd /tmp/tews
