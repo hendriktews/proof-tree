@@ -28,8 +28,8 @@ as follows:
 
 The subgoal identifiers are used to identify new and old subgoals in
 prooftree (see http://askra.de/software/prooftree/). The list of
-instantiated existentials will be used in the future to efficiently update
-existential variables in prooftree.
+instantiated existentials is used to update goals in prooftree when
+existential variables become instantiated.
 
 
 ============================================================================

@@ -122,20 +122,20 @@ oldlink=$(sed -n -e '/LATEST VERSION LINK/ {s/<![^>]*>//
 				            s/.tar.gz\]//
                                             s/>$/>,/
                                             p
-				           }' < $webdir/index.html)
+				           }' < $webdir/index.shtml)
 
 
 newlink="<!-- LATEST VERSION LINK --><A HREF=\"releases/$tgzfile\">[$tgzfile]<\\/A>."
 
-cp $webdir/index.html $webdir/index.html.$(date +%s)~
+cp $webdir/index.shtml $webdir/index.shtml.$(date +%s)~
 
 sed -e "/LATEST VERSION LINK/ c$newlink" \
     -e "/^<P>Previous versions:/ {p
                              c$oldlink
                             }" \
-    < $webdir/index.html > $webdir/indexnew.html
+    < $webdir/index.shtml > $webdir/indexnew.shtml
 
-mv $webdir/indexnew.html $webdir/index.html
+mv $webdir/indexnew.shtml $webdir/index.shtml
 
 
 echo
