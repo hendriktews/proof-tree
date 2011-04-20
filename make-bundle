@@ -12,6 +12,44 @@ coqdir=/home/tews/src/qsrc
 coqorig=orig-$coqversion
 coqpatch=patch-$coqversion
 
+if [ $(hostname) = "blau" ] ; then
+    storecvs=/home/tews/Store
+else
+    storecvs=blau:/home/tews/Store
+fi
+
+webdir=/home/tews/www/alfa-www/askra-root/software/prooftree
+
+cp changes.html changes.html.$(date +%s)~
+sed -e "s/^<DT>XXX-XX-XX/<DT>$timestamp/" < changes.html > changesnew.html
+mv changesnew.html changes.html
+
+cvsmessage="* prepare changes.html for release"
+
+cat - ChangeLog > newchangelog <<EOF
+$(date +%Y-%m-%d)  Hendrik Tews <prooftree@askra.de>
+
+	$cvsmessage
+
+EOF
+
+mv newchangelog ChangeLog
+
+cvs update | grep -v '^?' | grep -v '^cvs update: Updating'
+
+echo
+echo Commit and copy patched changes.html : cvs commit -m "$cvsmessage" . ?
+echo -n [N/y]?
+read answer
+
+if [  ${answer:=n} = n -o $answer = N ] ; then
+    exit 0
+fi
+
+cvs commit -m "$cvsmessage" .
+cp changes.html $wwwdir
+
+
 pushd /tmp/tews
 
 rm -rf prooftree-bundle-*
@@ -22,13 +60,14 @@ pushd $dir
 cvs -d :pserver:tews@cvs.inf.ed.ac.uk:/disk/cvs/proofgen \
     export -r ProofTreeBranch -d ProofGeneral_ProofTreeBranch ProofGeneral
 
-cvs -d /home/tews/Store export -r HEAD -d prooftree src/proof-tree
+cvs -d $storecvs export -r HEAD -d prooftree src/proof-tree
 
 pushd prooftree
 
 rm -f make-bundle
 
 popd
+# back in $dir
 
 
 coq_patch_dir=coq-patch-$coqversion
@@ -44,13 +83,12 @@ mv prooftree/README-coq-id-patch $coq_patch_dir/README
 
 
 popd
+# back in /tmp/tews
 
 tgzfile="$dir.tar.gz"
 
 tar -czf $tgzfile $dir
 
-
-webdir=/home/tews/www/alfa-www/askra-root/software/prooftree
 
 echo
 echo copy README-bundle $tgzfile
@@ -67,8 +105,8 @@ cp $tgzfile $webdir/releases
 
 
 popd
+# back to startdir
 
-release_tag=prooftree-release-$timestamp
 
 echo
 echo Fix download links in website ?
@@ -111,6 +149,8 @@ fi
 
 /home/tews/www/update-sys
 
+release_tag=prooftree-release-$timestamp
+
 echo
 echo cvs tag $release_tag ?
 echo -n [N/y]?
@@ -138,7 +178,8 @@ pt_version=$(($pt_old_version + 1))
 cp version.txt version.txt.$(date +%s)~
 echo 0.$pt_version > version.txt
 
-cvsmessage="* release version 0.$pt_old_version"
+releasetime=$(TZ=UTC date '+%Y-%m-%d %H:%M:%S %Z')
+cvsmessage="* release version 0.$pt_old_version on $releasetime"
 
 cat - ChangeLog > newchangelog <<EOF
 $(date +%Y-%m-%d)  Hendrik Tews <prooftree@askra.de>
