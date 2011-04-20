@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.10 2011/04/18 07:20:30 tews Exp $
+ * $Id: draw_tree.ml,v 1.11 2011/04/20 14:23:48 tews Exp $
  *)
 
 
@@ -126,6 +126,7 @@ object (self)
   method x_offset = x_offset
   method branch_state = branch_state
   method set_branch_state s = branch_state <- s
+  method is_selected = selected
   method selected b = selected <- b
 
   method virtual content : string

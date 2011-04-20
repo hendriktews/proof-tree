@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.8 2011/04/18 07:20:30 tews Exp $
+ * $Id: proof_window.ml,v 1.9 2011/04/20 14:23:48 tews Exp $
  *)
 
 
@@ -66,6 +66,9 @@ object (self)
 
   method clear_root = root <- None
 
+  method clear_selected_node =
+    selected_node <- None
+
   method disconnect_proof =
     match root with
       | None -> ()
@@ -81,16 +84,39 @@ object (self)
     sequent_window#buffer#set_text content;
     sequent_window_scroll_to_bottom <- scroll_to_bottom
 
+  method private clear_sequent_area =
+    labeled_sequent_frame#set_label (Some "no sequent");
+    sequent_window#buffer#set_text "";
+    sequent_window_scroll_to_bottom <- false;
+
+  method refresh_sequent_area =
+    match selected_node with
+      | Some node ->
+	let (frame_text, scroll_to_bottom) = match node#node_kind with
+	  | Turnstile -> ("Selected sequent", true)
+	  | Proof_command -> ("Selected command", false)
+	in
+	self#update_sequent frame_text node#content scroll_to_bottom
+      | None -> 
+	match current_node with
+	  | None -> self#clear_sequent_area
+	  | Some node ->
+	    if node#node_kind = Turnstile
+	    then
+	      match node#parent with
+		| None -> self#clear_sequent_area
+		| Some p -> match p#parent with
+		    | None -> self#clear_sequent_area
+		    | Some p ->
+		      self#update_sequent "Previous sequent" p#content true
+	    else
+	      self#clear_sequent_area
+
   method set_current_node n =
     current_node_offset_cache <- None;
     current_node <- Some (n : proof_tree_element);
-    if selected_node = None && n#node_kind = Turnstile then
-      match n#parent with
-	| None -> ()
-	| Some p -> match p#parent with
-	    | None -> ()
-	    | Some p ->
-	      self#update_sequent "Previous sequent" p#content true
+    if selected_node = None && n#node_kind = Turnstile 
+    then self#refresh_sequent_area
 
   method private get_current_offset =
     match current_node_offset_cache with
@@ -292,11 +318,7 @@ object (self)
     selected_node <- Some node;
     node#selected true;
     self#invalidate_drawing_area;
-    let (frame_text, scroll_to_bottom) = match node#node_kind with
-      | Turnstile -> ("Selected sequent", true)
-      | Proof_command -> ("Selected command", false)
-    in
-    self#update_sequent frame_text node#content scroll_to_bottom
+    self#refresh_sequent_area;
 
   method button_press ev =
     let x = int_of_float(GdkEvent.Button.x ev +. 0.5) in

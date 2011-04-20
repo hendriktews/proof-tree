@@ -1,3 +1,10 @@
+2011-04-20  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* existential variables are now updated (which required
+	  only Emacs lisp changes)
+	* fix a number of cases when the sequent window showed
+	  invalid or non-existing sequent text
+
 2011-04-18  Hendrik Tews <prooftree@askra.de>
 
 	* release version 0.1

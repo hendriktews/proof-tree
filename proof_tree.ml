@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.8 2011/04/18 07:20:30 tews Exp $
+ * $Id: proof_tree.ml,v 1.9 2011/04/20 14:23:48 tews Exp $
  *)
 
 
@@ -113,6 +113,7 @@ let undo_tree pt pa_state =
     pt.undo_actions <- fire_undo_actions pa_state pt.undo_actions;
     pt.current_sequent#mark_current;
     pt.window#set_current_node pt.current_sequent;
+    pt.window#refresh_sequent_area;
     pt.need_redraw <- true;
     PT_undo_current
   end
@@ -183,9 +184,11 @@ let add_new_goal pt state proof_command current_sequent_id
 	sw :: res)
       [] new_goal_ids_rev
   in
-  set_children pc (sw :: new_goals);
+  let all_subgoals = sw :: new_goals in
+  set_children pc all_subgoals;
   sw#mark_current;
   pt.window#set_current_node sw;
+  let unhash_sequent_ids = current_sequent_id :: new_goal_ids_rev in
   let old_current_sequent_id = pt.current_sequent_id in
   let old_current_sequent = pt.current_sequent in
   let old_other_open_goals = pt.other_open_goals in
@@ -195,7 +198,10 @@ let add_new_goal pt state proof_command current_sequent_id
   let undo () =
     clear_children old_current_sequent;
     old_current_sequent#mark_current;
-    List.iter (fun id -> Hashtbl.remove pt.sequent_hash id) new_goal_ids_rev;
+    List.iter (fun id -> Hashtbl.remove pt.sequent_hash id) unhash_sequent_ids;
+    List.iter 
+      (fun sw -> if sw#is_selected then pt.window#clear_selected_node)
+      all_subgoals;
     pt.current_sequent_id <- old_current_sequent_id;
     pt.current_sequent <- old_current_sequent;
     pt.other_open_goals <- old_other_open_goals;
@@ -263,12 +269,14 @@ let process_current_goals state proof_name proof_command
 	add_new_goal pt state proof_command current_sequent_id 
 	  current_sequent_text additional_ids
 
+let change_sequent_text proof_window sequent text () =
+  sequent#update_sequent text;
+  if sequent#is_selected then proof_window#refresh_sequent_area
 
-(* XXX possibly update sequent window *)
 let update_sequent_element pt state sw sequent_text =
   let old_sequent_text = sw#content in
-  sw#update_sequent sequent_text;
-  add_undo_action pt state (fun () -> sw#update_sequent old_sequent_text)  
+  change_sequent_text pt.window sw sequent_text ();
+  add_undo_action pt state (change_sequent_text pt.window sw old_sequent_text)  
 
 
 let update_sequent state proof_name sequent_id sequent_text =
