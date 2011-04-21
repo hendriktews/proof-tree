@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.mli,v 1.3 2011/04/18 07:20:30 tews Exp $
+ * $Id: input.mli,v 1.4 2011/04/21 13:28:10 tews Exp $
  *)
 
 
@@ -44,6 +44,9 @@
       sequent-text-bytes %d\n\
       <data-proof-name>\n\
       <data-sequent>\n
+
+      switch-goal state %d sequent %s proof-name-bytes %d\n
+      <data-proof-name>\n
 
       proof-complete state %d proof-name-bytes %d command-bytes %d\n\
       <data-proof-name>\n\

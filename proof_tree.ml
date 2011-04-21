@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.9 2011/04/20 14:23:48 tews Exp $
+ * $Id: proof_tree.ml,v 1.10 2011/04/21 13:28:10 tews Exp $
  *)
 
 
@@ -167,12 +167,14 @@ let add_new_goal pt state proof_command current_sequent_id
   let sw = pt.window#new_turnstile current_sequent_id current_sequent_text in
   Hashtbl.add pt.sequent_hash current_sequent_id sw;
   let sw = (sw :> proof_tree_element) in
-  assert(list_set_subset pt.other_open_goals additional_ids);
-  let new_goal_ids_rev =
-    if pt.other_open_goals = additional_ids 
-    then []
-    else list_set_diff_rev additional_ids pt.other_open_goals
-  in
+  (* It is tempting to assert
+   * 
+   *     assert(list_set_subset pt.other_open_goals additional_ids);
+   * 
+   * However, in Coq the Focus command temporarily narrows the display of
+   * the additionally open subgoals.
+   *)
+  let new_goal_ids_rev = list_set_diff_rev additional_ids pt.other_open_goals in
   assert(List.for_all 
 	   (fun id -> not (Hashtbl.mem pt.sequent_hash id)) new_goal_ids_rev);
   let new_goals =
@@ -194,7 +196,8 @@ let add_new_goal pt state proof_command current_sequent_id
   let old_other_open_goals = pt.other_open_goals in
   pt.current_sequent_id <- current_sequent_id;
   pt.current_sequent <- sw;
-  pt.other_open_goals <- additional_ids;
+  pt.other_open_goals <- 
+    list_set_union_disjoint new_goal_ids_rev pt.other_open_goals;
   let undo () =
     clear_children old_current_sequent;
     old_current_sequent#mark_current;
@@ -222,14 +225,16 @@ let finish_branch pt state proof_command =
   add_undo_action pt state undo;
   pt.need_redraw <- true
 
-
-let finish_branch_and_switch_to pt state proof_command current_sequent_id 
-    additional_ids =
-  assert(List.mem current_sequent_id pt.other_open_goals);
-  assert(not (List.mem current_sequent_id additional_ids));
-  assert(list_set_subset additional_ids pt.other_open_goals);
-  finish_branch pt state proof_command;
-  let new_current_sequent = Hashtbl.find pt.sequent_hash current_sequent_id in
+let internal_switch_to pt state old_open_sequent_id new_current_sequent_id =
+  assert(match old_open_sequent_id with 
+    | None -> true
+    | Some id -> not (List.mem id pt.other_open_goals));
+  (* The user might switch to the current sequent *)
+  assert(new_current_sequent_id = pt.current_sequent_id ||
+      List.mem new_current_sequent_id pt.other_open_goals);
+  let new_current_sequent = 
+    Hashtbl.find pt.sequent_hash new_current_sequent_id 
+  in
   let new_current_sequent = (new_current_sequent :> proof_tree_element) in
   new_current_sequent#mark_current;
   pt.window#set_current_node new_current_sequent;
@@ -242,11 +247,26 @@ let finish_branch_and_switch_to pt state proof_command current_sequent_id
     pt.current_sequent <- old_current_sequent;
     pt.other_open_goals <- old_other_open_goals;
   in
-  pt.current_sequent_id <- current_sequent_id;
+  pt.current_sequent_id <- new_current_sequent_id;
   pt.current_sequent <- new_current_sequent;
-  pt.other_open_goals <- additional_ids;
+  let all_open_goals = 
+    (match old_open_sequent_id with
+      | None -> pt.other_open_goals
+      | Some id -> list_set_add_nonpresent_element id pt.other_open_goals
+    )
+  in
+  pt.other_open_goals <- 
+    list_set_remove_element new_current_sequent_id all_open_goals;
   add_undo_action pt state undo;
   pt.need_redraw <- true
+
+
+let finish_branch_and_switch_to pt state proof_command current_sequent_id 
+    additional_ids =
+  assert(not (List.mem current_sequent_id additional_ids));
+  assert(list_set_subset additional_ids pt.other_open_goals);
+  finish_branch pt state proof_command;
+  internal_switch_to pt state None current_sequent_id
 
 let process_current_goals state proof_name proof_command
     current_sequent_id current_sequent_text additional_ids =
@@ -269,6 +289,7 @@ let process_current_goals state proof_name proof_command
 	add_new_goal pt state proof_command current_sequent_id 
 	  current_sequent_text additional_ids
 
+
 let change_sequent_text proof_window sequent text () =
   sequent#update_sequent text;
   if sequent#is_selected then proof_window#refresh_sequent_area
@@ -277,7 +298,6 @@ let update_sequent_element pt state sw sequent_text =
   let old_sequent_text = sw#content in
   change_sequent_text pt.window sw sequent_text ();
   add_undo_action pt state (change_sequent_text pt.window sw old_sequent_text)  
-
 
 let update_sequent state proof_name sequent_id sequent_text =
   match !current_proof_tree with
@@ -292,6 +312,18 @@ let update_sequent state proof_name sequent_id sequent_text =
       with
 	| Not_found ->
 	  raise (Proof_tree_error "Update unknown sequent")
+
+
+let switch_to state proof_name new_current_sequent_id =
+  match !current_proof_tree with
+    | None ->
+      raise (Proof_tree_error "Switch to sequent without current proof tree")
+    | Some pt ->
+      if pt.proof_name <> proof_name
+      then raise (Proof_tree_error "Switch to sequent on other proof");
+      pt.current_sequent#unmark_current;
+      internal_switch_to pt state
+	(Some pt.current_sequent_id) new_current_sequent_id
 
 let process_proof_complete state proof_name proof_command =
   match !current_proof_tree with

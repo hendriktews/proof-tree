@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.mli,v 1.3 2011/04/18 07:20:30 tews Exp $
+ * $Id: proof_tree.mli,v 1.4 2011/04/21 13:28:10 tews Exp $
  *)
 
 
@@ -47,6 +47,15 @@ val process_current_goals :
     @param sequent_text new sequent text
 *)
 val update_sequent : int -> string -> string -> string -> unit
+
+
+(** Switch to a different open goal.
+
+    @param state state for undo
+    @param proof_name name of proof
+    @param new_current_id id of new current goal
+*)
+val switch_to : int -> string -> string -> unit
 
 
 (** Finish the current proof.

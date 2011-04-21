@@ -1,3 +1,8 @@
+2011-04-21  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* new protocol command switch-to
+	* Coq's Focus/Unfocus work
+
 2011-04-20  Hendrik Tews <prooftree@askra.de>
 
 	* release version 0.2 on 2011-04-20 20:36:37 UTC

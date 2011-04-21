@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.7 2011/04/18 07:20:30 tews Exp $
+ * $Id: input.ml,v 1.8 2011/04/21 13:28:10 tews Exp $
  *)
 
 
@@ -44,6 +44,9 @@
       sequent-text-bytes %d\n\
       <data-proof-name>\n\
       <data-sequent>\n
+
+      switch-goal state %d sequent %s proof-name-bytes %d\n
+      <data-proof-name>\n
 
       proof-complete state %d proof-name-bytes %d command-bytes %d\n\
       <data-proof-name>\n\
@@ -192,6 +195,25 @@ let parse_update_sequent com_buf =
 
 
 (******************************************************************************
+ * switch-goal state %d sequent %s proof-name-bytes %d\n
+ * <data-proof-name>\n
+ *)
+
+let parse_switch_goal_finish state new_current_id proof_name =
+  let proof_name = chop_final_newlines proof_name in
+  current_parser := !read_command_line_parser;
+  Proof_tree.switch_to state proof_name new_current_id
+
+let parse_switch_goal com_buf =
+  Scanf.bscanf com_buf
+    " state %d sequent %s proof-name-bytes %d"
+    (fun state new_current_id proof_name_bytes ->
+      get_string proof_name_bytes
+	(fun proof_name ->
+	  parse_switch_goal_finish state new_current_id proof_name))
+
+
+(******************************************************************************
  * proof-complete state %d proof-name-bytes %d command-bytes %d\n\
  * <data-proof-name>\n
  * <data-command>\n
@@ -238,6 +260,7 @@ let parse_command command =
       (function
 	| "current-goals" -> parse_current_goals com_buf
 	| "update-sequent" -> parse_update_sequent com_buf
+	| "switch-goal" -> parse_switch_goal com_buf
 	| "proof-complete" -> parse_proof_complete com_buf
 	| "undo-to" -> do_undo com_buf
 	| x -> 

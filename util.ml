@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: util.ml,v 1.9 2011/04/18 07:20:30 tews Exp $
+ * $Id: util.ml,v 1.10 2011/04/21 13:28:10 tews Exp $
  *)
 
 
@@ -46,6 +46,33 @@ let list_set_diff_rev s1 s2 =
       if List.mem e s2 then res 
       else e :: res)
     [] s1
+
+
+(** Return the union of [s1] and [s2] under the assumption that s1 and s2
+    are disjoint. (So this is an ordinary union, NOT a disjoint union.)
+*)
+let list_set_union_disjoint s1 s2 = List.rev_append s1 s2
+
+
+let rec list_set_remove_element_rec e res = function
+  | [] -> res
+  | a :: s -> 
+    if e = a 
+    then List.rev_append res s
+    else list_set_remove_element_rec e (a :: res) s
+
+
+(** Add element [e] to set [s] under the assumption that [e] is not
+    contained in [s]. Same as [list_set_union_disjoint [e] s].
+*)
+let list_set_add_nonpresent_element e s = e :: s
+
+
+(** Removes element [e] from set [s]. Returns [s] (possibly
+    differently ordered if [e] is not present in [s].
+*)
+let list_set_remove_element e s =
+  list_set_remove_element_rec e [] s
 
 
 let rec search_char buf start stop c =
