@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.10 2011/04/21 13:28:10 tews Exp $
+ * $Id: proof_tree.ml,v 1.11 2011/05/12 14:23:23 tews Exp $
  *)
 
 
@@ -205,6 +205,7 @@ let add_new_goal pt state proof_command current_sequent_id
     List.iter 
       (fun sw -> if sw#is_selected then pt.window#clear_selected_node)
       all_subgoals;
+    if pc#is_selected then pt.window#clear_selected_node;
     pt.current_sequent_id <- old_current_sequent_id;
     pt.current_sequent <- old_current_sequent;
     pt.other_open_goals <- old_other_open_goals;
