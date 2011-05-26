@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.11 2011/04/20 14:23:48 tews Exp $
+ * $Id: draw_tree.ml,v 1.12 2011/05/26 12:48:23 tews Exp $
  *)
 
 
@@ -39,6 +39,11 @@ type branch_state_type =
   | Current
   | Proven
 
+let string_of_branch_state = function
+  | Unproven    -> "Unproven"
+  | CurrentNode	-> "CurrentNode"
+  | Current	-> "Current"
+  | Proven      -> "Proven"
 
 let safe_and_set_gc drawable state =
   match state with
@@ -104,7 +109,7 @@ object (self)
   inherit [proof_tree_element] doubly_linked_tree as super
 
   val debug_name = (debug_name : string)
-  method private debug_name = debug_name
+  method debug_name = debug_name
 
   method virtual node_kind : node_kind
 
@@ -291,7 +296,14 @@ object (self)
 	 | (Unproven, CurrentNode)
 	 | (Proven, Unproven)
 	 | (Proven, Current) 
-	 | (Proven, CurrentNode) -> assert false
+	 | (Proven, CurrentNode) -> 
+	   (* 
+            * Printf.eprintf "draw line error %s -> %s branch %s child %s\n%!"
+	    *   self#debug_name child#debug_name
+	    *   (string_of_branch_state branch_state)
+	    *   (string_of_branch_state child_state);
+            *)
+	   assert false
 	 | (Unproven, Unproven)
 	 | (Unproven, Proven) 
 	 | ((Current|CurrentNode), Unproven)
@@ -385,8 +397,12 @@ object (self)
       )
 
   method disconnect_proof =
-    if branch_state = Current 
-    then branch_state <- Unproven;
+    (match branch_state with
+      | Current
+      | CurrentNode -> branch_state <- Unproven
+      | Unproven
+      | Proven -> ()
+    );
     List.iter (fun c -> c#disconnect_proof) children;
 end
 

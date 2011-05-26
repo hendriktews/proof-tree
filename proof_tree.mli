@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.mli,v 1.4 2011/04/21 13:28:10 tews Exp $
+ * $Id: proof_tree.mli,v 1.5 2011/05/26 12:48:23 tews Exp $
  *)
 
 
@@ -72,6 +72,13 @@ val process_proof_complete : int -> string -> string -> unit
     before the first action with state [state] has been processed.
 *)
 val undo : int -> unit
+
+
+(** Close the proof window for [proof_name].
+
+    @param proof_name name of the proof
+*)
+val quit_proof : string -> unit
 
 
 (** For efficiency in proof replay the proof tree display is not redrawn

@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.9 2011/04/20 14:23:48 tews Exp $
+ * $Id: proof_window.ml,v 1.10 2011/05/26 12:48:23 tews Exp $
  *)
 
 
@@ -69,10 +69,10 @@ object (self)
   method clear_selected_node =
     selected_node <- None
 
-  method disconnect_proof =
+  method survive_undo_before_start =
     match root with
-      | None -> ()
-      | Some root -> root#disconnect_proof
+      | None -> false
+      | Some root -> root#children <> []
 
   method sequent_area_changed () =
     if sequent_window_scroll_to_bottom then
@@ -117,6 +117,18 @@ object (self)
     current_node <- Some (n : proof_tree_element);
     if selected_node = None && n#node_kind = Turnstile 
     then self#refresh_sequent_area
+
+  method private clear_current_node =
+    current_node_offset_cache <- None;
+    current_node <- None;
+    if selected_node = None
+    then self#refresh_sequent_area
+
+  method disconnect_proof =
+    self#clear_current_node;
+    match root with
+      | None -> ()
+      | Some root -> root#disconnect_proof
 
   method private get_current_offset =
     match current_node_offset_cache with
@@ -310,8 +322,7 @@ object (self)
       | None -> ()
       | Some node -> f node
 
-  method private button_1_press node =
-    (* Printf.eprintf "Click on %s\n%!" node#debug_name; *)
+  method select_node node =
     (match selected_node with
       | None -> ()
       | Some onode -> onode#selected false);
@@ -331,7 +342,7 @@ object (self)
      *)
     (* Printf.printf "Button %d at %d x %d\n%!" button x y; *)
     (match button with
-      | 1 -> self#locate_button_node x y self#button_1_press
+      | 1 -> self#locate_button_node x y self#select_node
       | _ -> ());
     true
 

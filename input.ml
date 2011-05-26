@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.8 2011/04/21 13:28:10 tews Exp $
+ * $Id: input.ml,v 1.9 2011/05/26 12:48:23 tews Exp $
  *)
 
 
@@ -53,6 +53,9 @@
       <data-command>\n
       
       undo-to state %d\n
+    
+      quit-proof proof-name-bytes %d\n\
+      <data-proof-name>\n
     
     Here ``%d'' stands for a positive integer and %s for a string
     which contains no white space. Following the keyword state the
@@ -248,6 +251,25 @@ let do_undo com_buf =
 
 (*****************************************************************************
  *
+ * quit-proof proof-name-bytes %d\n\
+ * <data-proof-name>\n
+ *)
+
+let parse_quit_proof_finish proof_name =
+  let proof_name = chop_final_newlines proof_name in
+  current_parser := !read_command_line_parser;
+  Proof_tree.quit_proof proof_name
+
+let parse_quit_proof com_buf =
+  Scanf.bscanf com_buf " proof-name-bytes %d"
+    (fun proof_name_bytes ->
+      get_string proof_name_bytes
+	(fun proof_name ->
+	  parse_quit_proof_finish proof_name))
+
+
+(*****************************************************************************
+ *
  * general parsing 
  *
  *****************************************************************************)
@@ -263,6 +285,7 @@ let parse_command command =
 	| "switch-goal" -> parse_switch_goal com_buf
 	| "proof-complete" -> parse_proof_complete com_buf
 	| "undo-to" -> do_undo com_buf
+	| "quit-proof" -> parse_quit_proof com_buf
 	| x -> 
 	  raise (Protocol_error ("Parse error on input \"" ^ command ^ "\"",
 				 None))

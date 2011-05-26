@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.mli,v 1.4 2011/04/21 13:28:10 tews Exp $
+ * $Id: input.mli,v 1.5 2011/05/26 12:48:23 tews Exp $
  *)
 
 
@@ -53,6 +53,9 @@
       <data-command>\n
       
       undo-to state %d\n
+
+      quit-proof proof-name-bytes %d\n\
+      <data-proof-name>\n
     
     Here ``%d'' stands for a positive integer and %s for a string
     which contains no white space. Following the keyword state the

@@ -1,3 +1,10 @@
+2011-05-26  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* start prooftree in the middle of a proof (just
+	  emacs-lisp changes)
+	* kill proof tree window from emacs 
+	* let windows survive bulk undo's and change their state accordingly
+
 2011-05-12  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* clear sequent window when undoing the selected proof command
