@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.12 2011/05/26 12:48:23 tews Exp $
+ * $Id: draw_tree.ml,v 1.13 2011/05/27 18:13:54 tews Exp $
  *)
 
 
@@ -28,6 +28,9 @@
 
 open Configuration
 open Gtk_ext
+
+
+(** {1 Utility types and functions} *)
 
 type node_kind =
   | Proof_command
@@ -62,6 +65,10 @@ let restore_gc drawable fc_opt = match fc_opt with
   | None -> ()
   | Some fc -> drawable#set_foreground (`COLOR fc)
 
+
+(*****************************************************************************)
+(** {1 Doubly linked trees } *)
+(*****************************************************************************)
 
 class virtual ['a] doubly_linked_tree =
 object 
@@ -104,6 +111,23 @@ let remove_child child =
       child#clear_parent;
       p#children_changed
 
+
+(****************************************************************************
+ *)
+  (** {1 External window interface } *)
+(*
+ ****************************************************************************)
+
+class type external_node_window =
+object
+  method window_number : string
+end
+
+(*****************************************************************************)
+(** {1 Tree Elements -- 
+       Abstract base class for turnstyles and proof commands} *)
+(*****************************************************************************)
+
 class virtual proof_tree_element (drawable : better_drawable) debug_name = 
 object (self)
   inherit [proof_tree_element] doubly_linked_tree as super
@@ -123,6 +147,7 @@ object (self)
   val mutable subtree_levels = 0
   val mutable branch_state = Unproven
   val mutable selected = false
+  val mutable external_windows : external_node_window list = []
 
   method width = width
   method height = height
@@ -157,6 +182,12 @@ object (self)
     (f : int -> int -> proof_tree_element -> unit) =
     self#iter_children left top ()
       (fun left top () c -> f left top c; ((), true))
+
+  method register_external_window win =
+    external_windows <- win :: external_windows
+
+  method delete_external_window win =
+    external_windows <- List.filter (fun w -> w <> win) external_windows
 
   method subtree_height = 
     (subtree_levels - 1) * !current_config.level_distance + 
@@ -407,6 +438,7 @@ object (self)
 end
 
 
+(** {1 Turnstyle } *)
 
 class turnstile (drawable : better_drawable) sequent_id sequent_text =
 object (self)
@@ -414,12 +446,23 @@ object (self)
 
   val mutable sequent_id = sequent_id
   val mutable sequent_text = (sequent_text : string)
+  val mutable layout = None
 
   method node_kind = Turnstile
 
   method content = sequent_text
   method id = sequent_id
   method update_sequent new_text = sequent_text <- new_text
+
+  method private get_layout =
+    match layout with
+      | None -> 
+	let l = drawable#pango_context#create_layout
+	in
+	layout <- Some l;
+	l
+      | Some l -> l
+	
 
   method private draw_turnstile x y =
     let radius = !current_config.turnstile_radius in
@@ -442,7 +485,18 @@ object (self)
       ~x:(x + !current_config.turnstile_left_bar_x_offset)
       ~y
       ~x:(x + !current_config.turnstile_horiz_bar_x_offset)
-      ~y
+      ~y;
+    (match external_windows with
+      | [] -> ()
+      | win::_ ->
+	let layout = self#get_layout in
+	Pango.Layout.set_text layout win#window_number;
+	let (w, h) = Pango.Layout.get_pixel_size layout in
+	drawable#put_layout 
+	  ~x:(x + !current_config.turnstyle_number_x_offset - w)
+	  ~y:(y - h / 2)
+	  layout
+    )
 
   method private draw left top =
     let (x, y) = self#get_koordinates left top in
@@ -466,9 +520,11 @@ object (self)
 
 end
 
+(** {1 Proof commands } *)
+
 class proof_command (drawable_arg : better_drawable) command debug_name =
 object (self)
-  inherit proof_tree_element drawable_arg debug_name
+  inherit proof_tree_element drawable_arg debug_name as parent
 
   val displayed_command =
     if Util.utf8_string_length command <= !current_config.proof_command_length
@@ -484,6 +540,25 @@ object (self)
   method node_kind = Proof_command
   method content = command
   method id = ""
+
+  method private adjust_external_label =
+    let layout_text = 
+      match external_windows with
+	| [] -> displayed_command
+	| w :: _ ->  w#window_number ^ ": " ^ displayed_command
+    in
+    Pango.Layout.set_text layout layout_text;
+    let (w,h) = Pango.Layout.get_pixel_size layout in
+    layout_width <- w;
+    layout_height <- h
+
+  method register_external_window win =
+    parent#register_external_window win;
+    self#adjust_external_label
+
+  method delete_external_window win =
+    parent#delete_external_window win;
+    self#adjust_external_label
 
   method private draw left top = 
     let (x, y) = self#get_koordinates left top in

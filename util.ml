@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: util.ml,v 1.10 2011/04/21 13:28:10 tews Exp $
+ * $Id: util.ml,v 1.11 2011/05/27 18:13:54 tews Exp $
  *)
 
 
@@ -160,3 +160,14 @@ let utf8_string_sub s len =
   iter s 0 (String.length s) 
     (String.create len) 0 len 
     len 0
+
+
+(** Count the number of lines in argument [s]. Returns at least 1. A
+    final newline in [s] adds one to the result.
+*)
+let number_of_lines s =
+  let lines = ref 1 in
+  for i = 0 to String.length s - 1 do
+    if s.[i] = '\n' then incr lines
+  done;
+  !lines

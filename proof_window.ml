@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.10 2011/05/26 12:48:23 tews Exp $
+ * $Id: proof_window.ml,v 1.11 2011/05/27 18:13:54 tews Exp $
  *)
 
 
@@ -29,6 +29,7 @@
 open Configuration
 open Gtk_ext
 open Draw_tree
+open Node_window
 
 let delete_proof_tree_callback = ref (fun (_ : string) -> ())
 
@@ -38,6 +39,12 @@ class proof_window top_window
   proof_name
   =
 object (self)
+
+  (***************************************************************************
+   *
+   * Internal state and setters/accessors
+   *
+   ***************************************************************************)
   val top_window = (top_window : GWindow.window)
   val drawing_h_adjustment = drawing_h_adjustment
   val drawing_v_adjustment = drawing_v_adjustment
@@ -61,6 +68,8 @@ object (self)
 
   val mutable selected_node = None
 
+  val mutable node_windows = []
+
   method set_root r = 
     root <- Some (r : proof_tree_element)
 
@@ -69,10 +78,11 @@ object (self)
   method clear_selected_node =
     selected_node <- None
 
-  method survive_undo_before_start =
-    match root with
-      | None -> false
-      | Some root -> root#children <> []
+  (***************************************************************************
+   *
+   * Sequent window
+   *
+   ***************************************************************************)
 
   method sequent_area_changed () =
     if sequent_window_scroll_to_bottom then
@@ -112,6 +122,12 @@ object (self)
 	    else
 	      self#clear_sequent_area
 
+  (***************************************************************************
+   *
+   * Current node
+   *
+   ***************************************************************************)
+
   method set_current_node n =
     current_node_offset_cache <- None;
     current_node <- Some (n : proof_tree_element);
@@ -124,24 +140,28 @@ object (self)
     if selected_node = None
     then self#refresh_sequent_area
 
+  (***************************************************************************
+   *
+   * Unclassified methods
+   *
+   ***************************************************************************)
+
+  method survive_undo_before_start =
+    match root with
+      | None -> false
+      | Some root -> root#children <> []
+
   method disconnect_proof =
     self#clear_current_node;
     match root with
       | None -> ()
       | Some root -> root#disconnect_proof
 
-  method private get_current_offset =
-    match current_node_offset_cache with
-      | Some _ as res -> res
-      | None -> match current_node with
-	  | None -> None
-	  | Some node ->
-	    let width_2 = node#width / 2 in
-	    let height_2 = node#height / 2 in
-	    let (x_off, y_off) = node#x_y_offsets in
-	    let res = Some((x_off, y_off, width_2, height_2)) in
-	    current_node_offset_cache <- res;
-	    res
+  (***************************************************************************
+   *
+   * Key events
+   *
+   ***************************************************************************)
 
   method private scroll (adjustment : GData.adjustment) direction =
     let a = adjustment in
@@ -152,6 +172,7 @@ object (self)
     a#set_value new_val
 
   method delete_proof_window =
+    List.iter (fun w -> w#delete_node_window_maybe) node_windows;
     top_window#destroy()
 
   method user_delete_proof_window () =
@@ -176,6 +197,25 @@ object (self)
 	self#scroll drawing_v_adjustment 1; true
 
       | _ -> false
+
+  (***************************************************************************
+   *
+   * Redraw / expose events
+   *
+   ***************************************************************************)
+
+  method private get_current_offset =
+    match current_node_offset_cache with
+      | Some _ as res -> res
+      | None -> match current_node with
+	  | None -> None
+	  | Some node ->
+	    let width_2 = node#width / 2 in
+	    let height_2 = node#height / 2 in
+	    let (x_off, y_off) = node#x_y_offsets in
+	    let res = Some((x_off, y_off, width_2, height_2)) in
+	    current_node_offset_cache <- res;
+	    res
 
   method private erase = 
     let (x,y) = drawable#size in
@@ -263,7 +303,7 @@ object (self)
       | Some root ->
 	ignore(root#draw_subtree top_left top_top)
 
-  method private invalidate_drawing_area =
+  method invalidate_drawing_area =
     GtkBase.Widget.queue_draw drawing_area#as_widget
 
   method refresh_and_position =
@@ -312,15 +352,41 @@ object (self)
     (* prerr_endline "END EXPOSE EVENT"; *)
     false
 
-  method private locate_button_node x y f =
+  (***************************************************************************
+   *
+   * numbers for external node windows
+   *
+   ***************************************************************************)
+
+  val mutable last_node_number = 0
+
+  method private next_node_number =
+    last_node_number <- last_node_number + 1;
+    last_node_number
+
+  (***************************************************************************
+   *
+   * Button events
+   *
+   ***************************************************************************)
+
+  method private locate_button_node x y node_click_fun outside_click_fun =
     let node_opt = match root with 
       | None -> None
       | Some root ->
 	root#mouse_button_tree top_left top_top x y
     in
     match node_opt with
+      | None -> outside_click_fun ()
+      | Some node -> node_click_fun node
+
+  method private deselect_node () =
+    (match selected_node with
       | None -> ()
-      | Some node -> f node
+      | Some node -> node#selected false);
+    selected_node <- None;
+    self#invalidate_drawing_area;
+    self#refresh_sequent_area
 
   method select_node node =
     (match selected_node with
@@ -329,7 +395,15 @@ object (self)
     selected_node <- Some node;
     node#selected true;
     self#invalidate_drawing_area;
-    self#refresh_sequent_area;
+    self#refresh_sequent_area
+
+  method private external_node_window (node : proof_tree_element) =
+    let n = string_of_int(self#next_node_number) in
+    let win = 
+      make_node_window (self :> proof_window_interface) proof_name node n 
+    in 
+    node_windows <- win :: node_windows;
+    self#invalidate_drawing_area
 
   method button_press ev =
     let x = int_of_float(GdkEvent.Button.x ev +. 0.5) in
@@ -342,9 +416,18 @@ object (self)
      *)
     (* Printf.printf "Button %d at %d x %d\n%!" button x y; *)
     (match button with
-      | 1 -> self#locate_button_node x y self#select_node
+      | 1 -> self#locate_button_node x y self#select_node self#deselect_node
+      | 2 -> 
+	self#locate_button_node x y 
+	  self#external_node_window (fun () -> ())
       | _ -> ());
     true
+
+  (***************************************************************************
+   *
+   * Proof element creation
+   *
+   ***************************************************************************)
 
   method new_turnstile sequent_id sequent_text =
     new turnstile drawable sequent_id sequent_text
@@ -352,6 +435,14 @@ object (self)
   method new_proof_command command =
     new proof_command drawable command command
 end
+
+
+
+(*****************************************************************************
+ *
+ * proof window creation
+ *
+ *****************************************************************************)
 
 let make_proof_window name geometry_string =
   let top_window = GWindow.window () in
@@ -403,6 +494,7 @@ let make_proof_window name geometry_string =
       drawable labeled_sequent_frame sequent_window sequent_v_adjustment
       name
   in
+  top_window#set_title (name ^ " proof tree");
   drawable#set_line_attributes 
     ~width:(!current_config.turnstile_line_width) ();
   ignore(drawing_scrolling#misc#connect#size_allocate

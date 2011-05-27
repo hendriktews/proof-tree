@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.7 2011/04/18 07:20:29 tews Exp $
+ * $Id: configuration.ml,v 1.8 2011/05/27 18:13:54 tews Exp $
  *)
 
 
@@ -33,6 +33,7 @@ type t = {
   turnstile_left_bar_y_offset : int;
   turnstile_horiz_bar_x_offset : int;
   turnstile_line_width : int;
+  turnstyle_number_x_offset : int;
 
   proof_command_length : int;
 
@@ -40,6 +41,8 @@ type t = {
   line_sep : int;
 
   level_distance : int;
+
+  node_window_max_lines : int;
 }
 
 
@@ -52,6 +55,8 @@ let update_sizes config radius =
         int_of_float(0.65 *. (float_of_int radius) +. 0.5);
       turnstile_horiz_bar_x_offset =
         int_of_float(0.7 *. (float_of_int radius) +. 0.5);
+
+      turnstyle_number_x_offset = -(config.turnstile_line_width + 1);
 
       level_distance = 4 * radius
   }
@@ -68,7 +73,10 @@ let default_configuration =
     turnstile_left_bar_x_offset = 0;
     turnstile_left_bar_y_offset = 0;
     turnstile_horiz_bar_x_offset = 0;
+    turnstyle_number_x_offset = 0;
     level_distance = 0;
+
+    node_window_max_lines = 10;
   }
   in
   update_sizes c radius

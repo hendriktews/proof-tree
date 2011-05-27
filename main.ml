@@ -19,9 +19,15 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: main.ml,v 1.7 2011/05/26 12:48:23 tews Exp $
+ * $Id: main.ml,v 1.8 2011/05/27 18:13:54 tews Exp $
  *)
 
+
+(* 
+  (setq proof-tree-arguments '("-tee" "/tmp/tews/ptlog")) 
+*)
+
+(* let _ = Configuration.tee_input_file := Some "/tmp/tews/proof-tree-input" *)
 
 
 (** Main --- Argument parsing and start *)
@@ -29,8 +35,6 @@
 
 module U = Unix
 open Input
-
-(* let _ = Configuration.tee_input_file := Some "/tmp/tews/proof-tree-input" *)
 
 let arguments = Arg.align [
   ("-geometry", Arg.Set_string Configuration.geometry_string,
