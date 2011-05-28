@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: node_window.ml,v 1.1 2011/05/27 18:13:54 tews Exp $
+ * $Id: node_window.ml,v 1.2 2011/05/28 19:22:00 tews Exp $
  *)
 
 
@@ -36,7 +36,8 @@ object
 end
 
 
-class node_window proof_window node top_window sticky_button window_number =
+class node_window proof_window node top_window text_window 
+  sticky_button window_number =
 object (self)
 
   (***************************************************************************
@@ -47,10 +48,14 @@ object (self)
   val proof_window = proof_window
   val node = node
   val top_window = (top_window : GWindow.window)
+  val text_window = text_window
   val sticky_button = sticky_button
   val window_number = window_number
 
   method window_number = window_number
+
+  method update_content new_content =
+    text_window#buffer#set_text new_content
 
   method delete_node_window () =
     node#delete_external_window (self :> external_node_window);
@@ -109,7 +114,8 @@ let make_node_window proof_window proof_name node window_number =
       ~packing:(button_h_box#pack ~from:`END) ()
   in
   let node_window = 
-    new node_window proof_window node top_window sticky_button window_number 
+    new node_window proof_window node top_window text_win
+      sticky_button window_number 
   in
   let title_start = match node#node_kind with
     | Proof_command -> "Tactic "

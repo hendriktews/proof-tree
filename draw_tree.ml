@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.13 2011/05/27 18:13:54 tews Exp $
+ * $Id: draw_tree.ml,v 1.14 2011/05/28 19:22:00 tews Exp $
  *)
 
 
@@ -121,6 +121,7 @@ let remove_child child =
 class type external_node_window =
 object
   method window_number : string
+  method update_content : string -> unit
 end
 
 (*****************************************************************************)
@@ -452,7 +453,11 @@ object (self)
 
   method content = sequent_text
   method id = sequent_id
-  method update_sequent new_text = sequent_text <- new_text
+  method update_sequent new_text = 
+    sequent_text <- new_text;
+    List.iter 
+      (fun ew -> ew#update_content new_text)
+      external_windows
 
   method private get_layout =
     match layout with
