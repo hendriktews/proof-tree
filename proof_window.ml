@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.12 2011/05/30 07:17:43 tews Exp $
+ * $Id: proof_window.ml,v 1.13 2011/05/30 13:37:37 tews Exp $
  *)
 
 
@@ -447,7 +447,8 @@ object (self)
       then cloned_selected := Some clone;
       set_children clone cloned_children;
       (match node#branch_state with
-	| Proven -> clone#set_branch_state Proven
+	| Cheated
+	| Proven -> clone#set_branch_state node#branch_state
 	| Unproven
 	| CurrentNode
 	| Current -> ()

@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.9 2011/05/26 12:48:23 tews Exp $
+ * $Id: input.ml,v 1.10 2011/05/30 13:37:37 tews Exp $
  *)
 
 
@@ -33,8 +33,9 @@
     encoded. Prooftree understands the following commands in the
     following format:
     
-      current-goals state %d current-sequent %s proof-name-bytes %d \
-      command-bytes %d sequent-text-bytes %d additional-id-bytes %d\n\
+      current-goals state %d current-sequent %s {cheated|not-cheated} \
+      proof-name-bytes %d command-bytes %d sequent-text-bytes %d \
+      additional-id-bytes %d\n\
       <data-proof-name>\n\
       <data-command>\n\
       <data-current-sequent>\n\
@@ -48,7 +49,8 @@
       switch-goal state %d sequent %s proof-name-bytes %d\n
       <data-proof-name>\n
 
-      proof-complete state %d proof-name-bytes %d command-bytes %d\n\
+      proof-complete state %d {cheated|not-cheated} \
+      proof-name-bytes %d command-bytes %d\n\
       <data-proof-name>\n\
       <data-command>\n
       
@@ -58,10 +60,11 @@
       <data-proof-name>\n
     
     Here ``%d'' stands for a positive integer and %s for a string
-    which contains no white space. Following the keyword state the
-    integer is a state number. Following a keyword xxx-bytes it
-    denotes the number of bytes of the following <data>, including the
-    final newline after <data>.
+    which contains no white space. ``{cheated|not-cheated}'' denotes
+    the alternative of either ``cheated'' or ``not-cheated''. An
+    integer following the keyword state is a state number. An integer
+    following some xxx-bytes denotes the number of bytes of the next
+    <data>, including the final newline after <data>.
 *)
 (*****************************************************************************
 *****************************************************************************)
@@ -134,30 +137,40 @@ let get_string len continuation_fn =
 
 
 (******************************************************************************
- * current-goals state %d current-sequent %s proof-name-bytes %d \
- * command-bytes %d sequent-text-bytes %d additional-id-bytes %d\n\
- * <data-proof-name>\n
- * <data-command>\n
- * <data-current-sequent>\n
+ * current-goals state %d current-sequent %s {cheated|not-cheated} \
+ * proof-name-bytes %d command-bytes %d sequent-text-bytes %d \
+ * additional-id-bytes %d\n\
+ * <data-proof-name>\n\
+ * <data-command>\n\
+ * <data-current-sequent>\n\
  * <data-additional-ids>\n
  *)
 
-let parse_current_goals_finish state current_sequent_id proof_name 
-    proof_command current_sequent_text additional_ids_string =
+let parse_current_goals_finish state current_sequent_id cheated_string 
+    proof_name proof_command current_sequent_text additional_ids_string =
+  let cheated_flag = match cheated_string with
+    | "not-cheated" -> false
+    | "cheated" -> true
+    | _ -> 
+      raise(Protocol_error
+	      ("Parse error in current-goals command. " ^
+		  "Expected \"cheated\" or \"not-cheated\" as 6th word.",
+	       None))
+  in
   let proof_name = chop_final_newlines proof_name in
   let proof_command = chop_final_newlines proof_command in
   let current_sequent_text = chop_final_newlines current_sequent_text in
   let additional_ids_string = chop_final_newlines additional_ids_string in
   let additional_ids = string_split ' ' additional_ids_string in
   current_parser := !read_command_line_parser;
-  Proof_tree.process_current_goals state proof_name proof_command
+  Proof_tree.process_current_goals state proof_name proof_command cheated_flag
     current_sequent_id current_sequent_text additional_ids
     
 let parse_current_goals com_buf =
   Scanf.bscanf com_buf 
-    (" state %d current-sequent %s proof-name-bytes %d "
+    (" state %d current-sequent %s %s proof-name-bytes %d "
      ^^ "command-bytes %d sequent-text-bytes %d additional-id-bytes %d")
-    (fun state current_sequent_id proof_name_bytes command_bytes 
+    (fun state current_sequent_id cheated_string proof_name_bytes command_bytes 
       sequent_text_bytes additional_id_bytes ->
 	get_string proof_name_bytes
 	  (fun proof_name ->
@@ -168,6 +181,7 @@ let parse_current_goals com_buf =
 		    get_string additional_id_bytes
 		      (fun additional_ids_string ->
 			parse_current_goals_finish state current_sequent_id
+			  cheated_string
 			  proof_name proof_command current_sequent_text
 			  additional_ids_string)))))
 
@@ -217,25 +231,36 @@ let parse_switch_goal com_buf =
 
 
 (******************************************************************************
- * proof-complete state %d proof-name-bytes %d command-bytes %d\n\
- * <data-proof-name>\n
+ * proof-complete state %d {cheated|not-cheated} \
+ * proof-name-bytes %d command-bytes %d\n\
+ * <data-proof-name>\n\
  * <data-command>\n
  *)
 
-let parse_proof_complete_finish state proof_name proof_command =
+let parse_proof_complete_finish state cheated_string proof_name proof_command =
+  let cheated_flag = match cheated_string with
+    | "not-cheated" -> false
+    | "cheated" -> true
+    | _ -> 
+      raise(Protocol_error
+	      ("Parse error in proof-complete command. " ^
+		  "Expected \"cheated\" or \"not-cheated\" as 4th word.",
+	       None))
+  in
   let proof_name = chop_final_newlines proof_name in
   let proof_command = chop_final_newlines proof_command in
   current_parser := !read_command_line_parser;
-  Proof_tree.process_proof_complete state proof_name proof_command
+  Proof_tree.process_proof_complete state proof_name proof_command cheated_flag
 
 let parse_proof_complete com_buf =
-  Scanf.bscanf com_buf " state %d proof-name-bytes %d command-bytes %d"
-    (fun state proof_name_bytes command_bytes ->
+  Scanf.bscanf com_buf " state %d %s proof-name-bytes %d command-bytes %d"
+    (fun state cheated_string proof_name_bytes command_bytes ->
       get_string proof_name_bytes 
 	(fun proof_name ->
 	  get_string command_bytes
 	    (fun proof_command ->
-	      parse_proof_complete_finish state proof_name proof_command)))
+	      parse_proof_complete_finish 
+		state cheated_string proof_name proof_command)))
 
 (******************************************************************************
  * undo-to state %d\n

@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.15 2011/05/30 07:17:43 tews Exp $
+ * $Id: draw_tree.ml,v 1.16 2011/05/30 13:37:37 tews Exp $
  *)
 
 
@@ -40,12 +40,14 @@ type branch_state_type =
   | Unproven
   | CurrentNode
   | Current
+  | Cheated
   | Proven
 
 let string_of_branch_state = function
   | Unproven    -> "Unproven"
   | CurrentNode	-> "CurrentNode"
   | Current	-> "Current"
+  | Cheated     -> "Cheated"
   | Proven      -> "Proven"
 
 let safe_and_set_gc drawable state =
@@ -59,6 +61,10 @@ let safe_and_set_gc drawable state =
     | Proven -> 
       let res = Some drawable#get_foreground in
       drawable#set_foreground (`NAME("blue"));
+      res
+    | Cheated -> 
+      let res = Some drawable#get_foreground in
+      drawable#set_foreground (`NAME("red"));
       res
 
 let restore_gc drawable fc_opt = match fc_opt with
@@ -162,6 +168,7 @@ object (self)
 
   method virtual content : string
   method virtual id : string
+
 
   method private iter_children : 
     'a . int -> int -> 'a -> 
@@ -330,7 +337,12 @@ object (self)
 	 | (Unproven, CurrentNode)
 	 | (Proven, Unproven)
 	 | (Proven, Current) 
-	 | (Proven, CurrentNode) -> 
+	 | (Proven, CurrentNode) 
+	 | (Cheated, Unproven)
+	 | (Cheated, CurrentNode)
+	 | (Cheated, Current)
+	 | (Cheated, Proven)
+	   -> 
 	   (* 
             * Printf.eprintf "draw line error %s -> %s branch %s child %s\n%!"
 	    *   self#debug_name child#debug_name
@@ -340,10 +352,14 @@ object (self)
 	   assert false
 	 | (Unproven, Unproven)
 	 | (Unproven, Proven) 
+	 | (Unproven, Cheated)
 	 | ((Current|CurrentNode), Unproven)
 	 | ((Current|CurrentNode), (Current|CurrentNode))
 	 | ((Current|CurrentNode), Proven) 
-	 | (Proven, Proven) -> child_state
+	 | ((Current|CurrentNode), Cheated)
+	 | (Proven, Proven) 
+	 | (Proven, Cheated)
+	 | (Cheated, Cheated) -> child_state
        in
        let gc_opt = safe_and_set_gc drawable line_state in
        drawable#line ~x:(x + d_x) ~y:(y + d_y) 
@@ -411,6 +427,14 @@ object (self)
 	else false
       )
 
+  method mark_cheated =
+    self#mark_branch
+      (fun (self : proof_tree_element) ->
+	if (List.for_all (fun c -> c#branch_state = Cheated) self#children)
+	then (self#set_branch_state Cheated; true)
+	else false
+      )
+
   method unmark_current =
     self#mark_branch
       (fun (self : proof_tree_element) ->
@@ -419,15 +443,19 @@ object (self)
 	  | Current -> 
 	    self#set_branch_state Unproven; true
 	  | Unproven -> false
-	  | Proven -> assert false
+	  | Proven
+	  | Cheated -> assert false
       )
 
-  method unmark_proved =
+  method unmark_proved_or_cheated =
     self#mark_branch
       (fun (self : proof_tree_element) ->
-	if self#branch_state = Proven
-	then (self#set_branch_state Unproven; true)
-	else false
+	match self#branch_state with
+	  | Cheated
+	  | Proven -> self#set_branch_state Unproven; true
+	  | Unproven
+	  | CurrentNode
+	  | Current -> false
       )
 
   method disconnect_proof =
@@ -435,7 +463,8 @@ object (self)
       | Current
       | CurrentNode -> branch_state <- Unproven
       | Unproven
-      | Proven -> ()
+      | Proven
+      | Cheated -> ()
     );
     List.iter (fun c -> c#disconnect_proof) children;
 end

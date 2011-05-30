@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.mli,v 1.5 2011/05/26 12:48:23 tews Exp $
+ * $Id: proof_tree.mli,v 1.6 2011/05/30 13:37:37 tews Exp $
  *)
 
 
@@ -31,12 +31,13 @@
     @param state state for undo
     @param proof_name name of the proof
     @param proof_command command issued to the prover
+    @param cheated_flag is true if the command is a cheating one
     @param current_sequent_id ID of current sequent
     @param current_sequent_text the current sequent itself
     @param additional_ids ID's of the additionally open goals
 *)
 val process_current_goals :
-  int -> string -> string -> string -> string -> string list -> unit
+  int -> string -> string -> bool -> string -> string -> string list -> unit
 
 
 (** Update the sequent to show the new sequent text.
@@ -63,8 +64,9 @@ val switch_to : int -> string -> string -> unit
     @param state state for undo
     @param proof_name name of the proof
     @param proof_command last command
+    @param cheated_flag is true if the command is a cheating one
 *)
-val process_proof_complete : int -> string -> string -> unit
+val process_proof_complete : int -> string -> string -> bool -> unit
 
 (** Undo all changes up to and including state [state]. Proof trees started 
     later than [state] will be deleted. Those finished earlier than [state]

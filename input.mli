@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.mli,v 1.5 2011/05/26 12:48:23 tews Exp $
+ * $Id: input.mli,v 1.6 2011/05/30 13:37:37 tews Exp $
  *)
 
 
@@ -33,8 +33,9 @@
     encoded. Prooftree understands the following commands in the
     following format:
     
-      current-goals state %d current-sequent %s proof-name-bytes %d \
-      command-bytes %d sequent-text-bytes %d additional-id-bytes %d\n\
+      current-goals state %d current-sequent %s {cheated|not-cheated} \
+      proof-name-bytes %d command-bytes %d sequent-text-bytes %d \
+      additional-id-bytes %d\n\
       <data-proof-name>\n\
       <data-command>\n\
       <data-current-sequent>\n\
@@ -48,20 +49,22 @@
       switch-goal state %d sequent %s proof-name-bytes %d\n
       <data-proof-name>\n
 
-      proof-complete state %d proof-name-bytes %d command-bytes %d\n\
+      proof-complete state %d {cheated|not-cheated} \
+      proof-name-bytes %d command-bytes %d\n\
       <data-proof-name>\n\
       <data-command>\n
       
       undo-to state %d\n
-
+    
       quit-proof proof-name-bytes %d\n\
       <data-proof-name>\n
     
     Here ``%d'' stands for a positive integer and %s for a string
-    which contains no white space. Following the keyword state the
-    integer is a state number. Following a keyword xxx-bytes it
-    denotes the number of bytes of the following <data>, including the
-    final newline after <data>.
+    which contains no white space. ``{cheated|not-cheated}'' denotes
+    the alternative of either ``cheated'' or ``not-cheated''. An
+    integer following the keyword state is a state number. An integer
+    following some xxx-bytes denotes the number of bytes of the next
+    <data>, including the final newline after <data>.
 *)
 (*****************************************************************************
  *****************************************************************************)

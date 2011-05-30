@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.13 2011/05/30 07:17:43 tews Exp $
+ * $Id: proof_tree.ml,v 1.14 2011/05/30 13:37:37 tews Exp $
  *)
 
 
@@ -228,8 +228,9 @@ let start_new_proof state proof_name current_sequent_id current_sequent_text =
   all_proof_trees_for_undo := pt :: !all_proof_trees_for_undo
 
 
-let add_new_goal pt state proof_command current_sequent_id 
-    current_sequent_text additional_ids =
+let add_new_goal pt state proof_command cheated_flag 
+    current_sequent_id current_sequent_text additional_ids =
+  assert(cheated_flag = false);
   let pc = pt.window#new_proof_command proof_command in
   let pc = (pc :> proof_tree_element) in
   set_children pt.current_sequent [pc];
@@ -283,15 +284,18 @@ let add_new_goal pt state proof_command current_sequent_id
   pt.need_redraw <- true
 
 
-let finish_branch pt state proof_command =
+let finish_branch pt state proof_command cheated_flag =
   let pc = pt.window#new_proof_command proof_command in
   let pc = (pc :> proof_tree_element) in
+  pt.current_sequent#unmark_current;
   set_children pt.current_sequent [pc];
-  pc#mark_proved;
+  if cheated_flag 
+  then pc#mark_cheated
+  else pc#mark_proved;
   let old_current_sequent = pt.current_sequent in
   let undo () =
     clear_children old_current_sequent;
-    old_current_sequent#unmark_proved;
+    old_current_sequent#unmark_proved_or_cheated;
   in
   add_undo_action pt state undo;
   pt.need_redraw <- true
@@ -332,14 +336,14 @@ let internal_switch_to pt state old_open_sequent_id new_current_sequent_id =
   pt.need_redraw <- true
 
 
-let finish_branch_and_switch_to pt state proof_command current_sequent_id 
-    additional_ids =
+let finish_branch_and_switch_to pt state proof_command cheated_flag
+    current_sequent_id additional_ids =
   assert(not (List.mem current_sequent_id additional_ids));
   assert(list_set_subset additional_ids pt.other_open_goals);
-  finish_branch pt state proof_command;
+  finish_branch pt state proof_command cheated_flag;
   internal_switch_to pt state None current_sequent_id
 
-let process_current_goals state proof_name proof_command
+let process_current_goals state proof_name proof_command cheated_flag
     current_sequent_id current_sequent_text additional_ids =
   (match !current_proof_tree with
     | Some pt -> 
@@ -349,15 +353,16 @@ let process_current_goals state proof_name proof_command
   match !current_proof_tree with
     | None -> 
       assert(additional_ids = []);
+      assert(cheated_flag = false);
       start_new_proof state proof_name current_sequent_id current_sequent_text
     | Some pt ->
       if pt.current_sequent_id <> current_sequent_id &&
 	Hashtbl.mem pt.sequent_hash current_sequent_id
       then
-	finish_branch_and_switch_to pt state proof_command 
+	finish_branch_and_switch_to pt state proof_command cheated_flag
 	  current_sequent_id additional_ids
       else
-	add_new_goal pt state proof_command current_sequent_id 
+	add_new_goal pt state proof_command cheated_flag current_sequent_id 
 	  current_sequent_text additional_ids
 
 
@@ -396,13 +401,13 @@ let switch_to state proof_name new_current_sequent_id =
       internal_switch_to pt state
 	(Some pt.current_sequent_id) new_current_sequent_id
 
-let process_proof_complete state proof_name proof_command =
+let process_proof_complete state proof_name proof_command cheated_flag =
   match !current_proof_tree with
     | None -> raise (Proof_tree_error "Finish proof without current proof tree")
     | Some pt -> 
       if pt.proof_name <> proof_name
       then raise (Proof_tree_error "Finish other non-current proof");
-      finish_branch pt state proof_command;
+      finish_branch pt state proof_command cheated_flag;
       stop_proof_tree pt state
 
 
