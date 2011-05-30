@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.14 2011/05/28 19:22:00 tews Exp $
+ * $Id: draw_tree.ml,v 1.15 2011/05/30 07:17:43 tews Exp $
  *)
 
 
@@ -262,11 +262,13 @@ object (self)
     end;
     (* 
      * Printf.eprintf 
-     *   "USS %s END subtree width %d x_offset %d first_child_offset %d\n%!"
+     *   "USS %s END subtree width %d x_offset %d \
+     *    first_child_offset %d height %d\n%!"
      *   self#debug_name
      *   subtree_width
      *   x_offset
-     *   first_child_offset;
+     *   first_child_offset
+     *   subtree_levels;
      *)
 	
   method update_sizes_in_branch =
@@ -279,9 +281,9 @@ object (self)
      * if x_offset <> old_x_offset || subtree_width <> old_subtree_width
      * then
      *)
-      match parent with 
-	| None -> ()
-	| Some p -> p#update_sizes_in_branch
+    match parent with 
+      | None -> ()
+      | Some p -> p#update_sizes_in_branch
 
   method children_changed =
     (* prerr_endline("CHILDS at  " ^ self#debug_name ^ " CHANGED"); *)
@@ -521,7 +523,9 @@ object (self)
     height <- 
       2 * !current_config.turnstile_radius +
       2 * !current_config.turnstile_line_width;
-    self#update_subtree_size
+    self#update_subtree_size;
+    (* Printf.eprintf "INIT TURN %s done\n%!" self#debug_name; *)
+    ()
 
 end
 
@@ -602,6 +606,8 @@ object (self)
      * Printf.eprintf "INIT %s w %d width %d height %d\n%!"
      *   self#debug_name w width height;
      *)
-    self#update_subtree_size
+    self#update_subtree_size;
+    (* Printf.eprintf "INIT PC %s done\n%!" self#debug_name; *)
+    ()
 
 end

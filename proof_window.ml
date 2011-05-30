@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.11 2011/05/27 18:13:54 tews Exp $
+ * $Id: proof_window.ml,v 1.12 2011/05/30 07:17:43 tews Exp $
  *)
 
 
@@ -425,6 +425,48 @@ object (self)
 
   (***************************************************************************
    *
+   * Cloning
+   *
+   ***************************************************************************)
+
+  method clone (owin : proof_window) =
+    let become_selected = match current_node with
+      | Some _ -> current_node
+      | None -> selected_node
+    in
+    let cloned_selected = ref None in
+    let rec clone_tree node =
+      let cloned_children = List.map clone_tree node#children in
+      let clone = match node#node_kind with
+	| Proof_command -> 
+	  (owin#new_proof_command node#content :> proof_tree_element)
+	| Turnstile -> 
+	  (owin#new_turnstile node#id node#content :> proof_tree_element)
+      in
+      if Some node = become_selected
+      then cloned_selected := Some clone;
+      set_children clone cloned_children;
+      (match node#branch_state with
+	| Proven -> clone#set_branch_state Proven
+	| Unproven
+	| CurrentNode
+	| Current -> ()
+      );
+      clone
+    in    
+    (match root with
+      | None -> ()
+      | Some root_node ->
+	owin#set_root (clone_tree root_node)
+    );
+    (match !cloned_selected with
+      | None -> ()
+      | Some cs -> owin#select_node cs
+    );
+    owin#refresh_and_position
+
+  (***************************************************************************
+   *
    * Proof element creation
    *
    ***************************************************************************)
@@ -444,7 +486,7 @@ end
  *
  *****************************************************************************)
 
-let make_proof_window name geometry_string =
+let rec make_proof_window name geometry_string =
   let top_window = GWindow.window () in
   top_window#set_default_size ~width:400 ~height:400;
   let top_v_box = GPack.vbox ~packing:top_window#add () in
@@ -487,12 +529,19 @@ let make_proof_window name geometry_string =
   let dismiss_button = 
     GButton.button ~label:"Dismiss" ~packing:button_h_box#pack ()
   in
+  let clone_button = 
+    GButton.button ~label:"Clone" ~packing:(button_h_box#pack ~from:`END) ()
+  in
 
   let proof_window = 
     new proof_window top_window 
       drawing_h_adjustment drawing_v_adjustment drawing_area
       drawable labeled_sequent_frame sequent_window sequent_v_adjustment
       name
+  in
+  let clone_fun () =
+    let owin = make_proof_window name geometry_string in
+    proof_window#clone owin
   in
   top_window#set_title (name ^ " proof tree");
   drawable#set_line_attributes 
@@ -522,6 +571,8 @@ let make_proof_window name geometry_string =
 
   ignore(dismiss_button#connect#clicked 
 	   ~callback:proof_window#user_delete_proof_window);
+  ignore(clone_button#connect#clicked 
+	   ~callback:clone_fun);
 
   top_window#show ();
   if geometry_string <> "" then

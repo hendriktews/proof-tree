@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.12 2011/05/26 12:48:23 tews Exp $
+ * $Id: proof_tree.ml,v 1.13 2011/05/30 07:17:43 tews Exp $
  *)
 
 
@@ -231,6 +231,7 @@ let start_new_proof state proof_name current_sequent_id current_sequent_text =
 let add_new_goal pt state proof_command current_sequent_id 
     current_sequent_text additional_ids =
   let pc = pt.window#new_proof_command proof_command in
+  let pc = (pc :> proof_tree_element) in
   set_children pt.current_sequent [pc];
   let sw = pt.window#new_turnstile current_sequent_id current_sequent_text in
   Hashtbl.add pt.sequent_hash current_sequent_id sw;
@@ -284,6 +285,7 @@ let add_new_goal pt state proof_command current_sequent_id
 
 let finish_branch pt state proof_command =
   let pc = pt.window#new_proof_command proof_command in
+  let pc = (pc :> proof_tree_element) in
   set_children pt.current_sequent [pc];
   pc#mark_proved;
   let old_current_sequent = pt.current_sequent in
