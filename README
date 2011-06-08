@@ -10,7 +10,7 @@ information.
 
 Currently prooftree only works with a special development version of Proof
 General (cvs version branch ProofTreeBranch) and a patched version of 
-Coq 8.3pl1. It is therefore strongly suggested that you download a
+Coq 8.3pl2. It is therefore strongly suggested that you download a
 consistent bundle of Proof General and prooftree together with a suitable
 patch for Coq from the prooftree website. 
 
@@ -95,14 +95,10 @@ General or Coq version.
 
 Start Emacs and load any Coq file. Proof display with prooftree is
 initially disabled. To enable it, select menu 
-Proof-General -> Quick Options -> Display -> prooftree display
-or type C-c C-d. 
 
-Make sure you enable prooftree before asserting the Lemma or Theorem
-command. Strange things will happen otherwise.
-
-Disable prooftree before you assert a large portion of a Coq file.
-Otherwise you display will get plastered with prooftree windows.
+Proof-General -> Start/Stop Prooftree or type C-c C-d. If you are inside a
+proof this command will launch a proof-tree display for the current proof.
+Otherwise prooftree will be launched as soon as you start the next proof.
 
 
 ============================================================================

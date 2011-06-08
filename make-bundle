@@ -7,7 +7,7 @@ timestamp=$(date '+%Y-%m-%d')
 
 dir="prooftree-bundle-$timestamp"
 
-coqversion=8.3pl1
+coqversion=8.3pl2
 coqdir=/home/tews/src/qsrc
 coqorig=orig-$coqversion
 coqpatch=patch-$coqversion

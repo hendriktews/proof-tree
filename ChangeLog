@@ -1,3 +1,7 @@
+2011-06-08  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* update coq version number in README's
+
 2011-05-30  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* color cheated commands/branches in red
