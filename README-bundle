@@ -46,7 +46,7 @@ emacs23, ocaml-nox and liblablgtk2-ocaml-dev suffice.
    1.4. install Coq as usual
 
 	cd coq-8.3pl2
-	configure
+	./configure
 	make world
 	make install
 

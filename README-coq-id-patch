@@ -50,7 +50,7 @@ existential variables become instantiated.
 4. install Coq as usual
 
    cd coq-8.3pl2
-   configure
+   ./configure
    make world
    make install
 
