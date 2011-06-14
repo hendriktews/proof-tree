@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: node_window.ml,v 1.2 2011/05/28 19:22:00 tews Exp $
+ * $Id: node_window.ml,v 1.3 2011/06/14 11:06:24 tews Exp $
  *)
 
 
@@ -104,7 +104,7 @@ let make_node_window proof_window proof_name node window_number =
       !current_config.node_window_max_lines
   in
   text_win#misc#set_size_request 
-    ~width:(char_width * 80) ~height:(char_height * lines) ();
+    ~width:(char_width * 60) ~height:(char_height * lines) ();
   let button_h_box = GPack.hbox ~packing:top_v_box#pack () in
   let dismiss_button = 
     GButton.button ~label:"Dismiss" ~packing:button_h_box#pack ()
