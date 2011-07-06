@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.13 2011/05/30 13:37:37 tews Exp $
+ * $Id: proof_window.ml,v 1.14 2011/07/06 20:58:54 tews Exp $
  *)
 
 
@@ -36,7 +36,7 @@ let delete_proof_tree_callback = ref (fun (_ : string) -> ())
 class proof_window top_window 
   drawing_h_adjustment drawing_v_adjustment (drawing_area : GMisc.drawing_area)
   drawable_arg labeled_sequent_frame sequent_window sequent_v_adjustment
-  proof_name
+  message_label proof_name
   =
 object (self)
 
@@ -53,6 +53,7 @@ object (self)
   val labeled_sequent_frame = labeled_sequent_frame
   val sequent_window = sequent_window
   val sequent_v_adjustment = sequent_v_adjustment
+  val message_label : GMisc.label = message_label
   val proof_name = proof_name
 
   val mutable top_left = 0
@@ -77,6 +78,14 @@ object (self)
 
   method clear_selected_node =
     selected_node <- None
+
+  (***************************************************************************
+   *
+   * Messages
+   *
+   ***************************************************************************)
+
+  method message text = message_label#set_label text
 
   (***************************************************************************
    *
@@ -490,7 +499,9 @@ end
 let rec make_proof_window name geometry_string =
   let top_window = GWindow.window () in
   top_window#set_default_size ~width:400 ~height:400;
+      (* top_v_box for the pane and the button hbox *)
   let top_v_box = GPack.vbox ~packing:top_window#add () in
+      (* top_paned for the drawing area and the sequent *)
   let top_paned = GPack.paned `VERTICAL 
     ~packing:(top_v_box#pack ~expand:true) ()
   in
@@ -530,15 +541,20 @@ let rec make_proof_window name geometry_string =
   let dismiss_button = 
     GButton.button ~label:"Dismiss" ~packing:button_h_box#pack ()
   in
+  let message_label =
+    GMisc.label ~selectable:true ~ellipsize:`END 
+      ~packing:(button_h_box#pack ~expand:true ~fill:true) ()
+  in
+  message_label#set_use_markup true;
   let clone_button = 
-    GButton.button ~label:"Clone" ~packing:(button_h_box#pack ~from:`END) ()
+    GButton.button ~label:"Clone" ~packing:(button_h_box#pack) ()
   in
 
   let proof_window = 
     new proof_window top_window 
       drawing_h_adjustment drawing_v_adjustment drawing_area
       drawable labeled_sequent_frame sequent_window sequent_v_adjustment
-      name
+      message_label name
   in
   let clone_fun () =
     let owin = make_proof_window name geometry_string in

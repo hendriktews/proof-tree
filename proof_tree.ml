@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.14 2011/05/30 13:37:37 tews Exp $
+ * $Id: proof_tree.ml,v 1.15 2011/07/06 20:58:54 tews Exp $
  *)
 
 
@@ -38,6 +38,7 @@ type proof_tree = {
   proof_name : string;
   pa_start_state : int;
   mutable pa_end_state : int;		(* -1 if not finished yet *)
+  mutable cheated : bool;
   sequent_hash : (string, turnstile) Hashtbl.t;
   mutable current_sequent_id : string;
   mutable current_sequent : proof_tree_element;
@@ -113,6 +114,7 @@ let undo_tree pt pa_state =
   then begin
     if pt.window#survive_undo_before_start 
     then begin
+      pt.window#message "Retract before start";
       stop_proof_tree pt (-1);
       PT_undo_surviver
     end
@@ -129,6 +131,7 @@ let undo_tree pt pa_state =
     pt.current_sequent#mark_current;
     pt.window#set_current_node pt.current_sequent;
     pt.window#refresh_sequent_area;
+    pt.window#message (Printf.sprintf "Retract to %d" pa_state);
     pt.need_redraw <- true;
     PT_undo_current
   end
@@ -176,6 +179,7 @@ let create_new_proof_tree proof_name state
     proof_name = proof_name;
     pa_start_state = state;
     pa_end_state = -1;
+    cheated = false;
     sequent_hash = hash;
     current_sequent_id = current_sequent_id;
     current_sequent = sw;
@@ -200,6 +204,7 @@ let reuse_surviver pt state current_sequent_id current_sequent_text =
     proof_name = proof_name;
     pa_start_state = state;
     pa_end_state = -1;
+    cheated = false;
     sequent_hash = hash;
     current_sequent_id = current_sequent_id;
     current_sequent = sw;
@@ -208,6 +213,7 @@ let reuse_surviver pt state current_sequent_id current_sequent_text =
     undo_actions = [];
   } in
   pt_win#set_root sw;
+  pt_win#message "";
   pt
 
 let start_new_proof state proof_name current_sequent_id current_sequent_text =
@@ -223,6 +229,7 @@ let start_new_proof state proof_name current_sequent_id current_sequent_text =
   in
   pt.current_sequent#mark_current;
   pt.window#set_current_node pt.current_sequent;
+  pt.window#message "Initial sequent";
   pt.need_redraw <- true;
   current_proof_tree := Some pt;
   all_proof_trees_for_undo := pt :: !all_proof_trees_for_undo
@@ -268,6 +275,17 @@ let add_new_goal pt state proof_command cheated_flag
   pt.current_sequent <- sw;
   pt.other_open_goals <- 
     list_set_union_disjoint new_goal_ids_rev pt.other_open_goals;
+  let open_goal_count = List.length pt.other_open_goals  + 1 in
+  let message = match List.length all_subgoals with
+    | 0 -> assert false
+    | 1 -> 
+      Printf.sprintf "%d open goal%s (no new)" 
+	open_goal_count (if open_goal_count > 1 then "s" else "")
+    | n ->
+      Printf.sprintf "%d open goal%s (%d new)"
+	open_goal_count (if open_goal_count > 1 then "s" else "") (n - 1)
+  in
+  pt.window#message message;
   let undo () =
     clear_children old_current_sequent;
     old_current_sequent#mark_current;
@@ -292,12 +310,15 @@ let finish_branch pt state proof_command cheated_flag =
   if cheated_flag 
   then pc#mark_cheated
   else pc#mark_proved;
+  let old_cheated = pt.cheated in
   let old_current_sequent = pt.current_sequent in
   let undo () =
+    pt.cheated <- old_cheated;
     clear_children old_current_sequent;
     old_current_sequent#unmark_proved_or_cheated;
   in
   add_undo_action pt state undo;
+  if cheated_flag then pt.cheated <- true;
   pt.need_redraw <- true
 
 let internal_switch_to pt state old_open_sequent_id new_current_sequent_id =
@@ -341,7 +362,17 @@ let finish_branch_and_switch_to pt state proof_command cheated_flag
   assert(not (List.mem current_sequent_id additional_ids));
   assert(list_set_subset additional_ids pt.other_open_goals);
   finish_branch pt state proof_command cheated_flag;
-  internal_switch_to pt state None current_sequent_id
+  internal_switch_to pt state None current_sequent_id;
+  let open_goal_count = List.length pt.other_open_goals + 1 in
+  let message = 
+    Printf.sprintf "%s (%d goal%s remaining)" 
+      (if cheated_flag
+       then Gtk_ext.pango_markup_bold_color "Branch aborted" "red"
+       else Gtk_ext.pango_markup_bold_color "Branch finished" "blue")
+      open_goal_count
+      (if open_goal_count > 1 then "s" else "")
+  in
+  pt.window#message message
 
 let process_current_goals state proof_name proof_command cheated_flag
     current_sequent_id current_sequent_text additional_ids =
@@ -399,7 +430,15 @@ let switch_to state proof_name new_current_sequent_id =
       then raise (Proof_tree_error "Switch to sequent on other proof");
       pt.current_sequent#unmark_current;
       internal_switch_to pt state
-	(Some pt.current_sequent_id) new_current_sequent_id
+	(Some pt.current_sequent_id) new_current_sequent_id;
+      let open_goal_count = List.length pt.other_open_goals + 1 in
+      let message = 
+	Printf.sprintf "Branch changed (%d goal%s remaining)" 
+	  open_goal_count
+	  (if open_goal_count > 1 then "s" else "")
+      in
+      pt.window#message message
+
 
 let process_proof_complete state proof_name proof_command cheated_flag =
   match !current_proof_tree with
@@ -408,6 +447,12 @@ let process_proof_complete state proof_name proof_command cheated_flag =
       if pt.proof_name <> proof_name
       then raise (Proof_tree_error "Finish other non-current proof");
       finish_branch pt state proof_command cheated_flag;
+      let message = 
+	if pt.cheated 
+	then Gtk_ext.pango_markup_bold_color "False proof finished" "red" 
+	else Gtk_ext.pango_markup_bold_color "Proof finished" "blue" 
+      in
+      pt.window#message message;
       stop_proof_tree pt state
 
 

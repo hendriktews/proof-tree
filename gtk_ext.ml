@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: gtk_ext.ml,v 1.6 2011/04/18 07:20:30 tews Exp $
+ * $Id: gtk_ext.ml,v 1.7 2011/07/06 20:58:54 tews Exp $
  *)
 
 
@@ -48,3 +48,6 @@ let error_message_dialog message =
   ignore(err#connect#response ~callback:(fun _ -> exit 1));
   err#show()
 
+
+let pango_markup_bold_color s color =
+  "<span weight=\"bold\" color=\"" ^ color ^ "\">" ^ s ^ "</span>"

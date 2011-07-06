@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: node_window.ml,v 1.3 2011/06/14 11:06:24 tews Exp $
+ * $Id: node_window.ml,v 1.4 2011/07/06 20:58:54 tews Exp $
  *)
 
 
@@ -87,7 +87,7 @@ let make_node_window proof_window proof_name node window_number =
   let top_v_box = GPack.vbox ~packing:top_window#add () in
   let scrolling = GBin.scrolled_window
     ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC
-    ~packing:top_v_box#pack ()
+    ~packing:(top_v_box#pack ~expand:true) ()
   in
   let text_win = 
     GText.view ~editable:false ~cursor_visible:false
@@ -103,8 +103,13 @@ let make_node_window proof_window proof_name node window_number =
     min (Util.number_of_lines node#content) 
       !current_config.node_window_max_lines
   in
-  text_win#misc#set_size_request 
-    ~width:(char_width * 60) ~height:(char_height * lines) ();
+  (* 
+   * text_win#misc#set_size_request 
+   *   ~width:(char_width * 60) ~height:(char_height * lines) ();
+   *)
+  (* text_win#misc#set_size_chars ~width:60 ~height:lines (); *)
+  top_window#set_default_size ~width:(char_width * 80) 
+    ~height:(char_height * (lines + 2));
   let button_h_box = GPack.hbox ~packing:top_v_box#pack () in
   let dismiss_button = 
     GButton.button ~label:"Dismiss" ~packing:button_h_box#pack ()
