@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.14 2011/07/06 20:58:54 tews Exp $
+ * $Id: proof_window.ml,v 1.15 2011/07/08 19:31:01 tews Exp $
  *)
 
 
@@ -219,14 +219,15 @@ object (self)
       | None -> match current_node with
 	  | None -> None
 	  | Some node ->
-	    let width_2 = node#width / 2 in
-	    let height_2 = node#height / 2 in
+	    let width = node#width in
+	    let height = node#height in
 	    let (x_off, y_off) = node#x_y_offsets in
-	    let res = Some((x_off, y_off, width_2, height_2)) in
+	    let res = Some((x_off, y_off, width, height)) in
 	    current_node_offset_cache <- res;
 	    res
 
   method private erase = 
+    (* Printf.eprintf "ERASE\n%!"; *)
     let (x,y) = drawable#size in
     let fg = drawable#get_foreground in
     drawable#set_foreground (`NAME("white"));
@@ -236,33 +237,79 @@ object (self)
   method private try_adjustment = 
     if position_to_current_node = true then
       match self#get_current_offset with
-	| None -> ()
-	| Some((x_off, y_off, width_2, height_2)) ->
-	  let x_l = float_of_int(top_left + x_off - width_2) in
-	  let x_u = float_of_int(top_left + x_off + width_2) in
-	  let y_l = float_of_int(top_top + y_off - height_2) in
-	  let y_u = float_of_int(top_top + y_off + height_2) in
-          (* The following two clamp_page calls might immediately trigger
+	| None -> 
+	  position_to_current_node <- false
+	| Some((x_off, y_off, width, height)) ->
+	  (* Printf.eprintf "TRY ADJUSTMENT %!"; *)
+	  let x_page_size = int_of_float drawing_h_adjustment#page_size in
+	  let y_page_size = int_of_float drawing_v_adjustment#page_size in
+	  let x_l_f = float_of_int(top_left + x_off - width / 2) in
+	  let x_u_f = float_of_int(top_left + x_off + width / 2) in
+	  let y_l_f = float_of_int(top_top + y_off - height / 2) in
+	  let y_u_i = top_top + y_off + height / 2 in
+	  let y_u_f = float_of_int y_u_i in
+	  let success = ref true in
+          (* The following code might immediately trigger
 	   * expose events, which will call try_adjustment again. To avoid
 	   * entering this function a second time before leaving it, I
 	   * temporarily switch position_to_current_node off.
 	   *)
 	  position_to_current_node <- false;
-	  drawing_h_adjustment#clamp_page ~lower:x_l ~upper:x_u;
-	  drawing_v_adjustment#clamp_page ~lower:y_l ~upper:y_u;
+
+	  if x_page_size >= width && y_page_size >= height
+	  then begin
+	    (* current node fits into the viewport, be sophisticated *)
+	    if y_u_f > drawing_v_adjustment#upper
+	    then begin
+	      (* The resize request for the drawing are has not 
+	       * been processed. It might happen that this resize
+	       * request causes the addition of some scrollbars. In
+	       * this case the viewport gets smaller and the 
+	       * current node would possible (partially) hidden.
+	       * Therefore we mimic an adjustment error. Note that 
+	       * in this case also clamp_page would not give a proper
+	       * adjustment.
+	       *)
+	      success := false;
+	      (* Printf.eprintf "clever forced error %!" *)
+	    end else begin
+	      let y_val = 
+		max drawing_v_adjustment#lower 
+		  (float_of_int (y_u_i - y_page_size))
+	      in
+	      drawing_v_adjustment#set_value y_val;
+	      drawing_h_adjustment#clamp_page ~lower:x_l_f ~upper:x_u_f;
+	      (* 
+               * Printf.eprintf "clever y_u_i %d up %d y_val %d %!"
+	       * 	y_u_i
+	       * 	(int_of_float drawing_v_adjustment#upper)
+	       * 	(int_of_float y_val);
+               *)
+	    end
+	  end else begin
+	    (* very small viewport, use dump strategy *)
+	    (* Printf.eprintf "dump clamp %!"; *)
+	    drawing_h_adjustment#clamp_page ~lower:x_l_f ~upper:x_u_f;
+	    drawing_v_adjustment#clamp_page ~lower:y_l_f ~upper:y_u_f;
+	  end;
+
 	  let x_val = drawing_h_adjustment#value in
-	  let x_size = drawing_h_adjustment#page_size in
+	  let x_page_size = drawing_h_adjustment#page_size in
 	  let y_val = drawing_v_adjustment#value in
-	  let y_size = drawing_v_adjustment#page_size in
-	  if x_l >= x_val && x_u <= x_val +. x_size &&
-	    y_l >= y_val && y_u <= y_val +. y_size
-	  then
+	  let y_page_size = drawing_v_adjustment#page_size in
+	  if !success &&
+	    x_l_f >= x_val && x_u_f <= x_val +. x_page_size &&
+	    y_l_f >= y_val && y_u_f <= y_val +. y_page_size
+	  then begin
+	    (* Printf.eprintf "SUCCESSFUL\n%!"; *)
 	    () (* Do nothing: leave position_to_current_node disabled *)
-	  else
+	  end else begin
+	    (* Printf.eprintf "UNSUCCESSFUL\n%!"; *)
 	    (* Schedule the adjustment again, hope that we are more
 	     * successful next time.
 	     *)
 	    position_to_current_node <- true;
+	  end
           (* 
 	   * (let a = drawing_v_adjustment in
 	   *  Printf.eprintf 
@@ -279,6 +326,10 @@ object (self)
 	let new_width = root#subtree_width in
 	let new_height = root#subtree_height in
 	(* 
+         * Printf.eprintf "DRAWING AREA SIZE REQUEST %d x %d\n%!" 
+	 *   new_width new_height;
+         *)
+	(* 
          * if new_width > current_width || new_height > current_height then
 	 *   drawing_area#misc#set_size_request
 	 *     ~width:(max current_width new_width)
@@ -287,13 +338,18 @@ object (self)
 	drawing_area#misc#set_size_request
 	  ~width:new_width ~height:new_height ();
 
-
+  (** Sets the position of the proof tree in the drawing area by 
+      computing [top_left]. Returns true if the position changed. 
+      In that case the complete drawing area must be redrawn.
+  *)
   method private position_tree =
     match root with
-      | None -> ()
+      | None -> false
       | Some root -> 
+	let old_top_left = top_left in
 	let (width, _) = drawable#size in
 	top_left <- max 0 ((width - root#subtree_width) / 2);
+	top_left <> old_top_left
 
   method private redraw =
     (* 
@@ -310,21 +366,28 @@ object (self)
     match root with
       | None -> ()
       | Some root ->
+	(* Printf.eprintf "REDRAW\n%!"; *)
 	ignore(root#draw_subtree top_left top_top)
 
   method invalidate_drawing_area =
+    (* Printf.eprintf "INVALIDATE\n%!"; *)
     GtkBase.Widget.queue_draw drawing_area#as_widget
 
   method refresh_and_position =
+    (* Printf.eprintf "REFRESH & POSITION\n%!"; *)
     position_to_current_node <- true;
     self#expand_drawing_area;
-    self#position_tree;
+    ignore(self#position_tree);
     self#try_adjustment;
     self#invalidate_drawing_area;
 
   method draw_scroll_size_allocate_callback (_size : Gtk.rectangle) =
-    (* Printf.eprintf "SIZE ALLOC\n%!"; *)
-    self#position_tree;
+    (* 
+     * Printf.eprintf "SCROLLING SIZE ALLOC SIGNAL size %d x %d\n%!"
+     *   (int_of_float (drawing_h_adjustment#upper +. 0.5))
+     *   (int_of_float (drawing_v_adjustment#upper +. 0.5));
+     *)
+    let need_redraw = self#position_tree in
     (* 
      * (let a = drawing_v_adjustment in
      *  Printf.eprintf 
@@ -333,7 +396,27 @@ object (self)
      *    a#lower a#value a#upper a#page_size 
      *    a#step_increment a#page_increment);
      *)
-    self#try_adjustment
+    self#try_adjustment;
+    if need_redraw 
+    then self#invalidate_drawing_area
+
+  (* 
+   * method draw_area_size_allocate_callback (_size : Gtk.rectangle) =
+   *   Printf.eprintf "AREA SIZE ALLOC SIGNAL size %d x %d\n%!"
+   *     (int_of_float (drawing_h_adjustment#upper +. 0.5))
+   *     (int_of_float (drawing_v_adjustment#upper +. 0.5));
+   *)
+  
+  (* 
+   * method draw_area_configure_callback configure_event =
+   *   Printf.eprintf 
+   *     "AREA CONFIGURE SIGNAL area size %d x %d scroll size %d x %d\n%!"
+   *     (GdkEvent.Configure.width configure_event)
+   *     (GdkEvent.Configure.height configure_event)
+   *     (int_of_float (drawing_h_adjustment#upper +. 0.5))
+   *     (int_of_float (drawing_v_adjustment#upper +. 0.5));
+   *   false
+   *)
 
   method expose_callback (ev : GdkEvent.Expose.t) =
     (* 
@@ -530,7 +613,7 @@ let rec make_proof_window name geometry_string =
     ~packing:labeled_sequent_frame#add () 
   in
   (* 
-   * let sequent_h_adjustment = drawing_scrolling#hadjustment in
+   * let sequent_h_adjustment = sequent_scrolling#hadjustment in
    *)
   let sequent_v_adjustment = sequent_scrolling#vadjustment in
   let sequent_window = GText.view ~editable:false ~cursor_visible:false
@@ -565,6 +648,14 @@ let rec make_proof_window name geometry_string =
     ~width:(!current_config.turnstile_line_width) ();
   ignore(drawing_scrolling#misc#connect#size_allocate
 	   ~callback:proof_window#draw_scroll_size_allocate_callback);
+  (* 
+   * ignore(drawing_area#misc#connect#size_allocate
+   * 	   ~callback:proof_window#draw_area_size_allocate_callback);
+   *)
+  (* 
+   * ignore(drawing_area#event#connect#configure
+   * 	   ~callback:proof_window#draw_area_configure_callback);
+   *)
   ignore(top_window#connect#destroy 
 	   ~callback:proof_window#user_delete_proof_window);
   (* the delete event yields a destroy signal if not handled *)

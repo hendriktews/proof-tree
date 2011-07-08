@@ -1,3 +1,7 @@
+2011-07-08  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* improve current node positioning
+
 2011-07-06  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* fix resize behaviour of node windows
