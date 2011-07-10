@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.15 2011/07/08 19:31:01 tews Exp $
+ * $Id: proof_window.ml,v 1.16 2011/07/10 13:37:56 tews Exp $
  *)
 
 
@@ -462,6 +462,27 @@ object (self)
    *
    ***************************************************************************)
 
+  val mutable old_old_selected_node = None
+  val mutable old_selected_node = None
+
+  method set_selected_node node_opt =
+    (match selected_node with
+      | None -> ()
+      | Some node -> node#selected false);
+    selected_node <- node_opt;
+    (match node_opt with
+      | None -> ()
+      | Some node -> node#selected true);
+    self#invalidate_drawing_area;
+    self#refresh_sequent_area
+
+  method private save_selected_node_state =
+    old_old_selected_node <- old_selected_node;
+    old_selected_node <- selected_node
+
+  method private restore_selected_node =
+    self#set_selected_node old_old_selected_node
+
   method private locate_button_node x y node_click_fun outside_click_fun =
     let node_opt = match root with 
       | None -> None
@@ -472,23 +493,6 @@ object (self)
       | None -> outside_click_fun ()
       | Some node -> node_click_fun node
 
-  method private deselect_node () =
-    (match selected_node with
-      | None -> ()
-      | Some node -> node#selected false);
-    selected_node <- None;
-    self#invalidate_drawing_area;
-    self#refresh_sequent_area
-
-  method select_node node =
-    (match selected_node with
-      | None -> ()
-      | Some onode -> onode#selected false);
-    selected_node <- Some node;
-    node#selected true;
-    self#invalidate_drawing_area;
-    self#refresh_sequent_area
-
   method private external_node_window (node : proof_tree_element) =
     let n = string_of_int(self#next_node_number) in
     let win = 
@@ -497,21 +501,54 @@ object (self)
     node_windows <- win :: node_windows;
     self#invalidate_drawing_area
 
+  method private button_1_press x y shifted double =
+    if (not double) && (not shifted)
+    then self#save_selected_node_state;
+    if double && (not shifted)
+    then self#restore_selected_node;
+    if double || shifted 
+    then self#locate_button_node x y self#external_node_window (fun () -> ())
+    else 
+      self#locate_button_node x y 
+	(fun node -> self#set_selected_node (Some node))
+	(fun () -> self#set_selected_node None)
+
+  (* val mutable last_button_press_time = 0l *)
+
   method button_press ev =
     let x = int_of_float(GdkEvent.Button.x ev +. 0.5) in
     let y = int_of_float(GdkEvent.Button.y ev +. 0.5) in
     let button = GdkEvent.Button.button ev in
+    let shifted = Gdk.Convert.test_modifier `SHIFT (GdkEvent.Button.state ev) in
+    let double = match GdkEvent.get_type ev with
+      | `BUTTON_PRESS -> false
+      | `TWO_BUTTON_PRESS -> true
+      | `THREE_BUTTON_PRESS -> false
+      | `BUTTON_RELEASE -> false
+    in
     (* 
      * let state = B.state ev in
      * let mod_list = Gdk.Convert.modifier state in
      * let _ = Gdk.Convert.test_modifier `SHIFT state in
      *)
-    (* Printf.printf "Button %d at %d x %d\n%!" button x y; *)
+    (* 
+     * let time_diff = 
+     * Int32.sub (GdkEvent.Button.time ev) last_button_press_time 
+     * in
+     * last_button_press_time <- GdkEvent.Button.time ev;
+     *)
+    (* 
+     * Printf.printf "%s Button %s%d at %d x %d\n%!" 
+     *   (match GdkEvent.get_type ev with
+     * 	| `BUTTON_PRESS -> "single"
+     * 	| `TWO_BUTTON_PRESS -> "double"
+     * 	| `THREE_BUTTON_PRESS -> "triple"
+     * 	| `BUTTON_RELEASE -> "release")
+     *   (if shifted then "shift " else "")
+     *   button x y;
+     *)
     (match button with
-      | 1 -> self#locate_button_node x y self#select_node self#deselect_node
-      | 2 -> 
-	self#locate_button_node x y 
-	  self#external_node_window (fun () -> ())
+      | 1 -> self#button_1_press x y shifted double
       | _ -> ());
     true
 
@@ -552,10 +589,7 @@ object (self)
       | Some root_node ->
 	owin#set_root (clone_tree root_node)
     );
-    (match !cloned_selected with
-      | None -> ()
-      | Some cs -> owin#select_node cs
-    );
+    owin#set_selected_node !cloned_selected;
     owin#refresh_and_position
 
   (***************************************************************************

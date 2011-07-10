@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.10 2011/05/30 13:37:37 tews Exp $
+ * $Id: input.ml,v 1.11 2011/07/10 13:37:56 tews Exp $
  *)
 
 
@@ -392,6 +392,12 @@ let parse_input_callback = function
 		       clist)),
 	     None))
 
+(** Internal counter of fatal error conditions. If a fatal error occurs, 
+    it is normally displayed in a popup message. Special circumstances might 
+    cause a fatal error to repeately occur. Then this counter causes 
+    prooftree to terminate at some state instead of generating an infinite 
+    number of popup messages
+*)
 let error_counter = ref 0
 
 let parse_input_callback_ex clist =

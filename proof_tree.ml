@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.15 2011/07/06 20:58:54 tews Exp $
+ * $Id: proof_tree.ml,v 1.16 2011/07/10 13:37:56 tews Exp $
  *)
 
 
@@ -83,7 +83,7 @@ let stop_proof_tree pt pa_state =
    *)
   pt.pa_end_state <- pa_state;
   pt.window#disconnect_proof;
-  pt.window#select_node pt.current_sequent;
+  pt.window#set_selected_node (Some pt.current_sequent);
   pt.window#refresh_and_position;
   pt.need_redraw <- false;
   current_proof_tree := None

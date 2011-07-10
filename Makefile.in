@@ -19,7 +19,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
 ## 
-## $Id: Makefile.in,v 1.5 2011/06/08 13:09:43 tews Exp $
+## $Id: Makefile.in,v 1.6 2011/07/10 13:37:56 tews Exp $
 ## 
 ## Commentary: Makefile
 ## 
@@ -92,6 +92,16 @@ version.ml: version.txt
 install:
 	mkdir -p ${BINDIR}
 	cp prooftree ${BINDIR}
+
+.PHONY: doc
+doc: $(SOURCES)
+	rm -rf doc
+	mkdir doc
+	ocamldoc.opt -I `ocamlc -where`/lablgtk2 -html -d doc \
+		-inv-merge-ml-mli -m A $(SOURCES)
+	ocamldoc.opt -I `ocamlc -where`/lablgtk2 -dot -o doc/dependencies.dot \
+		-inv-merge-ml-mli -m A $(SOURCES)
+	dot -Tps < doc/dependencies.dot > doc/dependencies.ps
 
 clean:
 	rm -f $(TOCLEAN)
