@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: main.ml,v 1.8 2011/05/27 18:13:54 tews Exp $
+ * $Id: main.ml,v 1.9 2011/07/12 12:39:06 tews Exp $
  *)
 
 
@@ -30,12 +30,15 @@
 (* let _ = Configuration.tee_input_file := Some "/tmp/tews/proof-tree-input" *)
 
 
-(** Main --- Argument parsing and start *)
+(** Main --- Argument parsing and program start *)
 
 
+(**/**)
 module U = Unix
+(**/**)
 open Input
 
+(** Argument list for [Arg.parse] *)
 let arguments = Arg.align [
   ("-geometry", Arg.Set_string Configuration.geometry_string,
    " X geometry");
@@ -45,11 +48,21 @@ let arguments = Arg.align [
    " print more details on errors");
 ]
 
+(** Function for anonymous arguments. Terminates the program with 
+    exit status 1.
+*)
 let anon_fun s = 
   Printf.eprintf "unrecognized argument %s\n" s;
   exit 1
 
 
+(** Main function without exception handling. Performs the following actions:
+- parses command line arguments
+- registers {!Input.parse_input_callback_ex} as callback for [stdin] 
+  in the GTK main loop
+- print a hello world message to [stdout]
+- start the GTK main loop
+*)
 let main () =
   Arg.parse arguments anon_fun "prooftree";
   setup_input();
@@ -60,6 +73,9 @@ let main () =
   GMain.Main.main ()
 
 
+(** Real main function, which is just an exception handling wrapper 
+    around [main].
+*)
 let main_ex () =
   try
     Printexc.record_backtrace true;

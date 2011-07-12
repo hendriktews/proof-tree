@@ -19,11 +19,11 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.mli,v 1.6 2011/05/30 13:37:37 tews Exp $
+ * $Id: input.mli,v 1.7 2011/07/12 12:39:06 tews Exp $
  *)
 
 
-(** Reading and commands from nonblocking stdin *)
+(** Reading commands from nonblocking stdin *)
 
 
 (*****************************************************************************
@@ -70,8 +70,7 @@
  *****************************************************************************)
 
 
-(** Turn [stdin] into non-blocking mode and register a callback for
-    [stdin] in the GTK main loop. The callback will read and parse 
-    the commands on [stdin] and display proof trees.
+(** Initialize this module and setup the GTK main loop callback for
+    [stdin]. Puts [stdin] into non-blocking mode.
 *)
 val setup_input : unit -> unit
