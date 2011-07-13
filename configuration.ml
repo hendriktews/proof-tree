@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.8 2011/05/27 18:13:54 tews Exp $
+ * $Id: configuration.ml,v 1.9 2011/07/13 13:38:32 tews Exp $
  *)
 
 
@@ -43,6 +43,8 @@ type t = {
   level_distance : int;
 
   node_window_max_lines : int;
+
+  button_1_drag_acceleration : float;
 }
 
 
@@ -77,6 +79,8 @@ let default_configuration =
     level_distance = 0;
 
     node_window_max_lines = 10;
+
+    button_1_drag_acceleration = 4.0;
   }
   in
   update_sizes c radius

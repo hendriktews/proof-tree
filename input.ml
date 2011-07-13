@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.12 2011/07/12 12:39:06 tews Exp $
+ * $Id: input.ml,v 1.13 2011/07/13 13:38:32 tews Exp $
  *)
 
 
@@ -174,7 +174,7 @@
     one, {!Input.current_parser}, holds the function to be called when
     more input becomes available. It must always be set before new
     input is read from the input channel. Typically, there are
-    patially filled buffers and index variables in the closure of
+    partially filled buffers and index variables in the closure of
     [current_parser]. 
 
     The remaining two state variables are {!Input.command_buffer} and

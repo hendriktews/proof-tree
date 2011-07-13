@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.16 2011/07/10 13:37:56 tews Exp $
+ * $Id: proof_window.ml,v 1.17 2011/07/13 13:38:32 tews Exp $
  *)
 
 
@@ -462,8 +462,26 @@ object (self)
    *
    ***************************************************************************)
 
+  val mutable last_button_press_top_x = 0
+  val mutable last_button_press_top_y = 0
+  val mutable last_button_press_v_adjustment_value = 0.0
+  val mutable last_button_press_h_adjustment_value = 0.0
+
+  method private remember_for_dragging =
+    let (x, y) = Gdk.Window.get_pointer_location top_window#misc#window in
+    (* 
+     * Printf.printf "Button press %d x %d\n%!" 
+     *   (fst new_poi_loc) (snd new_poi_loc);
+     *)
+    last_button_press_top_x <- x;
+    last_button_press_top_y <- y;
+    last_button_press_v_adjustment_value <- drawing_v_adjustment#value;
+    last_button_press_h_adjustment_value <- drawing_h_adjustment#value;
+
+
   val mutable old_old_selected_node = None
   val mutable old_selected_node = None
+  val mutable restored_selected_node = false
 
   method set_selected_node node_opt =
     (match selected_node with
@@ -478,10 +496,16 @@ object (self)
 
   method private save_selected_node_state =
     old_old_selected_node <- old_selected_node;
-    old_selected_node <- selected_node
+    old_selected_node <- selected_node;
+    restored_selected_node <- false
 
-  method private restore_selected_node =
-    self#set_selected_node old_old_selected_node
+  method private single_restore_selected_node =
+    self#set_selected_node old_selected_node;
+    restored_selected_node <- true
+
+  method private double_restore_selected_node =
+    self#set_selected_node old_old_selected_node;
+    restored_selected_node <- true
 
   method private locate_button_node x y node_click_fun outside_click_fun =
     let node_opt = match root with 
@@ -502,10 +526,11 @@ object (self)
     self#invalidate_drawing_area
 
   method private button_1_press x y shifted double =
+    self#remember_for_dragging;
     if (not double) && (not shifted)
     then self#save_selected_node_state;
     if double && (not shifted)
-    then self#restore_selected_node;
+    then self#double_restore_selected_node;
     if double || shifted 
     then self#locate_button_node x y self#external_node_window (fun () -> ())
     else 
@@ -551,6 +576,44 @@ object (self)
       | 1 -> self#button_1_press x y shifted double
       | _ -> ());
     true
+
+
+  (***************************************************************************
+   *
+   * Pointer motion events
+   *
+   ***************************************************************************)
+
+  method pointer_motion (ev : GdkEvent.Motion.t) =
+    let (x, y) = Gdk.Window.get_pointer_location top_window#misc#window in
+    let new_h_value = 
+      last_button_press_h_adjustment_value +.
+    	!current_config.button_1_drag_acceleration *.
+	   (float_of_int (last_button_press_top_x - x))
+    in
+    let new_v_value = 
+      last_button_press_v_adjustment_value +.
+    	!current_config.button_1_drag_acceleration *. 
+	   (float_of_int (last_button_press_top_y - y))
+    in
+    (* 
+     * let hint = GdkEvent.Motion.is_hint ev in
+     * Printf.printf "PM %d %d%s\n%!" new_x new_y (if hint then " H" else "");
+     *)
+    if not restored_selected_node 
+    then self#single_restore_selected_node;
+    drawing_h_adjustment#set_value 
+      (min new_h_value 
+    	 (drawing_h_adjustment#upper -. drawing_h_adjustment#page_size));
+    drawing_v_adjustment#set_value 
+      (min new_v_value
+    	 (drawing_v_adjustment#upper -. drawing_v_adjustment#page_size));
+    (* 
+     * last_button_1_x <- x;
+     * last_button_1_y <- y;
+     *)
+    true
+
 
   (***************************************************************************
    *
@@ -704,9 +767,18 @@ let rec make_proof_window name geometry_string =
   ignore(drawing_area#event#connect#expose 
 	   ~callback:proof_window#expose_callback);
   (* ignore(drawing_area#misc#connect#size_allocate ~callback:resize); *)
-  ignore(drawing_area#event#add [`BUTTON_PRESS]);
+
+  (* events to receive: 
+   *  - all button presses, 
+   *  - pointer motion when button 1 is pressed
+   *  - reduced number of pointer motion events
+   *)
+  ignore(drawing_area#event#add 
+	   [`BUTTON_PRESS; `BUTTON1_MOTION; `POINTER_MOTION_HINT]);
   ignore(drawing_area#event#connect#button_press 
 	   ~callback:proof_window#button_press);
+  ignore(drawing_area#event#connect#motion_notify
+	   ~callback:proof_window#pointer_motion);
 
   ignore(sequent_v_adjustment#connect#changed 
 	   ~callback:proof_window#sequent_area_changed);
