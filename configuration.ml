@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.9 2011/07/13 13:38:32 tews Exp $
+ * $Id: configuration.ml,v 1.10 2011/07/18 12:15:33 tews Exp $
  *)
 
 
@@ -64,7 +64,7 @@ let update_sizes config radius =
   }
 
 let default_configuration = 
-  let radius = 15 in
+  let radius = 12 in
   let c = {
     turnstile_radius = radius;
     turnstile_line_width = 2;

@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.17 2011/07/13 13:38:32 tews Exp $
+ * $Id: proof_window.ml,v 1.18 2011/07/18 12:15:34 tews Exp $
  *)
 
 
@@ -584,17 +584,17 @@ object (self)
    *
    ***************************************************************************)
 
-  method pointer_motion (ev : GdkEvent.Motion.t) =
+  method pointer_motion (_ : GdkEvent.Motion.t) =
     let (x, y) = Gdk.Window.get_pointer_location top_window#misc#window in
     let new_h_value = 
       last_button_press_h_adjustment_value +.
     	!current_config.button_1_drag_acceleration *.
-	   (float_of_int (last_button_press_top_x - x))
+	   (float_of_int (x - last_button_press_top_x))
     in
     let new_v_value = 
       last_button_press_v_adjustment_value +.
     	!current_config.button_1_drag_acceleration *. 
-	   (float_of_int (last_button_press_top_y - y))
+	   (float_of_int (y - last_button_press_top_y))
     in
     (* 
      * let hint = GdkEvent.Motion.is_hint ev in

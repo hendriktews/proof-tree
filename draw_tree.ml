@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.16 2011/05/30 13:37:37 tews Exp $
+ * $Id: draw_tree.ml,v 1.17 2011/07/18 12:15:33 tews Exp $
  *)
 
 
@@ -536,6 +536,10 @@ object (self)
 
   method private draw left top =
     let (x, y) = self#get_koordinates left top in
+    (* 
+     * Printf.printf "DRAW TURN %s l %d t %d x %d y %d\n%!" 
+     *   debug_name left top x y;
+     *)
     self#draw_turnstile x y
 
   method line_offset slope =
@@ -552,8 +556,11 @@ object (self)
     height <- 
       2 * !current_config.turnstile_radius +
       2 * !current_config.turnstile_line_width;
+    (* 
+     * Printf.printf "INIT %s width %d height %d\n%!"
+     *   self#debug_name width height;
+     *)
     self#update_subtree_size;
-    (* Printf.eprintf "INIT TURN %s done\n%!" self#debug_name; *)
     ()
 
 end
@@ -600,6 +607,10 @@ object (self)
 
   method private draw left top = 
     let (x, y) = self#get_koordinates left top in
+    (* 
+     * Printf.printf "DRAW TURN %s l %d t %d x %d y %d\n%!" 
+     *   debug_name left top x y;
+     *)
     drawable#put_layout ~x:(x - layout_width/2) ~y:(y - layout_height/2) layout;
     if selected 
     then
@@ -632,7 +643,7 @@ object (self)
     width <- w + !current_config.subtree_sep;
     height <- h;
     (* 
-     * Printf.eprintf "INIT %s w %d width %d height %d\n%!"
+     * Printf.printf "INIT %s w %d width %d height %d\n%!"
      *   self#debug_name w width height;
      *)
     self#update_subtree_size;
