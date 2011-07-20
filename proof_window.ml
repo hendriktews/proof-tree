@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.18 2011/07/18 12:15:34 tews Exp $
+ * $Id: proof_window.ml,v 1.19 2011/07/20 19:37:23 tews Exp $
  *)
 
 
@@ -367,7 +367,7 @@ object (self)
       | None -> ()
       | Some root ->
 	(* Printf.eprintf "REDRAW\n%!"; *)
-	ignore(root#draw_subtree top_left top_top)
+	ignore(root#draw_tree_root top_left top_top)
 
   method invalidate_drawing_area =
     (* Printf.eprintf "INVALIDATE\n%!"; *)
@@ -511,7 +511,7 @@ object (self)
     let node_opt = match root with 
       | None -> None
       | Some root ->
-	root#mouse_button_tree top_left top_top x y
+	root#mouse_button_tree_root top_left top_top x y
     in
     match node_opt with
       | None -> outside_click_fun ()

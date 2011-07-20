@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.17 2011/07/18 12:15:33 tews Exp $
+ * $Id: draw_tree.ml,v 1.18 2011/07/20 19:37:23 tews Exp $
  *)
 
 
@@ -146,12 +146,38 @@ object (self)
 
   val drawable = drawable
 
+  (** The width of this node alone in pixels. Set in the initializer
+      of the heirs. *)
   val mutable width = 0
+
+  (** The height of this node alone in pixels. Set in the initializer
+      of the heirs. *)
   val mutable height = 0
+
+  (** The total width in pixels of the subtree which has this node as
+      root. Computed in
+      {!Draw_tree.proof_tree_element.update_subtree_size}. *)
   val mutable subtree_width = 0
+
+  (** The x-offset of the left border of the first child. Or, in other
+      words, the distance (in pixels) between the left border of the
+      subtree which has this node as root and the the left border of
+      the subtree which has the first child as root. Always
+      non-negative. Zero if this node has no children. Usually zero,
+      non-zero only in unusual cases, for instance if the {!width} of
+      this node is larger than the total width of all children
+  *)
   val mutable first_child_offset = 0
+
+  (** The x-offset of the centre of this node. In other words the
+      distance (in pixels) between the left border of this node's
+      subtree and the x-coordinate of this node.
+  *)
   val mutable x_offset = 0
+
+  (** The height of this nodes subtree. *)
   val mutable subtree_levels = 0
+
   val mutable branch_state = Unproven
   val mutable selected = false
   val mutable external_windows : external_node_window list = []
@@ -170,26 +196,36 @@ object (self)
   method virtual id : string
 
 
-  method private iter_children : 
+  (** General iterator for all children. [iter_children left y a f]
+      successively computes the [left] and [y] value of each child and
+      calls [f left y c a] for each child [c] (starting with the
+      leftmost child) until [f] returns [false]. The [a] value is an
+      accumulator. The returned [a] is passed to the invocation of [f]
+      for the next child. The last returned [a] is the result of the
+      total call of this function.
+  *)
+  method private iter_children :
     'a . int -> int -> 'a -> 
       (int -> int -> 'a -> proof_tree_element -> ('a * bool)) -> 'a =
-    fun left top a f ->
-    let left = left + first_child_offset in
-    let top = top + !current_config.level_distance in
-    let rec doit left a = function
-      | [] -> a
-      | c::cs -> 
-	let (na, cont) = f left top a c in
-	if cont
-	then doit (left + c#subtree_width) na cs
-	else na
-    in
-    doit left a children
+    fun left y a f ->
+      let left = left + first_child_offset in
+      let y = y + !current_config.level_distance in
+      let rec doit left a = function
+	| [] -> a
+	| c::cs -> 
+	  let (na, cont) = f left y a c in
+	  if cont
+	  then doit (left + c#subtree_width) na cs
+	  else na
+      in
+      doit left a children
 
-  method private iter_all_children_unit left top 
+  (** Unit iterator for all children. Calls [f left y c] for each
+      child [c]. *)
+  method private iter_all_children_unit left y
     (f : int -> int -> proof_tree_element -> unit) =
-    self#iter_children left top ()
-      (fun left top () c -> f left top c; ((), true))
+    self#iter_children left y ()
+      (fun left y () c -> f left y c; ((), true))
 
   method register_external_window win =
     external_windows <- win :: external_windows
@@ -297,52 +333,73 @@ object (self)
     self#update_sizes_in_branch
     (* prerr_endline "END CHILD CHANGED" *)
 
+  (** Computes the left offset of [child] relative to the bounding box
+      of its parent, which must be this node. *)
   method child_offset child =
-    self#iter_children 0 0 0 (fun left _top _a oc -> (left, child <> oc))
+    self#iter_children 0 0 0 (fun left _y _a oc -> (left, child <> oc))
 
-  method left_top_offsets =
+
+  (** Computes the pair of the left offset and the offset of the
+      y-coordinate of this node relative to the root node of the proof
+      tree. *)
+  method left_y_offsets =
     match parent with
-      | None -> (0, 0)
+      | None -> (0, height / 2)
       | Some p ->
-	let (parent_left, parent_top) = p#left_top_offsets in
-	let top_off = parent_top + !current_config.level_distance in
+	let (parent_left, parent_y) = p#left_y_offsets in
+	let y_off = parent_y + !current_config.level_distance in
 	let left_off = 
 	  parent_left + p#child_offset (self :> proof_tree_element) 
 	in
-	(left_off, top_off)
+	(left_off, y_off)
 
+
+  (** Computes the offsets of this nodes x- and y-coordinates relative
+      to the root node of the proof tree. *)
   method x_y_offsets =
-    let (left, top) = self#left_top_offsets in
-    (left + x_offset, top + height / 2)
+    let (left, y) = self#left_y_offsets in
+    (left + x_offset, y)
 
-  method get_koordinates left top = (left + x_offset, top + height / 2)
 
-  (* draw left top => unit *)
+  (** Computes the x-coordinate of this node. Argument [left] must be
+      the x-coordinate of the left side of the bounding box of this
+      node's subtree.
+  *)
+  method get_x_coordinate left = left + x_offset
+
+  (* draw left y => unit *)
   method private virtual draw : int -> int -> unit
 
   (* line_offset inverse_slope => (x_off, y_off) *)
   method virtual line_offset : float -> (int * int)
 
-  method private draw_lines left top =
-    let (x, y) = self#get_koordinates left top in
-    self#iter_all_children_unit left top
-      (fun left top child ->
-       let (cx, cy) = child#get_koordinates left top in
-       let slope = float_of_int(cx - x) /. float_of_int(cy - y) in
-       let (d_x, d_y) = self#line_offset slope in
-       let (c_d_x, c_d_y) = child#line_offset slope in
-       let child_state = child#branch_state in
-       let line_state = match (branch_state, child_state) with
-	 | (Unproven, Current)
-	 | (Unproven, CurrentNode)
-	 | (Proven, Unproven)
-	 | (Proven, Current) 
-	 | (Proven, CurrentNode) 
-	 | (Cheated, Unproven)
-	 | (Cheated, CurrentNode)
-	 | (Cheated, Current)
-	 | (Cheated, Proven)
-	   -> 
+
+  (** Draw the lines from this node to all its children. 
+
+      @param left x-coordinate of the left side of the bounding box of
+                  this node's subtree
+      @param y y-coordinate of this node
+  *)
+  method private draw_lines left y =
+    let x = self#get_x_coordinate left in
+    self#iter_all_children_unit left y
+      (fun left cy child ->
+	let cx = child#get_x_coordinate left in
+	let slope = float_of_int(cx - x) /. float_of_int(cy - y) in
+	let (d_x, d_y) = self#line_offset slope in
+	let (c_d_x, c_d_y) = child#line_offset slope in
+	let child_state = child#branch_state in
+	let line_state = match (branch_state, child_state) with
+	  | (Unproven, Current)
+	  | (Unproven, CurrentNode)
+	  | (Proven, Unproven)
+	  | (Proven, Current) 
+	  | (Proven, CurrentNode) 
+	  | (Cheated, Unproven)
+	  | (Cheated, CurrentNode)
+	  | (Cheated, Current)
+	  | (Cheated, Proven)
+	    -> 
 	   (* 
             * Printf.eprintf "draw line error %s -> %s branch %s child %s\n%!"
 	    *   self#debug_name child#debug_name
@@ -366,7 +423,16 @@ object (self)
 	 ~x:(cx - c_d_x) ~y:(cy - c_d_y);
        restore_gc drawable gc_opt)
 
-  method draw_subtree left top =
+
+  (** Draw this node's subtree given the left side of the bounding box
+      and the y-coordinate of this node. This is the internal draw method 
+      that iterates through the tree.
+
+      @param left x-coordinate of the left side of the bounding box of
+                  this node's subtree
+      @param y y-coordinate of this node
+  *)
+  method draw_subtree left y =
     (* 
      * Printf.eprintf "DST %s parent %s childs %s width %d tree_width %d\n%!"
      *   debug_name
@@ -378,29 +444,72 @@ object (self)
      *   subtree_width;
      *)
     let gc_opt = safe_and_set_gc drawable branch_state in
-    self#draw left top;
+    self#draw left y;
     restore_gc drawable gc_opt;
+    self#draw_lines left y;
+    self#iter_all_children_unit left y
+      (fun left y child -> child#draw_subtree left y)
 
-    self#draw_lines left top;
-    self#iter_all_children_unit left top 
-      (fun left top child -> child#draw_subtree left top)
 
-  method mouse_button_tree left top bx by =
+  (** Draw this node's subtree given the left and top side of the
+      bounding box. This is the external draw method that is called 
+      from the outside for the root of the tree.
+
+      @param left x-coordinate of the left side of the bounding box of
+                  this node's subtree
+      @param top y-coordinate of the top side of the bounding box of this 
+                 node's subtree
+  *)
+  method draw_tree_root left top =
+    self#draw_subtree left (top + height / 2)
+
+
+  (** Iterate over the proof tree to determine the node that contains
+      the point [(bx, by)]. Returns [None] if there is no node that
+      contains this point. (If [bx] and [by] are the coordinates of a
+      mouse click, then this method returns the node that was
+      clicked.)
+
+      @param left x-coordinate of the left side of the bounding box of
+                  this node's subtree
+      @param y y-coordinate of this node
+      @param bx x-coordinate of point
+      @param by y-coordinate of point
+  *)
+  method mouse_button_tree left y bx by =
+    let top = y - height / 2 in
     if bx >= left && bx <= left + subtree_width &&
       by >= top && by <= top + self#subtree_height
     then
-      let (x,y) = self#get_koordinates left top in
+      let x = self#get_x_coordinate left in
       if bx >= x - width/2 && bx <= x + width/2 &&
 	by >= y - height/2 && by <= y + height/2
       then
 	Some (self :> proof_tree_element)
       else
-	self#iter_children left top None
-	  (fun left top _a child ->
-	    let cres = child#mouse_button_tree left top bx by in
+	self#iter_children left y None
+	  (fun left y _a child ->
+	    let cres = child#mouse_button_tree left y bx by in
 	    (cres, cres = None))
     else
       None
+
+
+  (** Iterate over the proof tree to determine the node that contains
+      the point [(bx, by)]. Returns [None] if there is no node that
+      contains this point. This is the external version that is called
+      from the outside to determine nodes for mouse clicks.
+
+      @param left x-coordinate of the left side of the bounding box of
+                 this node's subtree
+      @param top y-coordinate of the top side of the bounding box of 
+                 this node's subtree
+      @param bx x-coordinate of point
+      @param by y-coordinate of point
+  *)
+  method mouse_button_tree_root left top bx by =
+    self#mouse_button_tree left (top + height/2) bx by
+
 
   method mark_branch (f : proof_tree_element -> bool) =
     if f (self :> proof_tree_element) then
@@ -534,8 +643,15 @@ object (self)
 	  layout
     )
 
-  method private draw left top =
-    let (x, y) = self#get_koordinates left top in
+
+  (** Draw this turnstile node.
+
+      @param left x-coordinate of the left side of the bounding box of
+                  this node's subtree
+      @param y y-coordinate of this node
+  *)
+  method private draw left y =
+    let x = self#get_x_coordinate left in
     (* 
      * Printf.printf "DRAW TURN %s l %d t %d x %d y %d\n%!" 
      *   debug_name left top x y;
@@ -564,6 +680,7 @@ object (self)
     ()
 
 end
+
 
 (** {1 Proof commands } *)
 
@@ -605,8 +722,15 @@ object (self)
     parent#delete_external_window win;
     self#adjust_external_label
 
-  method private draw left top = 
-    let (x, y) = self#get_koordinates left top in
+
+  (** Draw this command node.
+
+      @param left x-coordinate of the left side of the bounding box of
+                  this node's subtree
+      @param y y-coordinate of this node
+  *)
+  method private draw left y = 
+    let x = self#get_x_coordinate left in
     (* 
      * Printf.printf "DRAW TURN %s l %d t %d x %d y %d\n%!" 
      *   debug_name left top x y;
