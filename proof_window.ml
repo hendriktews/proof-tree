@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.19 2011/07/20 19:37:23 tews Exp $
+ * $Id: proof_window.ml,v 1.20 2011/07/21 20:21:43 tews Exp $
  *)
 
 
@@ -30,13 +30,14 @@ open Configuration
 open Gtk_ext
 open Draw_tree
 open Node_window
+open About_window
 
 let delete_proof_tree_callback = ref (fun (_ : string) -> ())
 
 class proof_window top_window 
   drawing_h_adjustment drawing_v_adjustment (drawing_area : GMisc.drawing_area)
   drawable_arg labeled_sequent_frame sequent_window sequent_v_adjustment
-  message_label proof_name
+  message_label menu proof_name
   =
 object (self)
 
@@ -54,6 +55,7 @@ object (self)
   val sequent_window = sequent_window
   val sequent_v_adjustment = sequent_v_adjustment
   val message_label : GMisc.label = message_label
+  val menu = menu
   val proof_name = proof_name
 
   val mutable top_left = 0
@@ -574,6 +576,7 @@ object (self)
      *)
     (match button with
       | 1 -> self#button_1_press x y shifted double
+      | 3 -> menu#popup ~button ~time:(GdkEvent.Button.time ev)
       | _ -> ());
     true
 
@@ -726,15 +729,18 @@ let rec make_proof_window name geometry_string =
       ~packing:(button_h_box#pack ~expand:true ~fill:true) ()
   in
   message_label#set_use_markup true;
-  let clone_button = 
-    GButton.button ~label:"Clone" ~packing:(button_h_box#pack) ()
+  let menu_button = 
+    GButton.button ~label:"Menu" ~packing:(button_h_box#pack) ()
   in
+
+  let menu = GMenu.menu () in
+  let menu_factory = new GMenu.factory menu in
 
   let proof_window = 
     new proof_window top_window 
       drawing_h_adjustment drawing_v_adjustment drawing_area
       drawable labeled_sequent_frame sequent_window sequent_v_adjustment
-      message_label name
+      message_label menu name
   in
   let clone_fun () =
     let owin = make_proof_window name geometry_string in
@@ -785,8 +791,13 @@ let rec make_proof_window name geometry_string =
 
   ignore(dismiss_button#connect#clicked 
 	   ~callback:proof_window#user_delete_proof_window);
-  ignore(clone_button#connect#clicked 
-	   ~callback:clone_fun);
+  ignore(menu_button#connect#clicked 
+	   ~callback:(fun () -> 
+	     menu#popup ~button:0 
+	       ~time:(GtkMain.Main.get_current_event_time ())));
+
+  ignore(menu_factory#add_item "Clone" ~callback:clone_fun);
+  ignore(menu_factory#add_item "About" ~callback:show_about_window);
 
   top_window#show ();
   if geometry_string <> "" then
