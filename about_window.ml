@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: about_window.ml,v 1.1 2011/07/21 20:21:43 tews Exp $
+ * $Id: about_window.ml,v 1.2 2011/07/23 11:51:30 tews Exp $
  *)
 
 
@@ -37,9 +37,8 @@ let delete_about () =
 
 
 let about_button = function
-  | `CLOSE -> Printf.printf "close\n%!"
   | `CANCEL -> delete_about ()
-  | `DELETE_EVENT -> Printf.printf "delete\n%!"
+  | _ -> ()
 
 
 let about_comment =
@@ -52,7 +51,6 @@ let show_about_window () =
   match !about_window with
     | Some about -> about#present ()
     | None ->
-      Printf.printf "new about window\n%!";
       let about = 
 	GWindow.about_dialog 
 	  ~name:"Prooftree"
