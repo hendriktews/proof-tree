@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.13 2011/07/13 13:38:32 tews Exp $
+ * $Id: input.ml,v 1.14 2011/07/28 12:53:07 tews Exp $
  *)
 
 
@@ -192,7 +192,7 @@
 *****************************************************************************)
 
 
-
+open Configuration
 open Util
 open Gtk_ext
 
@@ -787,7 +787,7 @@ let parse_input_callback_ex clist =
       if !error_counter > 20 then exit 2;
       let backtrace = Printexc.get_backtrace() in
       let buf = Buffer.create 4095 in
-      let print_backtrace = ref !Configuration.debug in
+      let print_backtrace = ref !current_config.debug_mode in
       let prev_exception = ref None in
       (match e with
 	| Protocol_error(err, prev_e) ->
@@ -838,11 +838,9 @@ let setup_input () =
   U.set_nonblock U.stdin;
   read_command_line_parser := read_command_line;
   current_parser := read_command_line;
-  (match !Configuration.tee_input_file with
-    | None -> ()
-    | Some f ->
-      input_backup_oc := Some(open_out f)
-  );
+  if !current_config.copy_input 
+  then input_backup_oc := Some(open_out !current_config.copy_input_file)
+  else input_backup_oc := None;
   ignore(GMain.Io.add_watch 
 	   ~cond:[ `IN ]
 	   ~callback:parse_input_callback_ex

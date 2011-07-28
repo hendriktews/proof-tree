@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.18 2011/07/20 19:37:23 tews Exp $
+ * $Id: draw_tree.ml,v 1.19 2011/07/28 12:53:07 tews Exp $
  *)
 
 
@@ -638,7 +638,7 @@ object (self)
 	Pango.Layout.set_text layout win#window_number;
 	let (w, h) = Pango.Layout.get_pixel_size layout in
 	drawable#put_layout 
-	  ~x:(x + !current_config.turnstyle_number_x_offset - w)
+	  ~x:(x + !current_config.turnstile_number_x_offset - w)
 	  ~y:(y - h / 2)
 	  layout
     )

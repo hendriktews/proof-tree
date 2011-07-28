@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: main.ml,v 1.9 2011/07/12 12:39:06 tews Exp $
+ * $Id: main.ml,v 1.10 2011/07/28 12:53:07 tews Exp $
  *)
 
 
@@ -36,15 +36,25 @@
 (**/**)
 module U = Unix
 (**/**)
+open Configuration
 open Input
 
 (** Argument list for [Arg.parse] *)
 let arguments = Arg.align [
   ("-geometry", Arg.Set_string Configuration.geometry_string,
    " X geometry");
-  ("-tee", Arg.String (fun s -> Configuration.tee_input_file := Some s),
+  ("-tee", 
+   Arg.String (fun s -> 
+     current_config := 
+       {!current_config with 
+	 copy_input = true;
+	 copy_input_file = s}
+   ),
    "file save input in file");
-  ("-debug", Arg.Set Configuration.debug,
+  ("-debug", 
+   Arg.Unit (fun () ->
+     current_config := {!current_config with debug_mode = true}
+   ),
    " print more details on errors");
 ]
 

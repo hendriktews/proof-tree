@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.21 2011/07/23 11:51:30 tews Exp $
+ * $Id: proof_window.ml,v 1.22 2011/07/28 12:53:07 tews Exp $
  *)
 
 
@@ -798,6 +798,7 @@ let rec make_proof_window name geometry_string =
 	       ~time:(GtkMain.Main.get_current_event_time ())));
 
   ignore(menu_factory#add_item "Clone" ~callback:clone_fun);
+  ignore(menu_factory#add_item "Configuration" ~callback:show_config_window);
   ignore(menu_factory#add_item "Help" ~callback:show_help_window);
   ignore(menu_factory#add_item "About" ~callback:show_about_window);
   ignore(menu_factory#add_item "Exit" ~callback:(fun _ -> exit 0));
