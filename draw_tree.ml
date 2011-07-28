@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.19 2011/07/28 12:53:07 tews Exp $
+ * $Id: draw_tree.ml,v 1.20 2011/07/28 19:45:37 tews Exp $
  *)
 
 
@@ -684,6 +684,16 @@ end
 
 (** {1 Proof commands } *)
 
+(** Create a new layout with fonts from the current configuration.
+    This function exists, because (I)
+    Pango.Layout.set_font_description is missing in Debian Squeeze and
+    (II) one cannot call a method in the initializer of the instance
+    variable layout.
+*)
+let make_layout context =
+  context#set_font_description !proof_tree_font_desc;
+  context#create_layout
+
 class proof_command (drawable_arg : better_drawable) command debug_name =
 object (self)
   inherit proof_tree_element drawable_arg debug_name as parent
@@ -695,7 +705,12 @@ object (self)
 	    (!current_config.proof_command_length - 1))
       ^ "\226\128\166" 			(* append horizontal ellipsis *)
   val command = command
-  val layout = drawable_arg#pango_context#create_layout
+
+  (* XXX Pango.Layout.set_font_description is missing in debian
+   * squeeze. Have to use Pango.Context.set_font_description and
+   * create new layout objects on every font change.
+   *)
+  val mutable layout = make_layout drawable_arg#pango_context
   val mutable layout_width = 0
   val mutable layout_height = 0
 
@@ -703,7 +718,9 @@ object (self)
   method content = command
   method id = ""
 
-  method private adjust_external_label =
+  method private make_layout = make_layout drawable_arg#pango_context 
+
+  method private render_proof_command =
     let layout_text = 
       match external_windows with
 	| [] -> displayed_command
@@ -716,17 +733,16 @@ object (self)
 
   method register_external_window win =
     parent#register_external_window win;
-    self#adjust_external_label
+    self#render_proof_command
 
   method delete_external_window win =
     parent#delete_external_window win;
-    self#adjust_external_label
-
+    self#render_proof_command
 
   (** Draw this command node.
 
       @param left x-coordinate of the left side of the bounding box of
-                  this node's subtree
+      this node's subtree
       @param y y-coordinate of this node
   *)
   method private draw left y = 
@@ -760,12 +776,9 @@ object (self)
        int_of_float(float_of_int(width/2 + line_sep) /. slope +. 0.5) * sign)
 
   initializer
-    Pango.Layout.set_text layout displayed_command;
-    let (w,h) = Pango.Layout.get_pixel_size layout in
-    layout_width <- w;
-    layout_height <- h;
-    width <- w + !current_config.subtree_sep;
-    height <- h;
+    self#render_proof_command;
+    width <- layout_width + !current_config.subtree_sep;
+    height <- layout_height;
     (* 
      * Printf.printf "INIT %s w %d width %d height %d\n%!"
      *   self#debug_name w width height;

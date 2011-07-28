@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.22 2011/07/28 12:53:07 tews Exp $
+ * $Id: proof_window.ml,v 1.23 2011/07/28 19:45:37 tews Exp $
  *)
 
 
@@ -750,6 +750,7 @@ let rec make_proof_window name geometry_string =
   top_window#set_title (name ^ " proof tree");
   drawable#set_line_attributes 
     ~width:(!current_config.turnstile_line_width) ();
+  sequent_window#misc#modify_font !sequent_font_desc;
   ignore(drawing_scrolling#misc#connect#size_allocate
 	   ~callback:proof_window#draw_scroll_size_allocate_callback);
   (* 

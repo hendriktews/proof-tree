@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: node_window.ml,v 1.4 2011/07/06 20:58:54 tews Exp $
+ * $Id: node_window.ml,v 1.5 2011/07/28 19:45:37 tews Exp $
  *)
 
 
@@ -93,6 +93,7 @@ let make_node_window proof_window proof_name node window_number =
     GText.view ~editable:false ~cursor_visible:false
       ~packing:scrolling#add ()
   in
+  text_win#misc#modify_font !sequent_font_desc;
   let context = text_win#misc#pango_context in
   let metrics = context#get_metrics() in
   let char_width = GPango.to_pixels(metrics#approx_char_width) in

@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.11 2011/07/28 12:53:07 tews Exp $
+ * $Id: configuration.ml,v 1.12 2011/07/28 19:45:37 tews Exp $
  *)
 
 
@@ -126,6 +126,19 @@ let default_configuration =
 let current_config = ref default_configuration
 
 
+let proof_tree_font_desc = 
+  ref(GPango.font_description default_configuration.proof_tree_font)
+
+let sequent_font_desc = 
+  ref(GPango.font_description default_configuration.sequent_font)
+
+let update_font_desc () =
+  proof_tree_font_desc :=
+    GPango.font_description !current_config.proof_tree_font;
+  sequent_font_desc :=
+    GPango.font_description !current_config.sequent_font
+
+
 let geometry_string = ref ""
 
 
@@ -151,6 +164,7 @@ object (self)
 
   method reset_to_default () =
     current_config := default_configuration;
+    update_font_desc ();
     line_width_adjustment#set_value
       (float_of_int !current_config.turnstile_line_width);
     turnstile_size_adjustment#set_value
