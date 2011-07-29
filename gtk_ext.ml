@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: gtk_ext.ml,v 1.7 2011/07/06 20:58:54 tews Exp $
+ * $Id: gtk_ext.ml,v 1.8 2011/07/29 12:33:30 tews Exp $
  *)
 
 
@@ -49,5 +49,13 @@ let error_message_dialog message =
   err#show()
 
 
+let round_color_2_digits co =
+  min ((co + 128) / 256) 0xff
+
 let pango_markup_bold_color s color =
-  "<span weight=\"bold\" color=\"" ^ color ^ "\">" ^ s ^ "</span>"
+  Printf.sprintf
+    "<span weight=\"bold\" color=\"#%02X%02X%02X\">%s</span>"
+    (round_color_2_digits (Gdk.Color.red color))
+    (round_color_2_digits (Gdk.Color.green color))
+    (round_color_2_digits (Gdk.Color.blue color))
+    s

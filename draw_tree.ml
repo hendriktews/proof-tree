@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.20 2011/07/28 19:45:37 tews Exp $
+ * $Id: draw_tree.ml,v 1.21 2011/07/29 12:33:30 tews Exp $
  *)
 
 
@@ -56,15 +56,15 @@ let safe_and_set_gc drawable state =
     | CurrentNode
     | Current ->
       let res = Some drawable#get_foreground in
-      drawable#set_foreground (`NAME("brown"));
+      drawable#set_foreground (`COLOR !current_config.current_color);
       res
     | Proven -> 
       let res = Some drawable#get_foreground in
-      drawable#set_foreground (`NAME("blue"));
+      drawable#set_foreground (`COLOR !current_config.proved_color);
       res
     | Cheated -> 
       let res = Some drawable#get_foreground in
-      drawable#set_foreground (`NAME("red"));
+      drawable#set_foreground (`COLOR !current_config.cheated_color);
       res
 
 let restore_gc drawable fc_opt = match fc_opt with
