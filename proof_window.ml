@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.23 2011/07/28 19:45:37 tews Exp $
+ * $Id: proof_window.ml,v 1.24 2011/07/29 13:24:08 tews Exp $
  *)
 
 
@@ -682,7 +682,9 @@ end
 
 let rec make_proof_window name geometry_string =
   let top_window = GWindow.window () in
-  top_window#set_default_size ~width:400 ~height:400;
+  top_window#set_default_size 
+    ~width:!current_config.default_width_proof_tree_window
+    ~height:!current_config.default_height_proof_tree_window;
       (* top_v_box for the pane and the button hbox *)
   let top_v_box = GPack.vbox ~packing:top_window#add () in
       (* top_paned for the drawing area and the sequent *)
