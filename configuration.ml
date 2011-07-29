@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.12 2011/07/28 19:45:37 tews Exp $
+ * $Id: configuration.ml,v 1.13 2011/07/29 13:21:40 tews Exp $
  *)
 
 
@@ -149,16 +149,35 @@ let geometry_string = ref ""
 let config_window = ref None
 
 class config_window (top_window : GWindow.window)
-  line_width_adjustment turnstile_size_adjustment subtree_sep_adjustment
-  line_sep_adjustment command_length_adjustment level_dist_adjustment
-  tree_font_button sequent_font_button
-  proved_color_button current_color_button cheated_color_button
-  drag_accel_adjustment tooltip_check_box
-  default_size_width_adjustment default_size_height_adjustment
-  debug_check_box tee_file_box_check_box 
+  line_width_label line_width_spinner
+  turnstile_size_label turnstile_size_spinner
+  line_sep_label line_sep_spinner
+  subtree_sep_label subtree_sep_spinner
+  command_length_label command_length_spinner
+  level_dist_label level_dist_spinner
+  tree_font_label tree_font_button
+  sequent_font_label sequent_font_button
+  proved_color_label proved_color_button
+  current_color_label current_color_button
+  cheated_color_label cheated_color_button
+  drag_accel_label drag_accel_spinner
+  tooltip_check_box
+  default_size_label default_size_width_spinner default_size_height_spinner
+  debug_alignment debug_check_box
+  tee_file_box_alignment tee_file_box_check_box 
   tee_file_name_label tee_file_name_entry tee_file_name_button
   =
 object (self)
+
+  val line_width_adjustment = line_width_spinner#adjustment
+  val turnstile_size_adjustment = turnstile_size_spinner#adjustment
+  val line_sep_adjustment = line_sep_spinner#adjustment
+  val subtree_sep_adjustment = subtree_sep_spinner#adjustment
+  val command_length_adjustment = command_length_spinner#adjustment
+  val level_dist_adjustment = level_dist_spinner#adjustment
+  val drag_accel_adjustment = drag_accel_spinner#adjustment
+  val default_size_width_adjustment = default_size_width_spinner#adjustment
+  val default_size_height_adjustment = default_size_height_spinner#adjustment
 
   method present = top_window#present()
 
@@ -191,6 +210,39 @@ object (self)
     debug_check_box#set_active !current_config.debug_mode;
     tee_file_box_check_box#set_active !current_config.copy_input;
     tee_file_name_entry#set_text !current_config.copy_input_file;
+    ()
+
+  method toggle_tooltips () =
+    let flag = tooltip_check_box#active in
+    line_width_label#misc#set_has_tooltip flag;
+    line_width_spinner#misc#set_has_tooltip flag;
+    turnstile_size_label#misc#set_has_tooltip flag;
+    turnstile_size_spinner#misc#set_has_tooltip flag;
+    line_sep_label#misc#set_has_tooltip flag;
+    line_sep_spinner#misc#set_has_tooltip flag;
+    subtree_sep_label#misc#set_has_tooltip flag;
+    subtree_sep_spinner#misc#set_has_tooltip flag;
+    command_length_label#misc#set_has_tooltip flag;
+    command_length_spinner#misc#set_has_tooltip flag;
+    level_dist_label#misc#set_has_tooltip flag;
+    level_dist_spinner#misc#set_has_tooltip flag;
+    tree_font_label#misc#set_has_tooltip flag;
+    tree_font_button#misc#set_has_tooltip flag;
+    sequent_font_label#misc#set_has_tooltip flag;
+    sequent_font_button#misc#set_has_tooltip flag;
+    proved_color_label#misc#set_has_tooltip flag;
+    proved_color_button#misc#set_has_tooltip flag;
+    current_color_label#misc#set_has_tooltip flag;
+    current_color_button#misc#set_has_tooltip flag;
+    cheated_color_label#misc#set_has_tooltip flag;
+    cheated_color_button#misc#set_has_tooltip flag;
+    drag_accel_label#misc#set_has_tooltip flag;
+    drag_accel_spinner#misc#set_has_tooltip flag;
+    default_size_label#misc#set_has_tooltip flag;
+    default_size_width_spinner#misc#set_has_tooltip flag;
+    default_size_height_spinner#misc#set_has_tooltip flag;
+    debug_alignment#misc#set_has_tooltip flag;
+    tee_file_box_alignment#misc#set_has_tooltip flag;
     ()
 
   method tee_file_toggle () =
@@ -590,30 +642,30 @@ let make_config_window () =
     ~label:"OK" ~packing:button_box#pack () in
   let config_window = 
     new config_window top_window 
-      line_width_spinner#adjustment
-      turnstile_size_spinner#adjustment 
-      subtree_sep_spinner#adjustment
-      line_sep_spinner#adjustment
-      command_length_spinner#adjustment
-      level_dist_spinner#adjustment
-      tree_font_button
-      sequent_font_button
-      proved_color_button
-      current_color_button
-      cheated_color_button
-      drag_accel_spinner#adjustment
+      line_width_label line_width_spinner
+      turnstile_size_label turnstile_size_spinner
+      line_sep_label line_sep_spinner
+      subtree_sep_label subtree_sep_spinner
+      command_length_label command_length_spinner
+      level_dist_label level_dist_spinner
+      tree_font_label tree_font_button
+      sequent_font_label sequent_font_button
+      proved_color_label proved_color_button
+      current_color_label current_color_button
+      cheated_color_label cheated_color_button
+      drag_accel_label drag_accel_spinner
       tooltip_check_box
-      default_size_width_spinner
-      default_size_height_spinner
-      debug_check_box
-      tee_file_box_check_box
-      tee_file_name_label
-      tee_file_name_entry
-      tee_file_name_button
+      default_size_label default_size_width_spinner default_size_height_spinner
+      debug_alignment debug_check_box
+      tee_file_box_alignment tee_file_box_check_box 
+      tee_file_name_label tee_file_name_entry tee_file_name_button
   in
 
   top_window#set_title "Prooftree Configuration";
+  config_window#toggle_tooltips ();
   config_window#tee_file_toggle();
+  ignore(tooltip_check_box#connect#toggled
+	   ~callback:config_window#toggle_tooltips);
   ignore(tee_file_box_check_box#connect#toggled 
 	   ~callback:config_window#tee_file_toggle);
   ignore(tee_file_name_button#connect#clicked 
