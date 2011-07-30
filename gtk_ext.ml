@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: gtk_ext.ml,v 1.8 2011/07/29 12:33:30 tews Exp $
+ * $Id: gtk_ext.ml,v 1.9 2011/07/30 18:45:50 tews Exp $
  *)
 
 
@@ -59,3 +59,7 @@ let pango_markup_bold_color s color =
     (round_color_2_digits (Gdk.Color.green color))
     (round_color_2_digits (Gdk.Color.blue color))
     s
+
+(* XXX why is this necessary?? *)
+let realloc_color c =
+  GDraw.color (`RGB((Gdk.Color.red c), (Gdk.Color.green c),(Gdk.Color.blue c)))

@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.17 2011/07/29 12:33:30 tews Exp $
+ * $Id: proof_tree.ml,v 1.18 2011/07/30 18:45:50 tews Exp $
  *)
 
 
@@ -70,8 +70,19 @@ let all_proof_trees_for_undo = ref []
     trees these trees do not take part in undo actions. Unlike cloned
     proof trees these proof trees should be reused, when the user
     eventually starts on the proof again.
+
+    (There is another list cloned_proof_windows in proof_window.ml.)
 *)
 let undo_surviver_trees = ref []
+
+
+let configuration_updated () =
+  List.iter (fun pt -> pt.window#configuration_updated) 
+    !all_proof_trees_for_undo;
+  List.iter (fun pt -> pt.window#configuration_updated) 
+    !undo_surviver_trees;
+  List.iter (fun ptw -> ptw#configuration_updated)
+    !cloned_proof_windows
 
 
 let current_proof_tree = ref None

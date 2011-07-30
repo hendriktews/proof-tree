@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: node_window.ml,v 1.5 2011/07/28 19:45:37 tews Exp $
+ * $Id: node_window.ml,v 1.6 2011/07/30 18:45:50 tews Exp $
  *)
 
 
@@ -30,27 +30,10 @@ open Configuration
 open Gtk_ext
 open Draw_tree
 
-class type proof_window_interface =
-object
-  method invalidate_drawing_area : unit
-end
 
-
-class node_window proof_window node top_window text_window 
+class node_window proof_window node (top_window : GWindow.window) text_window 
   sticky_button window_number =
 object (self)
-
-  (***************************************************************************
-   *
-   * Internal state and setters/accessors
-   *
-   ***************************************************************************)
-  val proof_window = proof_window
-  val node = node
-  val top_window = (top_window : GWindow.window)
-  val text_window = text_window
-  val sticky_button = sticky_button
-  val window_number = window_number
 
   method window_number = window_number
 
@@ -75,6 +58,10 @@ object (self)
 	self#delete_node_window_event ev
 
       | _ -> false
+
+  method configuration_updated =
+    text_window#misc#modify_font !sequent_font_desc;
+    GtkBase.Widget.queue_draw top_window#as_widget
 
   initializer 
     node#register_external_window (self :> external_node_window)

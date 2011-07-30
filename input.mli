@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.mli,v 1.7 2011/07/12 12:39:06 tews Exp $
+ * $Id: input.mli,v 1.8 2011/07/30 18:45:50 tews Exp $
  *)
 
 
@@ -68,6 +68,10 @@
 *)
 (*****************************************************************************
  *****************************************************************************)
+
+(** Take the necessary actions when the configuration record changed.
+*)
+val configuration_updated : unit -> unit
 
 
 (** Initialize this module and setup the GTK main loop callback for

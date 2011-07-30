@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: main.ml,v 1.10 2011/07/28 12:53:07 tews Exp $
+ * $Id: main.ml,v 1.11 2011/07/30 18:45:50 tews Exp $
  *)
 
 
@@ -38,6 +38,12 @@ module U = Unix
 (**/**)
 open Configuration
 open Input
+
+let configuration_updated () =
+  Proof_tree.configuration_updated ();
+  Input.configuration_updated ()
+
+let _ = configuration_updated_callback := configuration_updated
 
 (** Argument list for [Arg.parse] *)
 let arguments = Arg.align [

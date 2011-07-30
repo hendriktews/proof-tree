@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.21 2011/07/29 12:33:30 tews Exp $
+ * $Id: draw_tree.ml,v 1.22 2011/07/30 18:45:50 tews Exp $
  *)
 
 
@@ -128,6 +128,7 @@ class type external_node_window =
 object
   method window_number : string
   method update_content : string -> unit
+  method configuration_updated : unit
 end
 
 (*****************************************************************************)
@@ -237,6 +238,11 @@ object (self)
     (subtree_levels - 1) * !current_config.level_distance + 
       2 * !current_config.turnstile_radius +
       2 * !current_config.turnstile_line_width
+
+  (** Sets the {!width} and {!height} fields. Called in the 
+      initializer of the heirs.
+  *)
+  method private virtual set_node_size : unit
 
   method private update_subtree_size =
     let (children_width, max_levels, last_child) = 
@@ -366,6 +372,11 @@ object (self)
       node's subtree.
   *)
   method get_x_coordinate left = left + x_offset
+
+  method configuration_updated =
+    List.iter (fun ex -> ex#configuration_updated) external_windows;
+    self#set_node_size;
+    self#update_subtree_size
 
   (* draw left y => unit *)
   method private virtual draw : int -> int -> unit
@@ -583,7 +594,7 @@ end
 
 class turnstile (drawable : better_drawable) sequent_id sequent_text =
 object (self)
-  inherit proof_tree_element drawable sequent_id
+  inherit proof_tree_element drawable sequent_id as super
 
   val mutable sequent_id = sequent_id
   val mutable sequent_text = (sequent_text : string)
@@ -602,12 +613,16 @@ object (self)
   method private get_layout =
     match layout with
       | None -> 
+	drawable#pango_context#set_font_description !proof_tree_font_desc;
 	let l = drawable#pango_context#create_layout
 	in
 	layout <- Some l;
 	l
       | Some l -> l
-	
+
+  method configuration_updated =
+    layout <- None;
+    super#configuration_updated
 
   method private draw_turnstile x y =
     let radius = !current_config.turnstile_radius in
@@ -664,14 +679,18 @@ object (self)
     let d_x = slope *. d_y in
     (int_of_float(d_x +. 0.5), int_of_float(d_y +. 0.5))
 
-  initializer
+      
+  method private set_node_size =
     width <- 
       2 * !current_config.turnstile_radius +
       2 * !current_config.turnstile_line_width +
       !current_config.subtree_sep;
     height <- 
       2 * !current_config.turnstile_radius +
-      2 * !current_config.turnstile_line_width;
+      2 * !current_config.turnstile_line_width
+
+  initializer
+    self#set_node_size;
     (* 
      * Printf.printf "INIT %s width %d height %d\n%!"
      *   self#debug_name width height;
@@ -680,6 +699,7 @@ object (self)
     ()
 
 end
+
 
 
 (** {1 Proof commands } *)
@@ -696,14 +716,9 @@ let make_layout context =
 
 class proof_command (drawable_arg : better_drawable) command debug_name =
 object (self)
-  inherit proof_tree_element drawable_arg debug_name as parent
+  inherit proof_tree_element drawable_arg debug_name as super
 
-  val displayed_command =
-    if Util.utf8_string_length command <= !current_config.proof_command_length
-    then command
-    else (Util.utf8_string_sub command 
-	    (!current_config.proof_command_length - 1))
-      ^ "\226\128\166" 			(* append horizontal ellipsis *)
+  val mutable displayed_command = ""
   val command = command
 
   (* XXX Pango.Layout.set_font_description is missing in debian
@@ -718,8 +733,6 @@ object (self)
   method content = command
   method id = ""
 
-  method private make_layout = make_layout drawable_arg#pango_context 
-
   method private render_proof_command =
     let layout_text = 
       match external_windows with
@@ -731,12 +744,30 @@ object (self)
     layout_width <- w;
     layout_height <- h
 
+  method private set_displayed_command =
+    displayed_command <-
+      if Util.utf8_string_length command <= !current_config.proof_command_length
+      then command
+      else (Util.utf8_string_sub command 
+	      (!current_config.proof_command_length - 1))
+	^ "\226\128\166" 			(* append horizontal ellipsis *)
+
+  method private set_node_size =
+    self#render_proof_command;
+    width <- layout_width + !current_config.subtree_sep;
+    height <- layout_height
+
+  method configuration_updated =
+    self#set_displayed_command;
+    layout <- make_layout drawable_arg#pango_context;
+    super#configuration_updated
+
   method register_external_window win =
-    parent#register_external_window win;
+    super#register_external_window win;
     self#render_proof_command
 
   method delete_external_window win =
-    parent#delete_external_window win;
+    super#delete_external_window win;
     self#render_proof_command
 
   (** Draw this command node.
@@ -776,9 +807,8 @@ object (self)
        int_of_float(float_of_int(width/2 + line_sep) /. slope +. 0.5) * sign)
 
   initializer
-    self#render_proof_command;
-    width <- layout_width + !current_config.subtree_sep;
-    height <- layout_height;
+    self#set_displayed_command;
+    self#set_node_size;
     (* 
      * Printf.printf "INIT %s w %d width %d height %d\n%!"
      *   self#debug_name w width height;

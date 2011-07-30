@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.mli,v 1.6 2011/05/30 13:37:37 tews Exp $
+ * $Id: proof_tree.mli,v 1.7 2011/07/30 18:45:50 tews Exp $
  *)
 
 
@@ -88,3 +88,9 @@ val quit_proof : string -> unit
     structures. This function cases a redisplay of the current proof tree.
 *)
 val finish_drawing : unit -> unit
+
+
+(** Take the necessary actions when the configuration record changed.
+*)
+val configuration_updated : unit -> unit
+

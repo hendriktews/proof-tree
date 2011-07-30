@@ -19,11 +19,13 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.13 2011/07/29 13:21:40 tews Exp $
+ * $Id: configuration.ml,v 1.14 2011/07/30 18:45:50 tews Exp $
  *)
 
 
 (** Configuration *)
+
+open Gtk_ext
 
 
 (*****************************************************************************
@@ -69,9 +71,9 @@ type t = {
 }
 
 
-let update_sizes config radius =
+let update_sizes config =
+  let radius = config.turnstile_radius in
   { config with 
-      turnstile_radius = radius;
       turnstile_left_bar_x_offset = 
         int_of_float(-0.23 *. (float_of_int radius) +. 0.5);
       turnstile_left_bar_y_offset =
@@ -80,31 +82,29 @@ let update_sizes config radius =
         int_of_float(0.7 *. (float_of_int radius) +. 0.5);
 
       turnstile_number_x_offset = -(config.turnstile_line_width + 1);
-
-      level_distance = 4 * radius
   }
 
 let default_configuration = 
-  let radius = 12 in
+  let radius = 10 in
   let c = {
     turnstile_radius = radius;
     turnstile_line_width = 2;
     proof_command_length = 15;
-    subtree_sep = 10;
+    subtree_sep = 5;
     line_sep = 3;
+    level_distance = 38;
 
     turnstile_left_bar_x_offset = 0;
     turnstile_left_bar_y_offset = 0;
     turnstile_horiz_bar_x_offset = 0;
     turnstile_number_x_offset = 0;
-    level_distance = 0;
 
     node_window_max_lines = 10;
 
     button_1_drag_acceleration = 4.0;
 
-    proof_tree_font = "Sans 10";
-    sequent_font = "Sans 10";
+    proof_tree_font = "Sans 8";
+    sequent_font = "Sans 8";
 
     proved_color = GDraw.color (`NAME "blue");
     current_color = GDraw.color (`NAME "brown");
@@ -120,7 +120,7 @@ let default_configuration =
     copy_input_file = "/tmp/prooftree.log";
   }
   in
-  update_sizes c radius
+  update_sizes c
 
 
 let current_config = ref default_configuration
@@ -145,6 +145,14 @@ let geometry_string = ref ""
 (*****************************************************************************
  *****************************************************************************)
 (** {2 Configuration window} *)
+
+
+(** This function reference solves the recursive module dependency
+    between modules {!Proof_tree}, {!Input} and this module. It is
+    filled with {!Main.configuration_updated} when [Main] is
+    initialized.
+*)
+let configuration_updated_callback = ref (fun () -> ())
 
 let config_window = ref None
 
@@ -182,34 +190,33 @@ object (self)
   method present = top_window#present()
 
   method reset_to_default () =
-    current_config := default_configuration;
-    update_font_desc ();
     line_width_adjustment#set_value
-      (float_of_int !current_config.turnstile_line_width);
+      (float_of_int default_configuration.turnstile_line_width);
     turnstile_size_adjustment#set_value
-      (float_of_int !current_config.turnstile_radius);
+      (float_of_int default_configuration.turnstile_radius);
     subtree_sep_adjustment#set_value
-      (float_of_int !current_config.subtree_sep);
+      (float_of_int default_configuration.subtree_sep);
     line_sep_adjustment#set_value
-      (float_of_int !current_config.line_sep);
+      (float_of_int default_configuration.line_sep);
     command_length_adjustment#set_value
-      (float_of_int !current_config.proof_command_length);
+      (float_of_int default_configuration.proof_command_length);
     level_dist_adjustment#set_value
-      (float_of_int !current_config.level_distance);
-    tree_font_button#set_font_name !current_config.proof_tree_font;
-    sequent_font_button#set_font_name !current_config.sequent_font;
-    proved_color_button#set_color !current_config.proved_color;
-    current_color_button#set_color !current_config.current_color;
-    cheated_color_button#set_color !current_config.cheated_color;
-    drag_accel_adjustment#set_value !current_config.button_1_drag_acceleration;
-    tooltip_check_box#set_active !current_config.display_tooltips;
+      (float_of_int default_configuration.level_distance);
+    tree_font_button#set_font_name default_configuration.proof_tree_font;
+    sequent_font_button#set_font_name default_configuration.sequent_font;
+    proved_color_button#set_color default_configuration.proved_color;
+    current_color_button#set_color default_configuration.current_color;
+    cheated_color_button#set_color default_configuration.cheated_color;
+    drag_accel_adjustment#set_value
+      default_configuration.button_1_drag_acceleration;
+    tooltip_check_box#set_active default_configuration.display_tooltips;
     default_size_width_adjustment#set_value
-      (float_of_int !current_config.default_width_proof_tree_window);
+      (float_of_int default_configuration.default_width_proof_tree_window);
     default_size_height_adjustment#set_value
-      (float_of_int !current_config.default_height_proof_tree_window);
-    debug_check_box#set_active !current_config.debug_mode;
-    tee_file_box_check_box#set_active !current_config.copy_input;
-    tee_file_name_entry#set_text !current_config.copy_input_file;
+      (float_of_int default_configuration.default_height_proof_tree_window);
+    debug_check_box#set_active default_configuration.debug_mode;
+    tee_file_box_check_box#set_active default_configuration.copy_input;
+    tee_file_name_entry#set_text default_configuration.copy_input_file;
     ()
 
   method toggle_tooltips () =
@@ -278,15 +285,61 @@ object (self)
     file_chooser#destroy();
     ()
 
+  method apply () =
+    let round_to_int f = int_of_float(f +. 0.5) in
+    let c = {
+      turnstile_radius = round_to_int turnstile_size_adjustment#value;
+      turnstile_line_width = round_to_int line_width_adjustment#value;
+      proof_command_length = round_to_int command_length_adjustment#value;
+      subtree_sep = round_to_int subtree_sep_adjustment#value;
+      line_sep = round_to_int line_sep_adjustment#value;
+      level_distance = round_to_int level_dist_adjustment#value;
+
+      turnstile_left_bar_x_offset = 0;
+      turnstile_left_bar_y_offset = 0;
+      turnstile_horiz_bar_x_offset = 0;
+      turnstile_number_x_offset = 0;
+
+      node_window_max_lines = 10;	(* XXX configure this *)
+
+      button_1_drag_acceleration = drag_accel_adjustment#value;
+
+      proof_tree_font = tree_font_button#font_name;
+      sequent_font = sequent_font_button#font_name;
+
+      proved_color = realloc_color proved_color_button#color;
+      current_color = realloc_color current_color_button#color;
+      cheated_color = realloc_color cheated_color_button#color;
+
+      display_tooltips = tooltip_check_box#active;
+
+      default_width_proof_tree_window = 
+	round_to_int default_size_width_adjustment#value;
+      default_height_proof_tree_window = 
+	round_to_int default_size_height_adjustment#value;
+
+      debug_mode = debug_check_box#active;
+      copy_input = tee_file_box_check_box#active;
+      copy_input_file = tee_file_name_entry#text;
+    }
+    in
+    current_config := update_sizes c;
+    update_font_desc ();
+    !configuration_updated_callback ()
+
   method destroy () =
     config_window := None;
     top_window#destroy()
     
+  method ok () =
+    self#apply ();
+    self#destroy ()
+
 end
 
-let adjustment_set_pos_int (adjustment : GData.adjustment) =
+let adjustment_set_pos_int ?(lower = 1.0) (adjustment : GData.adjustment) =
   adjustment#set_bounds
-    ~lower:1.0 ~upper:100.0
+    ~lower ~upper:100.0
     ~step_incr:1.0 ~page_incr:1.0 ()
 
 
@@ -354,7 +407,7 @@ let make_config_window () =
   let line_sep_spinner = GEdit.spin_button
     ~digits:0 ~numeric:true
     ~packing:(tree_frame_table#attach ~left:1 ~top:2) () in
-  adjustment_set_pos_int line_sep_spinner#adjustment;
+  adjustment_set_pos_int ~lower:0.0 line_sep_spinner#adjustment;
   line_sep_spinner#adjustment#set_value
     (float_of_int !current_config.line_sep);
   line_sep_label#misc#set_tooltip_text line_sep_tooltip;
@@ -369,7 +422,7 @@ let make_config_window () =
   let subtree_sep_spinner = GEdit.spin_button
     ~digits:0 ~numeric:true
     ~packing:(tree_frame_table#attach ~left:4 ~top:0) () in
-  adjustment_set_pos_int subtree_sep_spinner#adjustment;
+  adjustment_set_pos_int ~lower:0.0 subtree_sep_spinner#adjustment;
   subtree_sep_spinner#adjustment#set_value
     (float_of_int !current_config.subtree_sep);
   subtree_sep_label#misc#set_tooltip_text subtree_sep_tooltip;
@@ -471,7 +524,7 @@ let make_config_window () =
     ~title:"Proved Branches Color"
     ~color:!current_config.proved_color
     ~packing:(color_frame_table#attach ~left:1 ~top:0) () in
-  proved_color_button#set_use_alpha true;
+  (* proved_color_button#set_use_alpha true; *)
   proved_color_label#misc#set_tooltip_text proved_color_tooltip;
   proved_color_button#misc#set_tooltip_text proved_color_tooltip;
 
@@ -484,7 +537,7 @@ let make_config_window () =
     ~title:"Current Branch Color"
     ~color:!current_config.current_color
     ~packing:(color_frame_table#attach ~left:4 ~top:0) () in
-  current_color_button#set_use_alpha true;
+  (* current_color_button#set_use_alpha true; *)
   current_color_label#misc#set_tooltip_text current_color_tooltip;
   current_color_button#misc#set_tooltip_text current_color_tooltip;
 
@@ -498,7 +551,7 @@ let make_config_window () =
     ~title:"Cheated Branches Color"
     ~color:!current_config.cheated_color
     ~packing:(color_frame_table#attach ~left:7 ~top:0) () in
-  cheated_color_button#set_use_alpha true;
+  (* cheated_color_button#set_use_alpha true; *)
   cheated_color_label#misc#set_tooltip_text cheated_color_tooltip;
   cheated_color_button#misc#set_tooltip_text cheated_color_tooltip;
 
@@ -634,11 +687,11 @@ let make_config_window () =
     ~spacing:5 ~border_width:5 ~packing:top_v_box#pack () in
   let reset_button = GButton.button 
     ~label:"Set defaults" ~packing:button_box#pack () in
-  let _apply_button = GButton.button
+  let apply_button = GButton.button
     ~label:"Apply" ~packing:button_box#pack () in
   let cancel_button = GButton.button
     ~label:"Cancel" ~packing:button_box#pack () in
-  let _ok_button = GButton.button
+  let ok_button = GButton.button
     ~label:"OK" ~packing:button_box#pack () in
   let config_window = 
     new config_window top_window 
@@ -672,7 +725,9 @@ let make_config_window () =
 	   ~callback:config_window#tee_file_button_click);
   ignore(top_window#connect#destroy ~callback:config_window#destroy);
   ignore(reset_button#connect#clicked ~callback:config_window#reset_to_default);
+  ignore(apply_button#connect#clicked ~callback:config_window#apply);
   ignore(cancel_button#connect#clicked ~callback:config_window#destroy);
+  ignore(ok_button#connect#clicked ~callback:config_window#ok);
   top_window#show ();
 
   config_window

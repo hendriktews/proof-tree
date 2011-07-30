@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.14 2011/07/28 12:53:07 tews Exp $
+ * $Id: input.ml,v 1.15 2011/07/30 18:45:50 tews Exp $
  *)
 
 
@@ -287,6 +287,27 @@ let init_string len =
     Set by option [-tee], mainly used for debugging.
 *)
 let input_backup_oc = ref None
+
+let input_backup_filename = ref None
+
+(** Set {!Input.input_backup_oc} according to the current configuration.
+*)
+let setup_input_backup_channel () =
+  if !current_config.copy_input && 
+    !input_backup_filename = Some !current_config.copy_input_file
+  then ()
+  else if !current_config.copy_input = false &&
+	 !input_backup_filename = None
+  then ()
+  else if !current_config.copy_input
+  then begin
+    input_backup_oc := Some(open_out !current_config.copy_input_file);
+    input_backup_filename := Some !current_config.copy_input_file;
+  end else begin
+    input_backup_oc := None;
+    input_backup_filename := None;
+  end
+    
 
 
 (** Input function for reading from the input channel. To make the input
@@ -831,6 +852,10 @@ let parse_input_callback_ex clist =
  *
  *****************************************************************************)
 
+(** Take the necessary actions when the configuration record changed.
+*)
+let configuration_updated = setup_input_backup_channel
+
 (** Initialize this module and setup the GTK main loop callback for
     [stdin]. Puts [stdin] into non-blocking mode.
 *)
@@ -838,9 +863,7 @@ let setup_input () =
   U.set_nonblock U.stdin;
   read_command_line_parser := read_command_line;
   current_parser := read_command_line;
-  if !current_config.copy_input 
-  then input_backup_oc := Some(open_out !current_config.copy_input_file)
-  else input_backup_oc := None;
+  setup_input_backup_channel();
   ignore(GMain.Io.add_watch 
 	   ~cond:[ `IN ]
 	   ~callback:parse_input_callback_ex

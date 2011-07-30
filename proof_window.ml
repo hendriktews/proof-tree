@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.24 2011/07/29 13:24:08 tews Exp $
+ * $Id: proof_window.ml,v 1.25 2011/07/30 18:45:50 tews Exp $
  *)
 
 
@@ -33,12 +33,22 @@ open Node_window
 open Help_window
 open About_window
 
+
+(* XXX not used outside this module *)
 let delete_proof_tree_callback = ref (fun (_ : string) -> ())
 
-class proof_window top_window 
+
+(** Contains proof window clones. See also
+    [Proof_tree.all_proof_trees_for_undo] and
+    [Proof_tree.undo_surviver_trees].
+*)
+let cloned_proof_windows = ref []
+
+class proof_window (top_window : GWindow.window)
   drawing_h_adjustment drawing_v_adjustment (drawing_area : GMisc.drawing_area)
-  drawable_arg labeled_sequent_frame sequent_window sequent_v_adjustment
-  message_label menu proof_name
+  (drawable : better_drawable)
+  labeled_sequent_frame sequent_window sequent_v_adjustment
+  (message_label : GMisc.label) menu proof_name
   =
 object (self)
 
@@ -47,18 +57,6 @@ object (self)
    * Internal state and setters/accessors
    *
    ***************************************************************************)
-  val top_window = (top_window : GWindow.window)
-  val drawing_h_adjustment = drawing_h_adjustment
-  val drawing_v_adjustment = drawing_v_adjustment
-  val drawing_area = drawing_area
-  val drawable : better_drawable = drawable_arg
-  val labeled_sequent_frame = labeled_sequent_frame
-  val sequent_window = sequent_window
-  val sequent_v_adjustment = sequent_v_adjustment
-  val message_label : GMisc.label = message_label
-  val menu = menu
-  val proof_name = proof_name
-
   val mutable top_left = 0
   val top_top = 0
 
@@ -152,6 +150,7 @@ object (self)
     if selected_node = None
     then self#refresh_sequent_area
 
+
   (***************************************************************************
    *
    * Unclassified methods
@@ -168,6 +167,23 @@ object (self)
     match root with
       | None -> ()
       | Some root -> root#disconnect_proof
+
+  method configuration_updated =
+    let rec update_tree_sizes node =
+      List.iter update_tree_sizes node#children;
+      node#configuration_updated
+    in
+    sequent_window#misc#modify_font !sequent_font_desc;
+    drawable#set_line_attributes 
+      ~width:(!current_config.turnstile_line_width) ();
+    (match root with
+      | None -> ()
+      | Some root -> update_tree_sizes root
+    );
+    self#expand_drawing_area;
+    ignore(self#position_tree);
+    GtkBase.Widget.queue_draw top_window#as_widget
+    
 
   (***************************************************************************
    *
@@ -209,6 +225,7 @@ object (self)
 	self#scroll drawing_v_adjustment 1; true
 
       | _ -> false
+
 
   (***************************************************************************
    *
@@ -447,6 +464,7 @@ object (self)
     (* prerr_endline "END EXPOSE EVENT"; *)
     false
 
+
   (***************************************************************************
    *
    * numbers for external node windows
@@ -458,6 +476,7 @@ object (self)
   method private next_node_number =
     last_node_number <- last_node_number + 1;
     last_node_number
+
 
   (***************************************************************************
    *
@@ -523,7 +542,7 @@ object (self)
   method private external_node_window (node : proof_tree_element) =
     let n = string_of_int(self#next_node_number) in
     let win = 
-      make_node_window (self :> proof_window_interface) proof_name node n 
+      make_node_window (self :> proof_window) proof_name node n 
     in 
     node_windows <- win :: node_windows;
     self#invalidate_drawing_area
@@ -657,7 +676,9 @@ object (self)
 	owin#set_root (clone_tree root_node)
     );
     owin#set_selected_node !cloned_selected;
-    owin#refresh_and_position
+    owin#refresh_and_position;
+    cloned_proof_windows := owin :: !cloned_proof_windows
+
 
   (***************************************************************************
    *

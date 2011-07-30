@@ -19,7 +19,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
 ## 
-## $Id: Makefile.in,v 1.8 2011/07/23 11:51:30 tews Exp $
+## $Id: Makefile.in,v 1.9 2011/07/30 18:45:50 tews Exp $
 ## 
 ## Commentary: Makefile
 ## 
@@ -58,8 +58,8 @@ SOURCES:=\
 	version.mli \
 	version.ml \
 	util.ml \
-	configuration.ml \
 	gtk_ext.ml \
+	configuration.ml \
 	draw_tree.ml \
 	about_window.ml \
 	help_window.ml \
