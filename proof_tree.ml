@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.18 2011/07/30 18:45:50 tews Exp $
+ * $Id: proof_tree.ml,v 1.19 2011/07/31 18:38:20 tews Exp $
  *)
 
 
@@ -379,9 +379,9 @@ let finish_branch_and_switch_to pt state proof_command cheated_flag
     Printf.sprintf "%s (%d goal%s remaining)" 
       (if cheated_flag
        then Gtk_ext.pango_markup_bold_color "Branch aborted" 
-	  !current_config.cheated_color
+	  !cheated_gdk_color
        else Gtk_ext.pango_markup_bold_color "Branch finished" 
-	  !current_config.proved_color)
+	  !proved_gdk_color)
       open_goal_count
       (if open_goal_count > 1 then "s" else "")
   in
@@ -463,9 +463,9 @@ let process_proof_complete state proof_name proof_command cheated_flag =
       let message = 
 	if pt.cheated 
 	then Gtk_ext.pango_markup_bold_color "False proof finished" 
-	  !current_config.cheated_color
+	  !cheated_gdk_color
 	else Gtk_ext.pango_markup_bold_color "Proof finished" 
-	  !current_config.proved_color
+	  !proved_gdk_color
       in
       pt.window#message message;
       stop_proof_tree pt state

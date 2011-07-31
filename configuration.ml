@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.14 2011/07/30 18:45:50 tews Exp $
+ * $Id: configuration.ml,v 1.15 2011/07/31 18:38:20 tews Exp $
  *)
 
 
@@ -56,9 +56,9 @@ type t = {
   proof_tree_font : string;
   sequent_font : string;
 
-  proved_color : Gdk.color;
-  current_color : Gdk.color;
-  cheated_color : Gdk.color;
+  proved_color : (int * int * int);	(* (red, green, blue) *)
+  current_color : (int * int * int);
+  cheated_color : (int * int * int);
 
   display_tooltips : bool;
 
@@ -86,6 +86,9 @@ let update_sizes config =
 
 let default_configuration = 
   let radius = 10 in
+  let blue = GDraw.color (`NAME "blue") in
+  let brown = GDraw.color (`NAME "brown") in
+  let red = GDraw.color (`NAME "red") in
   let c = {
     turnstile_radius = radius;
     turnstile_line_width = 2;
@@ -106,9 +109,12 @@ let default_configuration =
     proof_tree_font = "Sans 8";
     sequent_font = "Sans 8";
 
-    proved_color = GDraw.color (`NAME "blue");
-    current_color = GDraw.color (`NAME "brown");
-    cheated_color = GDraw.color (`NAME "red");
+    proved_color = 
+      (Gdk.Color.red blue, Gdk.Color.green blue, Gdk.Color.blue blue);
+    current_color = 
+      (Gdk.Color.red brown, Gdk.Color.green brown, Gdk.Color.blue brown);
+    cheated_color = 
+      (Gdk.Color.red red, Gdk.Color.green red, Gdk.Color.blue red);
 
     display_tooltips = true;
 
@@ -132,11 +138,26 @@ let proof_tree_font_desc =
 let sequent_font_desc = 
   ref(GPango.font_description default_configuration.sequent_font)
 
-let update_font_desc () =
+let proved_gdk_color = 
+  ref(GDraw.color (`RGB default_configuration.proved_color))
+
+let current_gdk_color =
+  ref(GDraw.color (`RGB default_configuration.current_color))
+
+let cheated_gdk_color =
+  ref(GDraw.color (`RGB default_configuration.cheated_color))
+
+let update_font_and_color () =
   proof_tree_font_desc :=
     GPango.font_description !current_config.proof_tree_font;
   sequent_font_desc :=
-    GPango.font_description !current_config.sequent_font
+    GPango.font_description !current_config.sequent_font;
+  proved_gdk_color :=
+    GDraw.color (`RGB !current_config.proved_color);
+  current_gdk_color :=
+    GDraw.color (`RGB !current_config.current_color);
+  cheated_gdk_color :=
+    GDraw.color (`RGB !current_config.cheated_color)
 
 
 let geometry_string = ref ""
@@ -204,9 +225,12 @@ object (self)
       (float_of_int default_configuration.level_distance);
     tree_font_button#set_font_name default_configuration.proof_tree_font;
     sequent_font_button#set_font_name default_configuration.sequent_font;
-    proved_color_button#set_color default_configuration.proved_color;
-    current_color_button#set_color default_configuration.current_color;
-    cheated_color_button#set_color default_configuration.cheated_color;
+    proved_color_button#set_color 
+      (GDraw.color (`RGB default_configuration.proved_color));
+    current_color_button#set_color
+      (GDraw.color (`RGB default_configuration.current_color));
+    cheated_color_button#set_color
+      (GDraw.color (`RGB default_configuration.cheated_color));
     drag_accel_adjustment#set_value
       default_configuration.button_1_drag_acceleration;
     tooltip_check_box#set_active default_configuration.display_tooltips;
@@ -307,9 +331,12 @@ object (self)
       proof_tree_font = tree_font_button#font_name;
       sequent_font = sequent_font_button#font_name;
 
-      proved_color = realloc_color proved_color_button#color;
-      current_color = realloc_color current_color_button#color;
-      cheated_color = realloc_color cheated_color_button#color;
+      proved_color = (let c = proved_color_button#color in
+		      (Gdk.Color.red c, Gdk.Color.green c, Gdk.Color.blue c));
+      current_color = (let c = current_color_button#color in
+		       (Gdk.Color.red c, Gdk.Color.green c, Gdk.Color.blue c));
+      cheated_color = (let c = cheated_color_button#color in
+		       (Gdk.Color.red c, Gdk.Color.green c, Gdk.Color.blue c));
 
       display_tooltips = tooltip_check_box#active;
 
@@ -324,7 +351,7 @@ object (self)
     }
     in
     current_config := update_sizes c;
-    update_font_desc ();
+    update_font_and_color ();
     !configuration_updated_callback ()
 
   method destroy () =
@@ -522,7 +549,7 @@ let make_config_window () =
     ~packing:(color_frame_table#attach ~left:0 ~top:0) () in
   let proved_color_button = GButton.color_button
     ~title:"Proved Branches Color"
-    ~color:!current_config.proved_color
+    ~color:!proved_gdk_color
     ~packing:(color_frame_table#attach ~left:1 ~top:0) () in
   (* proved_color_button#set_use_alpha true; *)
   proved_color_label#misc#set_tooltip_text proved_color_tooltip;
@@ -535,7 +562,7 @@ let make_config_window () =
     ~packing:(color_frame_table#attach ~left:3 ~top:0) () in
   let current_color_button = GButton.color_button
     ~title:"Current Branch Color"
-    ~color:!current_config.current_color
+    ~color:!current_gdk_color
     ~packing:(color_frame_table#attach ~left:4 ~top:0) () in
   (* current_color_button#set_use_alpha true; *)
   current_color_label#misc#set_tooltip_text current_color_tooltip;
@@ -549,7 +576,7 @@ let make_config_window () =
     ~packing:(color_frame_table#attach ~left:6 ~top:0) () in
   let cheated_color_button = GButton.color_button
     ~title:"Cheated Branches Color"
-    ~color:!current_config.cheated_color
+    ~color:!cheated_gdk_color
     ~packing:(color_frame_table#attach ~left:7 ~top:0) () in
   (* cheated_color_button#set_use_alpha true; *)
   cheated_color_label#misc#set_tooltip_text cheated_color_tooltip;
