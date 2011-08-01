@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.15 2011/07/30 18:45:50 tews Exp $
+ * $Id: input.ml,v 1.16 2011/08/01 15:42:08 tews Exp $
  *)
 
 
@@ -842,8 +842,7 @@ let parse_input_callback_ex clist =
 	);
       end;
       prerr_endline (Buffer.contents buf);
-      error_message_dialog (Buffer.contents buf);
-      true
+      error_message_dialog (Buffer.contents buf)
 	
 
 (*****************************************************************************

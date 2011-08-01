@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: gtk_ext.ml,v 1.9 2011/07/30 18:45:50 tews Exp $
+ * $Id: gtk_ext.ml,v 1.10 2011/08/01 15:42:08 tews Exp $
  *)
 
 
@@ -38,15 +38,18 @@ object (self)
 
 end
 
+let run_message_dialog message message_type =
+  let warn = GWindow.message_dialog ~message ~message_type
+    ~buttons:GWindow.Buttons.ok ()
+  in
+  ignore(warn#connect#destroy (fun () -> warn#destroy ()));
+  ignore(warn#run());
+  warn#destroy()
+
 
 let error_message_dialog message =
-  let err = GWindow.message_dialog ~message
-    ~message_type:`ERROR
-    ~buttons:GWindow.Buttons.ok () 
-  in
-  (* ignore(err#connect#response ~callback:(fun _ -> err#destroy())); *)
-  ignore(err#connect#response ~callback:(fun _ -> exit 1));
-  err#show()
+  run_message_dialog message `ERROR;
+  exit 1
 
 
 let round_color_2_digits co =

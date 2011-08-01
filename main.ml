@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: main.ml,v 1.11 2011/07/30 18:45:50 tews Exp $
+ * $Id: main.ml,v 1.12 2011/08/01 15:42:08 tews Exp $
  *)
 
 
@@ -81,6 +81,7 @@ let anon_fun s =
 *)
 let main () =
   Arg.parse arguments anon_fun "prooftree";
+  try_load_config_file ();
   setup_input();
   Printf.printf 
     ("Prooftree version %s awaiting input on stdin.\n" ^^

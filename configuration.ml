@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.15 2011/07/31 18:38:20 tews Exp $
+ * $Id: configuration.ml,v 1.16 2011/08/01 15:42:08 tews Exp $
  *)
 
 
@@ -27,12 +27,19 @@
 
 open Gtk_ext
 
+(**/**)
+module U = Unix
+(**/**)
+
 
 (*****************************************************************************
  *****************************************************************************)
 (** {2 Configuration record and global variables} *)
 
-
+let config_file_location = 
+  Filename.concat
+    (Sys.getenv "HOME")
+    ".prooftree"
 
 type t = {
   turnstile_radius : int;
@@ -160,14 +167,6 @@ let update_font_and_color () =
     GDraw.color (`RGB !current_config.cheated_color)
 
 
-let geometry_string = ref ""
-
-
-(*****************************************************************************
- *****************************************************************************)
-(** {2 Configuration window} *)
-
-
 (** This function reference solves the recursive module dependency
     between modules {!Proof_tree}, {!Input} and this module. It is
     filled with {!Main.configuration_updated} when [Main] is
@@ -175,26 +174,78 @@ let geometry_string = ref ""
 *)
 let configuration_updated_callback = ref (fun () -> ())
 
+
+let update_configuration c =
+    current_config := c;
+    update_font_and_color ();
+    !configuration_updated_callback ()
+
+
+let geometry_string = ref ""
+
+
+(*****************************************************************************
+ *****************************************************************************)
+(** {2 Save / Restore configuration records} *)
+
+let config_file_header_v_1 = "Prooftree configuration file version 01\n"
+
+let write_config_file file_name (config : t) =
+  let oc = open_out_bin file_name in
+  output_string oc config_file_header_v_1;
+  Marshal.to_channel oc config [];
+  close_out oc
+
+let read_config_file file_name : t =
+  let header_len = String.length config_file_header_v_1 in
+  let header = String.create header_len in
+  let ic = open_in_bin file_name in
+  really_input ic header 0 header_len;
+  if header = config_file_header_v_1 then begin
+    let c = (Marshal.from_channel ic : t) in 
+    close_in ic;
+    c
+  end
+  else failwith "Invalid configuration file"
+
+let try_load_config_file () =
+  let copt =
+    try
+      Some(read_config_file config_file_location)
+    with
+      | e -> None
+  in
+  match copt with
+    | None -> ()
+    | Some c -> update_configuration c
+
+
+(*****************************************************************************
+ *****************************************************************************)
+(** {2 Configuration window} *)
+
+
 let config_window = ref None
 
 class config_window (top_window : GWindow.window)
-  line_width_label line_width_spinner
-  turnstile_size_label turnstile_size_spinner
-  line_sep_label line_sep_spinner
-  subtree_sep_label subtree_sep_spinner
-  command_length_label command_length_spinner
-  level_dist_label level_dist_spinner
-  tree_font_label tree_font_button
-  sequent_font_label sequent_font_button
-  proved_color_label proved_color_button
-  current_color_label current_color_button
-  cheated_color_label cheated_color_button
-  drag_accel_label drag_accel_spinner
+  line_width_spinner
+  turnstile_size_spinner
+  line_sep_spinner
+  subtree_sep_spinner
+  command_length_spinner
+  level_dist_spinner
+  tree_font_button
+  sequent_font_button
+  proved_color_button
+  current_color_button
+  cheated_color_button
+  drag_accel_spinner
   tooltip_check_box
-  default_size_label default_size_width_spinner default_size_height_spinner
-  debug_alignment debug_check_box
-  tee_file_box_alignment tee_file_box_check_box 
+  default_size_width_spinner default_size_height_spinner
+  debug_check_box
+  tee_file_box_check_box 
   tee_file_name_label tee_file_name_entry tee_file_name_button
+  tooltip_misc_objects  
   =
 object (self)
 
@@ -210,70 +261,35 @@ object (self)
 
   method present = top_window#present()
 
-  method reset_to_default () =
-    line_width_adjustment#set_value
-      (float_of_int default_configuration.turnstile_line_width);
-    turnstile_size_adjustment#set_value
-      (float_of_int default_configuration.turnstile_radius);
-    subtree_sep_adjustment#set_value
-      (float_of_int default_configuration.subtree_sep);
-    line_sep_adjustment#set_value
-      (float_of_int default_configuration.line_sep);
-    command_length_adjustment#set_value
-      (float_of_int default_configuration.proof_command_length);
-    level_dist_adjustment#set_value
-      (float_of_int default_configuration.level_distance);
-    tree_font_button#set_font_name default_configuration.proof_tree_font;
-    sequent_font_button#set_font_name default_configuration.sequent_font;
-    proved_color_button#set_color 
-      (GDraw.color (`RGB default_configuration.proved_color));
-    current_color_button#set_color
-      (GDraw.color (`RGB default_configuration.current_color));
-    cheated_color_button#set_color
-      (GDraw.color (`RGB default_configuration.cheated_color));
-    drag_accel_adjustment#set_value
-      default_configuration.button_1_drag_acceleration;
-    tooltip_check_box#set_active default_configuration.display_tooltips;
+  method set_configuration conf =
+    line_width_adjustment#set_value (float_of_int conf.turnstile_line_width);
+    turnstile_size_adjustment#set_value (float_of_int conf.turnstile_radius);
+    subtree_sep_adjustment#set_value (float_of_int conf.subtree_sep);
+    line_sep_adjustment#set_value (float_of_int conf.line_sep);
+    command_length_adjustment#set_value (float_of_int conf.proof_command_length);
+    level_dist_adjustment#set_value (float_of_int conf.level_distance);
+    tree_font_button#set_font_name conf.proof_tree_font;
+    sequent_font_button#set_font_name conf.sequent_font;
+    proved_color_button#set_color (GDraw.color (`RGB conf.proved_color));
+    current_color_button#set_color (GDraw.color (`RGB conf.current_color));
+    cheated_color_button#set_color (GDraw.color (`RGB conf.cheated_color));
+    drag_accel_adjustment#set_value conf.button_1_drag_acceleration;
+    tooltip_check_box#set_active conf.display_tooltips;
     default_size_width_adjustment#set_value
-      (float_of_int default_configuration.default_width_proof_tree_window);
+      (float_of_int conf.default_width_proof_tree_window);
     default_size_height_adjustment#set_value
-      (float_of_int default_configuration.default_height_proof_tree_window);
-    debug_check_box#set_active default_configuration.debug_mode;
-    tee_file_box_check_box#set_active default_configuration.copy_input;
-    tee_file_name_entry#set_text default_configuration.copy_input_file;
+      (float_of_int conf.default_height_proof_tree_window);
+    debug_check_box#set_active conf.debug_mode;
+    tee_file_box_check_box#set_active conf.copy_input;
+    tee_file_name_entry#set_text conf.copy_input_file;
     ()
+
+  method reset_to_default () =
+    self#set_configuration default_configuration
 
   method toggle_tooltips () =
     let flag = tooltip_check_box#active in
-    line_width_label#misc#set_has_tooltip flag;
-    line_width_spinner#misc#set_has_tooltip flag;
-    turnstile_size_label#misc#set_has_tooltip flag;
-    turnstile_size_spinner#misc#set_has_tooltip flag;
-    line_sep_label#misc#set_has_tooltip flag;
-    line_sep_spinner#misc#set_has_tooltip flag;
-    subtree_sep_label#misc#set_has_tooltip flag;
-    subtree_sep_spinner#misc#set_has_tooltip flag;
-    command_length_label#misc#set_has_tooltip flag;
-    command_length_spinner#misc#set_has_tooltip flag;
-    level_dist_label#misc#set_has_tooltip flag;
-    level_dist_spinner#misc#set_has_tooltip flag;
-    tree_font_label#misc#set_has_tooltip flag;
-    tree_font_button#misc#set_has_tooltip flag;
-    sequent_font_label#misc#set_has_tooltip flag;
-    sequent_font_button#misc#set_has_tooltip flag;
-    proved_color_label#misc#set_has_tooltip flag;
-    proved_color_button#misc#set_has_tooltip flag;
-    current_color_label#misc#set_has_tooltip flag;
-    current_color_button#misc#set_has_tooltip flag;
-    cheated_color_label#misc#set_has_tooltip flag;
-    cheated_color_button#misc#set_has_tooltip flag;
-    drag_accel_label#misc#set_has_tooltip flag;
-    drag_accel_spinner#misc#set_has_tooltip flag;
-    default_size_label#misc#set_has_tooltip flag;
-    default_size_width_spinner#misc#set_has_tooltip flag;
-    default_size_height_spinner#misc#set_has_tooltip flag;
-    debug_alignment#misc#set_has_tooltip flag;
-    tee_file_box_alignment#misc#set_has_tooltip flag;
+    List.iter (fun misc -> misc#set_has_tooltip flag) tooltip_misc_objects;
     ()
 
   method tee_file_toggle () =
@@ -350,9 +366,68 @@ object (self)
       copy_input_file = tee_file_name_entry#text;
     }
     in
-    current_config := update_sizes c;
-    update_font_and_color ();
-    !configuration_updated_callback ()
+    update_configuration (update_sizes c)
+
+  method save () = 
+    try
+      write_config_file config_file_location !current_config
+    with
+      | e ->
+	let backtrace = Printexc.get_backtrace () in
+	let buf = Buffer.create 4095 in
+	let print_backtrace = ref !current_config.debug_mode in
+	(match e with 
+	  | e ->
+	    Buffer.add_string buf "Internal error: Escaping exception ";
+	    Buffer.add_string buf (Printexc.to_string e);
+	    Buffer.add_string buf " in write_config_file";
+	    (match e with
+	      | U.Unix_error(error, _func, _info) ->
+		Buffer.add_char buf '\n';
+		Buffer.add_string buf (U.error_message error);
+	      | _ -> ()
+	    )
+	);
+	if !print_backtrace then begin
+	  Buffer.add_char buf '\n';
+	  Buffer.add_string buf backtrace;
+	end;
+	prerr_endline (Buffer.contents buf);
+	run_message_dialog (Buffer.contents buf) `WARNING;
+	()
+
+
+  method restore () = 
+    try
+      let c = read_config_file config_file_location in
+      self#set_configuration c;
+      update_configuration c
+    with
+      | e ->
+	let backtrace = Printexc.get_backtrace () in
+	let buf = Buffer.create 4095 in
+	let print_backtrace = ref !current_config.debug_mode in
+	(match e with 
+	  | e ->
+	    Buffer.add_string buf "Internal error: Escaping exception ";
+	    Buffer.add_string buf (Printexc.to_string e);
+	    Buffer.add_string buf " in read_config_file";
+	    (match e with
+	      | U.Unix_error(error, _func, _info) ->
+		Buffer.add_char buf '\n';
+		Buffer.add_string buf (U.error_message error);
+	      | _ -> ()
+	    )
+	);
+	if !print_backtrace then begin
+	  Buffer.add_char buf '\n';
+	  Buffer.add_string buf backtrace;
+	end;
+	prerr_endline (Buffer.contents buf);
+	run_message_dialog (Buffer.contents buf) `WARNING;
+	()
+	
+
 
   method destroy () =
     config_window := None;
@@ -650,6 +725,22 @@ let make_config_window () =
   default_size_width_spinner#misc#set_tooltip_text default_size_tooltip;
   default_size_height_spinner#misc#set_tooltip_text default_size_tooltip;
 
+  (* non-configurable config-file *)
+  let config_file_tooltip = 
+    "The configuration file is determined at compilation time" in
+  let config_file_label = GMisc.label
+    ~text:"Configuration file"
+    ~xalign:0.0 ~xpad:5
+    ~packing:(misc_frame_table#attach ~left:0 ~top:3) () in
+  let config_file_alignment = GBin.alignment
+    ~padding:(0,0,3,0)
+    ~packing:(misc_frame_table#attach ~left:1 ~right:4 ~top:3) () in
+  let _config_file_file = GMisc.label
+    ~text:config_file_location
+    ~xalign:0.0
+    ~packing:config_file_alignment#add () in
+  config_file_label#misc#set_tooltip_text config_file_tooltip;
+  config_file_alignment#misc#set_tooltip_text config_file_tooltip;
 
   (****************************************************************************
    *
@@ -720,25 +811,46 @@ let make_config_window () =
     ~label:"Cancel" ~packing:button_box#pack () in
   let ok_button = GButton.button
     ~label:"OK" ~packing:button_box#pack () in
+  let restore_button = GButton.button
+    ~label:"Resore" ~packing:(button_box#pack ~from:`END) () in
+  let save_button = GButton.button
+    ~label:"Save" ~packing:(button_box#pack ~from:`END) () in
   let config_window = 
     new config_window top_window 
-      line_width_label line_width_spinner
-      turnstile_size_label turnstile_size_spinner
-      line_sep_label line_sep_spinner
-      subtree_sep_label subtree_sep_spinner
-      command_length_label command_length_spinner
-      level_dist_label level_dist_spinner
-      tree_font_label tree_font_button
-      sequent_font_label sequent_font_button
-      proved_color_label proved_color_button
-      current_color_label current_color_button
-      cheated_color_label cheated_color_button
-      drag_accel_label drag_accel_spinner
+      line_width_spinner
+      turnstile_size_spinner
+      line_sep_spinner
+      subtree_sep_spinner
+      command_length_spinner
+      level_dist_spinner
+      tree_font_button
+      sequent_font_button
+      proved_color_button
+      current_color_button
+      cheated_color_button
+      drag_accel_spinner
       tooltip_check_box
-      default_size_label default_size_width_spinner default_size_height_spinner
-      debug_alignment debug_check_box
-      tee_file_box_alignment tee_file_box_check_box 
+      default_size_width_spinner default_size_height_spinner
+      debug_check_box
+      tee_file_box_check_box 
       tee_file_name_label tee_file_name_entry tee_file_name_button
+      [ line_width_label#misc; line_width_spinner#misc;
+	turnstile_size_label#misc; turnstile_size_spinner#misc;
+	line_sep_label#misc; line_sep_spinner#misc;
+	subtree_sep_label#misc; subtree_sep_spinner#misc;
+	command_length_label#misc; command_length_spinner#misc;
+	level_dist_label#misc; level_dist_spinner#misc;
+	tree_font_label#misc; tree_font_button#misc;
+	sequent_font_label#misc; sequent_font_button#misc;
+	proved_color_label#misc; proved_color_button#misc;
+	current_color_label#misc; current_color_button#misc;
+	cheated_color_label#misc; cheated_color_button#misc;
+	drag_accel_label#misc; drag_accel_spinner#misc;
+	default_size_label#misc; default_size_width_spinner#misc;
+	default_size_height_spinner#misc; config_file_label#misc;
+	config_file_alignment#misc; debug_alignment#misc;
+	tee_file_box_alignment#misc;
+      ]
   in
 
   top_window#set_title "Prooftree Configuration";
@@ -755,6 +867,8 @@ let make_config_window () =
   ignore(apply_button#connect#clicked ~callback:config_window#apply);
   ignore(cancel_button#connect#clicked ~callback:config_window#destroy);
   ignore(ok_button#connect#clicked ~callback:config_window#ok);
+  ignore(save_button#connect#clicked ~callback:config_window#save);
+  ignore(restore_button#connect#clicked ~callback:config_window#restore);
   top_window#show ();
 
   config_window

@@ -1,3 +1,7 @@
+2011-08-01  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* save/restore buttons in configuration dialog
+
 2011-07-31  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* change colors in configuration record into RGB triplets
