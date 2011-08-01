@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.16 2011/08/01 15:42:08 tews Exp $
+ * $Id: configuration.ml,v 1.17 2011/08/01 19:17:50 tews Exp $
  *)
 
 
@@ -308,7 +308,6 @@ object (self)
       ~focus_on_map:true
       ~modal:true ()
     in
-    ignore(file_chooser#connect#destroy (fun () -> file_chooser#destroy()));
     file_chooser#add_select_button "Select" `SELECT;
     file_chooser#add_button "Cancel" `CANCEL;
     ignore(file_chooser#set_current_folder 
@@ -316,16 +315,16 @@ object (self)
     (match file_chooser#run() with
       | `SELECT -> 
 	(match file_chooser#filename with
-	  | None -> Printf.printf "SELECT None\n%!"
+	  | None -> ()
 	  | Some file -> tee_file_name_entry#set_text file
 	)
-      | `CANCEL 
+      | `CANCEL
       | `DELETE_EVENT -> ()
     );
     file_chooser#destroy();
     ()
 
-  method apply () =
+  method private extract_configuration =
     let round_to_int f = int_of_float(f +. 0.5) in
     let c = {
       turnstile_radius = round_to_int turnstile_size_adjustment#value;
@@ -366,35 +365,59 @@ object (self)
       copy_input_file = tee_file_name_entry#text;
     }
     in
-    update_configuration (update_sizes c)
+    update_sizes c
+
+  method apply () =
+    update_configuration (self#extract_configuration)
 
   method save () = 
-    try
-      write_config_file config_file_location !current_config
-    with
-      | e ->
-	let backtrace = Printexc.get_backtrace () in
-	let buf = Buffer.create 4095 in
-	let print_backtrace = ref !current_config.debug_mode in
-	(match e with 
-	  | e ->
-	    Buffer.add_string buf "Internal error: Escaping exception ";
-	    Buffer.add_string buf (Printexc.to_string e);
-	    Buffer.add_string buf " in write_config_file";
-	    (match e with
-	      | U.Unix_error(error, _func, _info) ->
-		Buffer.add_char buf '\n';
-		Buffer.add_string buf (U.error_message error);
-	      | _ -> ()
-	    )
-	);
-	if !print_backtrace then begin
-	  Buffer.add_char buf '\n';
-	  Buffer.add_string buf backtrace;
-	end;
-	prerr_endline (Buffer.contents buf);
-	run_message_dialog (Buffer.contents buf) `WARNING;
-	()
+    let do_save = ref true in
+    if self#extract_configuration <> !current_config
+    then begin
+      let proceed_dialog = GWindow.message_dialog 
+	~message:"The save operation writes the current configuration \
+                  record to disk. However, the current configuration \
+                  record differs from what the configuration dialog now \
+                  shows (because there are changes that have not been \
+                  applied). Proceed anyway?"
+	~message_type:`QUESTION
+	~buttons:GWindow.Buttons.yes_no ()
+      in
+      (match proceed_dialog#run () with
+	| `YES -> ()
+	| `NO 
+	| `DELETE_EVENT -> do_save := false
+      );
+      proceed_dialog#destroy ()
+    end;
+    if !do_save 
+    then
+      try
+	write_config_file config_file_location !current_config
+      with
+	| e ->
+	  let backtrace = Printexc.get_backtrace () in
+	  let buf = Buffer.create 4095 in
+	  let print_backtrace = ref !current_config.debug_mode in
+	  (match e with 
+	    | e ->
+	      Buffer.add_string buf "Internal error: Escaping exception ";
+	      Buffer.add_string buf (Printexc.to_string e);
+	      Buffer.add_string buf " in write_config_file";
+	      (match e with
+		| U.Unix_error(error, _func, _info) ->
+		  Buffer.add_char buf '\n';
+		  Buffer.add_string buf (U.error_message error);
+		| _ -> ()
+	      )
+	  );
+	  if !print_backtrace then begin
+	    Buffer.add_char buf '\n';
+	    Buffer.add_string buf backtrace;
+	  end;
+	  prerr_endline (Buffer.contents buf);
+	  run_message_dialog (Buffer.contents buf) `WARNING;
+	  ()
 
 
   method restore () = 
@@ -812,7 +835,7 @@ let make_config_window () =
   let ok_button = GButton.button
     ~label:"OK" ~packing:button_box#pack () in
   let restore_button = GButton.button
-    ~label:"Resore" ~packing:(button_box#pack ~from:`END) () in
+    ~label:"Restore" ~packing:(button_box#pack ~from:`END) () in
   let save_button = GButton.button
     ~label:"Save" ~packing:(button_box#pack ~from:`END) () in
   let config_window = 

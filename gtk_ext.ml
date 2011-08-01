@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: gtk_ext.ml,v 1.10 2011/08/01 15:42:08 tews Exp $
+ * $Id: gtk_ext.ml,v 1.11 2011/08/01 19:17:50 tews Exp $
  *)
 
 
@@ -42,7 +42,6 @@ let run_message_dialog message message_type =
   let warn = GWindow.message_dialog ~message ~message_type
     ~buttons:GWindow.Buttons.ok ()
   in
-  ignore(warn#connect#destroy (fun () -> warn#destroy ()));
   ignore(warn#run());
   warn#destroy()
 
