@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.18 2011/08/04 12:54:42 tews Exp $
+ * $Id: configuration.ml,v 1.19 2011/08/04 13:13:09 tews Exp $
  *)
 
 
@@ -56,8 +56,6 @@ type t = {
 
   level_distance : int;
 
-  node_window_max_lines : int;
-
   button_1_drag_acceleration : float;
 
   proof_tree_font : string;
@@ -73,6 +71,7 @@ type t = {
   default_height_proof_tree_window : int;
 
   internal_sequent_window_lines : int;
+  node_window_max_lines : int;
 
   debug_mode : bool;
   copy_input : bool;
@@ -111,8 +110,6 @@ let default_configuration =
     turnstile_horiz_bar_x_offset = 0;
     turnstile_number_x_offset = 0;
 
-    node_window_max_lines = 10;
-
     button_1_drag_acceleration = 4.0;
 
     proof_tree_font = "Sans 8";
@@ -131,6 +128,7 @@ let default_configuration =
     default_height_proof_tree_window = 400;
 
     internal_sequent_window_lines = 1;
+    node_window_max_lines = 10;
 
     debug_mode = false;
     copy_input = false;
@@ -247,6 +245,7 @@ class config_window (top_window : GWindow.window)
   tooltip_check_box
   default_size_width_spinner default_size_height_spinner
   internal_seq_lines_spinner
+  external_node_lines_spinner
   debug_check_box
   tee_file_box_check_box 
   tee_file_name_label tee_file_name_entry tee_file_name_button
@@ -264,6 +263,7 @@ object (self)
   val default_size_width_adjustment = default_size_width_spinner#adjustment
   val default_size_height_adjustment = default_size_height_spinner#adjustment
   val internal_seq_lines_adjustment = internal_seq_lines_spinner#adjustment
+  val external_node_lines_adjustment = external_node_lines_spinner#adjustment
 
   method present = top_window#present()
 
@@ -287,6 +287,8 @@ object (self)
       (float_of_int conf.default_height_proof_tree_window);
     internal_seq_lines_adjustment#set_value
       (float_of_int conf.internal_sequent_window_lines);
+    external_node_lines_adjustment#set_value
+      (float_of_int conf.node_window_max_lines);
     debug_check_box#set_active conf.debug_mode;
     tee_file_box_check_box#set_active conf.copy_input;
     tee_file_name_entry#set_text conf.copy_input_file;
@@ -347,8 +349,6 @@ object (self)
       turnstile_horiz_bar_x_offset = 0;
       turnstile_number_x_offset = 0;
 
-      node_window_max_lines = 10;	(* XXX configure this *)
-
       button_1_drag_acceleration = drag_accel_adjustment#value;
 
       proof_tree_font = tree_font_button#font_name;
@@ -370,6 +370,8 @@ object (self)
 
       internal_sequent_window_lines =
 	round_to_int internal_seq_lines_adjustment#value;
+      node_window_max_lines = 
+	round_to_int external_node_lines_adjustment#value;
 
       debug_mode = debug_check_box#active;
       copy_input = tee_file_box_check_box#active;
@@ -776,16 +778,31 @@ let make_config_window () =
   internal_seq_lines_label#misc#set_tooltip_text internal_seq_lines_tooltip;
   internal_seq_lines_spinner#misc#set_tooltip_text internal_seq_lines_tooltip;
 
+  (* external node window lines *)
+  let external_node_lines_tooltip = 
+    "Maximal height (in lines) of additional node windows" in
+  let external_node_lines_label = GMisc.label
+    ~text:"Ext. node window" ~xalign:0.0 ~xpad:5
+    ~packing:(misc_frame_table#attach ~left:0 ~top:4) () in
+  let external_node_lines_spinner = GEdit.spin_button
+    ~digits:0 ~numeric:true
+    ~packing:(misc_frame_table#attach ~left:1 ~top:4) () in
+  adjustment_set_pos_int external_node_lines_spinner#adjustment;
+  external_node_lines_spinner#adjustment#set_value
+    (float_of_int !current_config.node_window_max_lines);
+  external_node_lines_label#misc#set_tooltip_text external_node_lines_tooltip;
+  external_node_lines_spinner#misc#set_tooltip_text external_node_lines_tooltip;
+
   (* non-configurable config-file *)
   let config_file_tooltip = 
     "The configuration file is determined at compilation time" in
   let config_file_label = GMisc.label
     ~text:"Configuration file"
     ~xalign:0.0 ~xpad:5
-    ~packing:(misc_frame_table#attach ~left:0 ~top:4) () in
+    ~packing:(misc_frame_table#attach ~left:0 ~top:5) () in
   let config_file_alignment = GBin.alignment
     ~padding:(0,0,3,0)
-    ~packing:(misc_frame_table#attach ~left:1 ~right:4 ~top:4) () in
+    ~packing:(misc_frame_table#attach ~left:1 ~right:4 ~top:5) () in
   let _config_file_file = GMisc.label
     ~text:config_file_location
     ~xalign:0.0
@@ -883,6 +900,7 @@ let make_config_window () =
       tooltip_check_box
       default_size_width_spinner default_size_height_spinner
       internal_seq_lines_spinner
+      external_node_lines_spinner
       debug_check_box
       tee_file_box_check_box 
       tee_file_name_label tee_file_name_entry tee_file_name_button
@@ -901,6 +919,7 @@ let make_config_window () =
 	default_size_label#misc; default_size_width_spinner#misc;
 	default_size_height_spinner#misc; 
 	internal_seq_lines_label#misc; internal_seq_lines_spinner#misc;
+	external_node_lines_label#misc; external_node_lines_spinner#misc;
 	config_file_label#misc;
 	config_file_alignment#misc; debug_alignment#misc;
 	tee_file_box_alignment#misc;
