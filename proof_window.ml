@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.25 2011/07/30 18:45:50 tews Exp $
+ * $Id: proof_window.ml,v 1.26 2011/08/04 12:54:42 tews Exp $
  *)
 
 
@@ -727,7 +727,7 @@ let rec make_proof_window name geometry_string =
       drawing_area#misc#create_pango_context
   in
   let outer_sequent_frame = GBin.frame ~shadow_type:`IN 
-    ~packing:(top_paned#pack2 ~resize:false ~shrink:false) () 
+    ~packing:(top_paned#pack2 ~resize:false ~shrink:true) () 
   in
   let labeled_sequent_frame = GBin.frame ~label:"no sequent" ~shadow_type:`NONE
     ~packing:outer_sequent_frame#add ()
@@ -740,11 +740,23 @@ let rec make_proof_window name geometry_string =
    * let sequent_h_adjustment = sequent_scrolling#hadjustment in
    *)
   let sequent_v_adjustment = sequent_scrolling#vadjustment in
+  sequent_scrolling#misc#modify_font !sequent_font_desc;
+  let context = sequent_scrolling#misc#pango_context in
+  let layout = context#create_layout in
+  Pango.Layout.set_text layout "X";
+  let (_, char_height) = Pango.Layout.get_pixel_size layout in
   let sequent_window = GText.view ~editable:false ~cursor_visible:false
-    (* ~height:50 *)
+    ~height:(char_height * !current_config.internal_sequent_window_lines)
     ~packing:sequent_scrolling#add () 
   in
-  let button_h_box = GPack.hbox ~packing:top_v_box#pack () in
+  sequent_window#misc#modify_font !sequent_font_desc;
+
+  (* bottom button line with the message in the middle *)
+  let button_box_align = GBin.alignment
+    ~padding:(1,1,3,3)			(* (top, bottom, left, right)*)
+    ~packing:(top_v_box#pack) () in
+  let button_h_box = GPack.hbox
+    ~packing:button_box_align#add () in
   let dismiss_button = 
     GButton.button ~label:"Dismiss" ~packing:button_h_box#pack ()
   in
@@ -773,7 +785,6 @@ let rec make_proof_window name geometry_string =
   top_window#set_title (name ^ " proof tree");
   drawable#set_line_attributes 
     ~width:(!current_config.turnstile_line_width) ();
-  sequent_window#misc#modify_font !sequent_font_desc;
   ignore(drawing_scrolling#misc#connect#size_allocate
 	   ~callback:proof_window#draw_scroll_size_allocate_callback);
   (* 
@@ -830,5 +841,7 @@ let rec make_proof_window name geometry_string =
   top_window#show ();
   if geometry_string <> "" then
     ignore(top_window#parse_geometry geometry_string);
+  if !current_config.internal_sequent_window_lines = 0 then
+    top_paned#set_position (top_paned#max_position);
 
   proof_window

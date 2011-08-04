@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.17 2011/08/01 19:17:50 tews Exp $
+ * $Id: configuration.ml,v 1.18 2011/08/04 12:54:42 tews Exp $
  *)
 
 
@@ -71,6 +71,8 @@ type t = {
 
   default_width_proof_tree_window : int;
   default_height_proof_tree_window : int;
+
+  internal_sequent_window_lines : int;
 
   debug_mode : bool;
   copy_input : bool;
@@ -127,6 +129,8 @@ let default_configuration =
 
     default_width_proof_tree_window = 400;
     default_height_proof_tree_window = 400;
+
+    internal_sequent_window_lines = 1;
 
     debug_mode = false;
     copy_input = false;
@@ -242,6 +246,7 @@ class config_window (top_window : GWindow.window)
   drag_accel_spinner
   tooltip_check_box
   default_size_width_spinner default_size_height_spinner
+  internal_seq_lines_spinner
   debug_check_box
   tee_file_box_check_box 
   tee_file_name_label tee_file_name_entry tee_file_name_button
@@ -258,6 +263,7 @@ object (self)
   val drag_accel_adjustment = drag_accel_spinner#adjustment
   val default_size_width_adjustment = default_size_width_spinner#adjustment
   val default_size_height_adjustment = default_size_height_spinner#adjustment
+  val internal_seq_lines_adjustment = internal_seq_lines_spinner#adjustment
 
   method present = top_window#present()
 
@@ -279,6 +285,8 @@ object (self)
       (float_of_int conf.default_width_proof_tree_window);
     default_size_height_adjustment#set_value
       (float_of_int conf.default_height_proof_tree_window);
+    internal_seq_lines_adjustment#set_value
+      (float_of_int conf.internal_sequent_window_lines);
     debug_check_box#set_active conf.debug_mode;
     tee_file_box_check_box#set_active conf.copy_input;
     tee_file_name_entry#set_text conf.copy_input_file;
@@ -359,6 +367,9 @@ object (self)
 	round_to_int default_size_width_adjustment#value;
       default_height_proof_tree_window = 
 	round_to_int default_size_height_adjustment#value;
+
+      internal_sequent_window_lines =
+	round_to_int internal_seq_lines_adjustment#value;
 
       debug_mode = debug_check_box#active;
       copy_input = tee_file_box_check_box#active;
@@ -748,16 +759,33 @@ let make_config_window () =
   default_size_width_spinner#misc#set_tooltip_text default_size_tooltip;
   default_size_height_spinner#misc#set_tooltip_text default_size_tooltip;
 
+  (* internal sequent window lines *)
+  let internal_seq_lines_tooltip = 
+    "Initial height (in lines) of the sequent window 
+     below the proof tree display" 
+  in
+  let internal_seq_lines_label = GMisc.label
+    ~text:"Int. Sequent window" ~xalign:0.0 ~xpad:5
+    ~packing:(misc_frame_table#attach ~left:0 ~top:3) () in
+  let internal_seq_lines_spinner = GEdit.spin_button
+    ~digits:0 ~numeric:true
+    ~packing:(misc_frame_table#attach ~left:1 ~top:3) () in
+  adjustment_set_pos_int ~lower:0.0 internal_seq_lines_spinner#adjustment;
+  internal_seq_lines_spinner#adjustment#set_value
+    (float_of_int !current_config.internal_sequent_window_lines);
+  internal_seq_lines_label#misc#set_tooltip_text internal_seq_lines_tooltip;
+  internal_seq_lines_spinner#misc#set_tooltip_text internal_seq_lines_tooltip;
+
   (* non-configurable config-file *)
   let config_file_tooltip = 
     "The configuration file is determined at compilation time" in
   let config_file_label = GMisc.label
     ~text:"Configuration file"
     ~xalign:0.0 ~xpad:5
-    ~packing:(misc_frame_table#attach ~left:0 ~top:3) () in
+    ~packing:(misc_frame_table#attach ~left:0 ~top:4) () in
   let config_file_alignment = GBin.alignment
     ~padding:(0,0,3,0)
-    ~packing:(misc_frame_table#attach ~left:1 ~right:4 ~top:3) () in
+    ~packing:(misc_frame_table#attach ~left:1 ~right:4 ~top:4) () in
   let _config_file_file = GMisc.label
     ~text:config_file_location
     ~xalign:0.0
@@ -854,6 +882,7 @@ let make_config_window () =
       drag_accel_spinner
       tooltip_check_box
       default_size_width_spinner default_size_height_spinner
+      internal_seq_lines_spinner
       debug_check_box
       tee_file_box_check_box 
       tee_file_name_label tee_file_name_entry tee_file_name_button
@@ -870,7 +899,9 @@ let make_config_window () =
 	cheated_color_label#misc; cheated_color_button#misc;
 	drag_accel_label#misc; drag_accel_spinner#misc;
 	default_size_label#misc; default_size_width_spinner#misc;
-	default_size_height_spinner#misc; config_file_label#misc;
+	default_size_height_spinner#misc; 
+	internal_seq_lines_label#misc; internal_seq_lines_spinner#misc;
+	config_file_label#misc;
 	config_file_alignment#misc; debug_alignment#misc;
 	tee_file_box_alignment#misc;
       ]
