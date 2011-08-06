@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.26 2011/08/04 12:54:42 tews Exp $
+ * $Id: proof_window.ml,v 1.27 2011/08/06 21:20:42 tews Exp $
  *)
 
 
@@ -529,15 +529,17 @@ object (self)
     self#set_selected_node old_old_selected_node;
     restored_selected_node <- true
 
-  method private locate_button_node x y node_click_fun outside_click_fun =
-    let node_opt = match root with 
-      | None -> None
-      | Some root ->
-	root#mouse_button_tree_root top_left top_top x y
-    in
-    match node_opt with
-      | None -> outside_click_fun ()
-      | Some node -> node_click_fun node
+  method private locate_button_node : 
+    'a . int -> int -> (#proof_tree_element -> 'a) -> (unit -> 'a) -> 'a =
+    fun x y node_click_fun outside_click_fun ->
+      let node_opt = match root with 
+	| None -> None
+	| Some root ->
+	  root#mouse_button_tree_root top_left top_top x y
+      in
+      match node_opt with
+	| None -> outside_click_fun ()
+	| Some node -> node_click_fun node
 
   method private external_node_window (node : proof_tree_element) =
     let n = string_of_int(self#next_node_number) in
@@ -607,7 +609,7 @@ object (self)
    *
    ***************************************************************************)
 
-  method pointer_motion (_ : GdkEvent.Motion.t) =
+  method pointer_motion (_ev : GdkEvent.Motion.t) =
     let (x, y) = Gdk.Window.get_pointer_location top_window#misc#window in
     let new_h_value = 
       last_button_press_h_adjustment_value +.
@@ -620,8 +622,8 @@ object (self)
 	   (float_of_int (y - last_button_press_top_y))
     in
     (* 
-     * let hint = GdkEvent.Motion.is_hint ev in
-     * Printf.printf "PM %d %d%s\n%!" new_x new_y (if hint then " H" else "");
+     * let hint = GdkEvent.Motion.is_hint _ev in
+     * Printf.printf "PM %d %d%s\n%!" x y (if hint then " H" else "");
      *)
     if not restored_selected_node 
     then self#single_restore_selected_node;
@@ -636,6 +638,36 @@ object (self)
      * last_button_1_y <- y;
      *)
     true
+
+  method pointer_general_motion (ev : GdkEvent.Motion.t) =
+    if Gdk.Convert.test_modifier `BUTTON1 (GdkEvent.Motion.state ev)
+    then self#pointer_motion ev
+    else false
+
+
+  (***************************************************************************
+   *
+   * tooltips
+   *
+   ***************************************************************************)
+      
+  method drawable_tooltip ~x ~y ~(kbd : bool) (tooltip : Gtk.tooltip) =
+    (* Printf.printf "TTS x %d y %d\n%!" x y; *)
+    if !current_config.display_tooltips then
+      self#locate_button_node x y 
+	(fun node -> match node#node_kind with
+	  | Turnstile -> false
+	  | Proof_command ->
+	    if node#content_shortened
+	    then begin
+	      GtkBase.Tooltip.set_text tooltip node#content;
+	      true
+	    end
+	    else false
+	)
+	(fun () -> false)
+    else
+      false
 
 
   (***************************************************************************
@@ -785,6 +817,9 @@ let rec make_proof_window name geometry_string =
   top_window#set_title (name ^ " proof tree");
   drawable#set_line_attributes 
     ~width:(!current_config.turnstile_line_width) ();
+  drawing_area#misc#set_has_tooltip true;
+  ignore(drawing_area#misc#connect#query_tooltip
+   	   ~callback:proof_window#drawable_tooltip);
   ignore(drawing_scrolling#misc#connect#size_allocate
 	   ~callback:proof_window#draw_scroll_size_allocate_callback);
   (* 
@@ -820,7 +855,7 @@ let rec make_proof_window name geometry_string =
   ignore(drawing_area#event#connect#button_press 
 	   ~callback:proof_window#button_press);
   ignore(drawing_area#event#connect#motion_notify
-	   ~callback:proof_window#pointer_motion);
+	   ~callback:proof_window#pointer_general_motion);
 
   ignore(sequent_v_adjustment#connect#changed 
 	   ~callback:proof_window#sequent_area_changed);

@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.23 2011/07/31 18:38:20 tews Exp $
+ * $Id: draw_tree.ml,v 1.24 2011/08/06 21:20:42 tews Exp $
  *)
 
 
@@ -194,6 +194,7 @@ object (self)
   method selected b = selected <- b
 
   method virtual content : string
+  method virtual content_shortened : bool
   method virtual id : string
 
 
@@ -603,6 +604,8 @@ object (self)
   method node_kind = Turnstile
 
   method content = sequent_text
+  method content_shortened = false
+
   method id = sequent_id
   method update_sequent new_text = 
     sequent_text <- new_text;
@@ -720,6 +723,7 @@ object (self)
 
   val mutable displayed_command = ""
   val command = command
+  val mutable content_shortened = false
 
   (* XXX Pango.Layout.set_font_description is missing in debian
    * squeeze. Have to use Pango.Context.set_font_description and
@@ -730,7 +734,10 @@ object (self)
   val mutable layout_height = 0
 
   method node_kind = Proof_command
+
   method content = command
+  method content_shortened = content_shortened
+
   method id = ""
 
   method private render_proof_command =
@@ -745,12 +752,16 @@ object (self)
     layout_height <- h
 
   method private set_displayed_command =
-    displayed_command <-
-      if Util.utf8_string_length command <= !current_config.proof_command_length
-      then command
-      else (Util.utf8_string_sub command 
-	      (!current_config.proof_command_length - 1))
-	^ "\226\128\166" 			(* append horizontal ellipsis *)
+    if Util.utf8_string_length command <= !current_config.proof_command_length
+    then begin
+      content_shortened <- false;
+      displayed_command <- command
+    end else begin
+      content_shortened <- true;
+      displayed_command <-
+	(Util.utf8_string_sub command (!current_config.proof_command_length - 1))
+        ^ "\226\128\166" 			(* append horizontal ellipsis *)
+    end
 
   method private set_node_size =
     self#render_proof_command;
