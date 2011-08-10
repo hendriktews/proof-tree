@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.28 2011/08/10 09:03:31 tews Exp $
+ * $Id: proof_window.ml,v 1.29 2011/08/10 12:01:18 tews Exp $
  *)
 
 
@@ -393,6 +393,10 @@ object (self)
     (* Printf.eprintf "INVALIDATE\n%!"; *)
     GtkBase.Widget.queue_draw drawing_area#as_widget
 
+  (** Method for updating the display after the proof tree has changed.
+      Adjusts the tree position in the drawing area, schedules a 
+      complete redraw and makes the current node (if any) visible.
+  *)
   method refresh_and_position =
     (* Printf.eprintf "REFRESH & POSITION\n%!"; *)
     position_to_current_node <- true;
@@ -402,6 +406,12 @@ object (self)
     self#invalidate_drawing_area;
     (* Printf.eprintf "REFRESH & POSITION END\n%!"; *)
     ()
+
+  (** Make the current node visible.
+  *)
+  method reposition_current_node () =
+    position_to_current_node <- true;
+    self#try_adjustment
 
   method draw_scroll_size_allocate_callback (_size : Gtk.rectangle) =
     (* 
@@ -870,6 +880,7 @@ let rec make_proof_window name geometry_string =
 
   GToolbox.build_menu menu
     [`I("Clone", clone_fun);
+     `I("Show current", proof_window#reposition_current_node);
      `I("Configuration", show_config_window);
      `I("Help", show_help_window);
      `I("About", show_about_window);

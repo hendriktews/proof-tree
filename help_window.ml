@@ -19,35 +19,32 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: help_window.ml,v 1.2 2011/07/28 12:53:07 tews Exp $
+ * $Id: help_window.ml,v 1.3 2011/08/10 12:01:18 tews Exp $
  *)
 
 
 (** Creation and display of the help window *)
 
+open Configuration
+
 type tags_symbols =
   | Default
-  | Blue
-  | Red
-  | Brown
-  | Black
+  | Proved_color
+  | Cheated_color
+  | Current_color
   | Italic
   | Bold
 
 let help_text = 
   [(Default, "The meaning of the colors in the proof tree is as follows: ");
-   (Blue, "blue branches");
-   (Default, " have been proven, the branch to the current goal \
-              (which is marked with a circle) is ");
-   (Brown, "colored brown");
-   (Default, ", ");
-   (Black, "black branches");
-   (Default, " end in a currently open goal, and ");
-   (Red, "red branches");
-   (Default, " have been proved with a cheating command such as ");
-   (Italic, "admit");
-   (Default, ". Colors as well as many proof-tree layout parameters \
-can be changed in the Configuration dialog.
+   (Proved_color, "proved branches (green by default), ");
+   (Current_color, "branch to the current goal (blue by default), ");
+   (Default, "currently open branches (default foreground color) and ");
+   (Cheated_color, "branches terminated with a cheating command such as admit");
+   (Default, ". Colors as well as many ");
+   (Bold, "Prooftree");
+   (Default, " parameters \
+can be changed in the configuration dialog.
 
 In addition to scroll bars and cursor keys one can move the proof \
 tree by dragging with mouse button 1 pressed. By default, dragging \
@@ -55,12 +52,19 @@ moves the viewport (i.e., the proof tree underneath moves in the \
 opposite direction). After setting a negative value for ");
    (Italic, "Drag acceleration");
    (Default, " in the Configuration dialog, dragging will move \
-the proof tree instead.
+the proof tree instead (i.e, the proof tree moves in the same \
+direction as the mouse).
 
-The sequent window normally shows the ancestor sequent of the current \
+The sequent display normally shows the ancestor sequent of the current \
 goal. With a single left mouse click one can display any goal or proof command \
-in the sequent window. A single click outside the proof tree will switch \
-back to default behavior.
+in the sequent display. A single click outside the proof tree will switch \
+back to default behavior. The initial size of the sequent display can \
+be set in the configuration dialog. A value of 0 hides the sequent display.
+
+Long proof commands are truncated with \226\128\166 in the display. The \
+length at which truncation happens can be set in the configuration dialog. \
+Any truncated proof command is displayed in full length as tool tip if the \
+mouse stays long enough above it (and if tool tips are enabled).
 
 A double click displays any goal or proof command in an additional \
 window. These additional windows are deleted when the main proof-tree \
@@ -76,27 +80,61 @@ proof tree window. This cloned proof tree is not connected with Proof \
 General and won't be updated when the proof is changed.
 
 The ");
+   (Italic, "Show current");
+   (Default, " menu item repositions the proof tree such that the \
+current proof goal is visible.
+
+The ");
+   (Italic, "Configuration");
+   (Default, " item displays the configuration dialog. Changing values \
+there does only take effect after the ");
+   (Italic, "Apply");
+   (Default, " or ");
+   (Italic, "OK");
+   (Default, " button has been pressed. The ");
+   (Italic, "Save");
+   (Default, " button stores the current configuration values \
+              in the file ");
+   (Italic, config_file_location);
+   (Default, ", which overwrites the build-in default configuration \
+at start up.
+
+The ");
    (Italic, "Exit");
    (Default, " item terminates ");
    (Bold, "Prooftree");
-   (Default, " and closes all proof windows.")
+   (Default, " and closes all proof windows.
+
+A major part of the proof visualization task is done by ");
+   (Bold, "Proof General");
+   (Default, ". Therefore, certain aspects can only be configured \
+inside ");
+   (Bold, "Proof General");
+   (Default, " in the customization groups ");
+   (Italic, "proof-tree");
+   (Default, " and ");
+   (Italic, "proof-tree-internals. ");
+   (Default, "For instance, ");
+   (Bold, "Prooftree");
+   (Default, " command line arguments or the regular expressions for \
+navigation and cheating commands can be configured there. \
+To visit a customization group, type ");
+   (Italic, "M-x customize-group");
+   (Default, " followed by the name of the customization group inside ");
+   (Bold, "Proof General.");
   ]
 
 let fill_help_buffer (buffer :GText.buffer) =
-  let blue_tag = buffer#create_tag [`FOREGROUND "blue"] in
-  let red_tag = buffer#create_tag [`FOREGROUND "red"] in
-  let brown_tag = buffer#create_tag [`FOREGROUND "brown"] in
-  let black_tag = 
-    buffer#create_tag [(`FOREGROUND "white"); (`BACKGROUND "black")] 
-  in
+  let proved_tag = buffer#create_tag [`FOREGROUND_GDK !proved_gdk_color] in
+  let cheated_tag = buffer#create_tag [`FOREGROUND_GDK !cheated_gdk_color] in
+  let current_tag = buffer#create_tag [`FOREGROUND_GDK !current_gdk_color] in
   let i_tag = buffer#create_tag [`FONT "italic"] in
   let bold_tag = buffer#create_tag [`FONT "bold"] in
   let get_tags = function
     | Default -> []
-    | Blue -> [blue_tag]
-    | Red -> [red_tag]
-    | Brown -> [brown_tag]
-    | Black -> [black_tag]
+    | Proved_color -> [proved_tag]
+    | Cheated_color -> [cheated_tag]
+    | Current_color -> [current_tag]
     | Italic -> [i_tag]
     | Bold -> [bold_tag]
   in

@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.20 2011/08/10 09:03:30 tews Exp $
+ * $Id: configuration.ml,v 1.21 2011/08/10 12:01:18 tews Exp $
  *)
 
 
@@ -95,7 +95,6 @@ let update_sizes config =
 let default_configuration = 
   let radius = 10 in
   let blue = GDraw.color (`NAME "blue") in
-  let brown = GDraw.color (`NAME "brown") in
   let red = GDraw.color (`NAME "red") in
   let c = {
     turnstile_radius = radius;
@@ -115,10 +114,9 @@ let default_configuration =
     proof_tree_font = "Sans 8";
     sequent_font = "Sans 8";
 
-    proved_color = 
-      (Gdk.Color.red blue, Gdk.Color.green blue, Gdk.Color.blue blue);
+    proved_color = (0, 220 * 256, 0);
     current_color = 
-      (Gdk.Color.red brown, Gdk.Color.green brown, Gdk.Color.blue brown);
+      (Gdk.Color.red blue, Gdk.Color.green blue, Gdk.Color.blue blue);
     cheated_color = 
       (Gdk.Color.red red, Gdk.Color.green red, Gdk.Color.blue red);
 

@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: main.ml,v 1.12 2011/08/01 15:42:08 tews Exp $
+ * $Id: main.ml,v 1.13 2011/08/10 12:01:18 tews Exp $
  *)
 
 
@@ -80,8 +80,8 @@ let anon_fun s =
 - start the GTK main loop
 *)
 let main () =
-  Arg.parse arguments anon_fun "prooftree";
   try_load_config_file ();
+  Arg.parse arguments anon_fun "prooftree";
   setup_input();
   Printf.printf 
     ("Prooftree version %s awaiting input on stdin.\n" ^^
