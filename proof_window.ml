@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.27 2011/08/06 21:20:42 tews Exp $
+ * $Id: proof_window.ml,v 1.28 2011/08/10 09:03:31 tews Exp $
  *)
 
 
@@ -400,6 +400,8 @@ object (self)
     ignore(self#position_tree);
     self#try_adjustment;
     self#invalidate_drawing_area;
+    (* Printf.eprintf "REFRESH & POSITION END\n%!"; *)
+    ()
 
   method draw_scroll_size_allocate_callback (_size : Gtk.rectangle) =
     (* 
@@ -440,6 +442,13 @@ object (self)
 
   method expose_callback (ev : GdkEvent.Expose.t) =
     (* 
+     * let r = GdkEvent.Expose.area ev in
+     * Printf.eprintf "EXPOSE count %d %d x %d at %d x %d\n%!"
+     *   (GdkEvent.Expose.count ev)
+     *   (Gdk.Rectangle.width r) (Gdk.Rectangle.height r)
+     *   (Gdk.Rectangle.x r) (Gdk.Rectangle.y r);
+     *)
+    (* 
      * (let a = drawing_v_adjustment in
      *  Printf.eprintf "EX VADJ low %f val %f up %f size %f step %f page %f\n%!"
      *    a#lower a#value a#upper a#page_size 
@@ -452,13 +461,6 @@ object (self)
      * (let a = drawing_v_adjustment in
      *  Printf.eprintf "VADJ low %f val %f up %f size %f step %f page %f\n%!"
      *    a#lower a#value a#upper a#page_size a#step_increment a#page_increment);
-     *)
-    (* 
-     * let r = GdkEvent.Expose.area ev in
-     * Printf.eprintf "EXPOSE count %d %d x %d at %d x %d\n%!"
-     *   (GdkEvent.Expose.count ev)
-     *   (Gdk.Rectangle.width r) (Gdk.Rectangle.height r)
-     *   (Gdk.Rectangle.x r) (Gdk.Rectangle.y r);
      *)
     self#redraw;
     (* prerr_endline "END EXPOSE EVENT"; *)
@@ -802,7 +804,6 @@ let rec make_proof_window name geometry_string =
   in
 
   let menu = GMenu.menu () in
-  let menu_factory = new GMenu.factory menu in
 
   let proof_window = 
     new proof_window top_window 
@@ -867,11 +868,13 @@ let rec make_proof_window name geometry_string =
 	     menu#popup ~button:0 
 	       ~time:(GtkMain.Main.get_current_event_time ())));
 
-  ignore(menu_factory#add_item "Clone" ~callback:clone_fun);
-  ignore(menu_factory#add_item "Configuration" ~callback:show_config_window);
-  ignore(menu_factory#add_item "Help" ~callback:show_help_window);
-  ignore(menu_factory#add_item "About" ~callback:show_about_window);
-  ignore(menu_factory#add_item "Exit" ~callback:(fun _ -> exit 0));
+  GToolbox.build_menu menu
+    [`I("Clone", clone_fun);
+     `I("Configuration", show_config_window);
+     `I("Help", show_help_window);
+     `I("About", show_about_window);
+     `I("Exit", (fun _ -> exit 0));
+    ];
 
   top_window#show ();
   if geometry_string <> "" then

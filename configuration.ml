@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.19 2011/08/04 13:13:09 tews Exp $
+ * $Id: configuration.ml,v 1.20 2011/08/10 09:03:30 tews Exp $
  *)
 
 
@@ -763,7 +763,7 @@ let make_config_window () =
 
   (* internal sequent window lines *)
   let internal_seq_lines_tooltip = 
-    "Initial height (in lines) of the sequent window 
+    "Initial height (in lines) of the sequent window \
      below the proof tree display" 
   in
   let internal_seq_lines_label = GMisc.label

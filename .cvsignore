@@ -2,5 +2,6 @@
 *.cmo
 *.cmx
 Makefile
+Makefile.deps
 prooftree
 version.ml
