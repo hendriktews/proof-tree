@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.22 2011/08/10 14:03:54 tews Exp $
+ * $Id: configuration.ml,v 1.23 2011/08/10 14:27:34 tews Exp $
  *)
 
 
@@ -210,7 +210,7 @@ let read_config_file file_name : t =
     close_in ic;
     c
   end
-  else failwith "Invalid configuration file"
+  else raise(Failure "Invalid configuration file")
 
 let try_load_config_file () =
   let copt =
@@ -416,6 +416,11 @@ object (self)
       try
 	write_config_file config_file_location !current_config
       with
+	| Sys_error s when Util.string_ends s "Permission denied" ->
+	  run_message_dialog
+	    ("No permission to write the configuration file at "
+		^ config_file_location ^ "!")
+	    `WARNING
 	| e ->
 	  let backtrace = Printexc.get_backtrace () in
 	  let buf = Buffer.create 4095 in
@@ -447,6 +452,15 @@ object (self)
       self#set_configuration c;
       update_configuration c
     with
+      | Sys_error s when Util.string_ends s "No such file or directory" ->
+	run_message_dialog
+	  ("No configuration file at " ^ config_file_location ^ "!")
+	  `WARNING
+      | Failure "Invalid configuration file" ->
+	run_message_dialog
+	  ("File " ^ config_file_location ^ " is not a valid Prooftree \
+            configuration file!")
+	  `WARNING
       | e ->
 	let backtrace = Printexc.get_backtrace () in
 	let buf = Buffer.create 4095 in

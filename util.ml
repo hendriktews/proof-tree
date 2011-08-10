@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: util.ml,v 1.11 2011/05/27 18:13:54 tews Exp $
+ * $Id: util.ml,v 1.12 2011/08/10 14:27:34 tews Exp $
  *)
 
 
@@ -90,6 +90,7 @@ let chop_final_newlines s =
   done;
   String.sub s 0 !i
 
+
 (** Split string [s] at occurrences of [c]. Return the list of (non-zero)
     strings between sequences of [c].
 
@@ -111,6 +112,16 @@ let string_split c s =
 	 else (String.sub s i (j - i)) :: res)
   in
   iter 0 []
+
+
+(** [string_ends buf tail] returns [true] if the last characters of [buf] 
+    equal [tail].
+*)
+let string_ends buf tail =
+  let buf_len = String.length buf in 
+  let tail_len = String.length tail in
+  buf_len >= tail_len &&
+    (String.sub buf (buf_len - tail_len) tail_len) = tail
 
 
 let utf8_sequence_length s i =
