@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.21 2011/08/10 12:01:18 tews Exp $
+ * $Id: configuration.ml,v 1.22 2011/08/10 14:03:54 tews Exp $
  *)
 
 
@@ -65,7 +65,9 @@ type t = {
   current_color : (int * int * int);
   cheated_color : (int * int * int);
 
-  display_tooltips : bool;
+  display_doc_tooltips : bool;
+  display_turnstile_tooltips : bool;
+  display_command_tooltips : bool;
 
   default_width_proof_tree_window : int;
   default_height_proof_tree_window : int;
@@ -120,7 +122,9 @@ let default_configuration =
     cheated_color = 
       (Gdk.Color.red red, Gdk.Color.green red, Gdk.Color.blue red);
 
-    display_tooltips = true;
+    display_doc_tooltips = true;
+    display_turnstile_tooltips = true;
+    display_command_tooltips = true;
 
     default_width_proof_tree_window = 400;
     default_height_proof_tree_window = 400;
@@ -240,7 +244,9 @@ class config_window (top_window : GWindow.window)
   current_color_button
   cheated_color_button
   drag_accel_spinner
-  tooltip_check_box
+  doc_tooltip_check_box
+  turnstile_tooltip_check_box
+  command_tooltip_check_box
   default_size_width_spinner default_size_height_spinner
   internal_seq_lines_spinner
   external_node_lines_spinner
@@ -278,7 +284,9 @@ object (self)
     current_color_button#set_color (GDraw.color (`RGB conf.current_color));
     cheated_color_button#set_color (GDraw.color (`RGB conf.cheated_color));
     drag_accel_adjustment#set_value conf.button_1_drag_acceleration;
-    tooltip_check_box#set_active conf.display_tooltips;
+    doc_tooltip_check_box#set_active conf.display_doc_tooltips;
+    turnstile_tooltip_check_box#set_active conf.display_turnstile_tooltips;
+    command_tooltip_check_box#set_active conf.display_command_tooltips;
     default_size_width_adjustment#set_value
       (float_of_int conf.default_width_proof_tree_window);
     default_size_height_adjustment#set_value
@@ -296,7 +304,7 @@ object (self)
     self#set_configuration default_configuration
 
   method toggle_tooltips () =
-    let flag = tooltip_check_box#active in
+    let flag = doc_tooltip_check_box#active in
     List.iter (fun misc -> misc#set_has_tooltip flag) tooltip_misc_objects;
     ()
 
@@ -359,7 +367,9 @@ object (self)
       cheated_color = (let c = cheated_color_button#color in
 		       (Gdk.Color.red c, Gdk.Color.green c, Gdk.Color.blue c));
 
-      display_tooltips = tooltip_check_box#active;
+      display_doc_tooltips = doc_tooltip_check_box#active;
+      display_turnstile_tooltips = turnstile_tooltip_check_box#active;
+      display_command_tooltips = command_tooltip_check_box#active;
 
       default_width_proof_tree_window = 
 	round_to_int default_size_width_adjustment#value;
@@ -704,24 +714,50 @@ let make_config_window () =
     (* ~columns:2 ~rows:2 *) ~border_width:5
     ~packing:misc_frame#add () in
 
-  (* tooltips *)
-  let tooltip_alignment = GBin.alignment
+  (* doc tooltips *)
+  let doc_tooltip_tooltip = "Switch ordinary help tool tips on and off" in
+  let doc_tooltip_alignment = GBin.alignment
     ~padding:(0,0,3,0)
-    ~packing:(misc_frame_table#attach ~left:0 ~top:0) () in
-  let tooltip_check_box = GButton.check_button
-    ~label:"Display tooltips"
-    ~active:!current_config.display_tooltips
-    ~packing:tooltip_alignment#add () in
+    ~packing:(misc_frame_table#attach ~left:0 ~right:2 ~top:0) () in
+  let doc_tooltip_check_box = GButton.check_button
+    ~label:"Display help tool tips"
+    ~active:!current_config.display_doc_tooltips
+    ~packing:doc_tooltip_alignment#add () in
+  doc_tooltip_alignment#misc#set_tooltip_text doc_tooltip_tooltip;
+
+  (* turnstile tooltips *)
+  let turnstile_tooltip_tooltip = 
+    "Switch sequent display as tool tip over the proof tree on and off" in
+  let turnstile_tooltip_alignment = GBin.alignment
+    ~padding:(0,0,3,0)
+    ~packing:(misc_frame_table#attach ~left:0 ~right:2 ~top:1) () in
+  let turnstile_tooltip_check_box = GButton.check_button
+    ~label:"Display turnstile tool tips"
+    ~active:!current_config.display_turnstile_tooltips
+    ~packing:turnstile_tooltip_alignment#add () in
+  turnstile_tooltip_alignment#misc#set_tooltip_text turnstile_tooltip_tooltip;
+
+  (* command tooltips *)
+  let command_tooltip_tooltip = 
+    "Switch display of truncated commands as tool tip on and off" in
+  let command_tooltip_alignment = GBin.alignment
+    ~padding:(0,0,3,0)
+    ~packing:(misc_frame_table#attach ~left:0 ~right:2 ~top:2) () in
+  let command_tooltip_check_box = GButton.check_button
+    ~label:"Display command tool tips"
+    ~active:!current_config.display_command_tooltips
+    ~packing:command_tooltip_alignment#add () in
+  command_tooltip_alignment#misc#set_tooltip_text command_tooltip_tooltip;
 
   (* drag accel *)
   let drag_accel_tooltip = 
     "Acceleration for dragging the viewport to the proof tree" in
   let drag_accel_label = GMisc.label
     ~text:"Drag acceleration" ~xalign:0.0 ~xpad:5
-    ~packing:(misc_frame_table#attach ~left:0 ~top:1) () in
+    ~packing:(misc_frame_table#attach ~left:0 ~top:3) () in
   let drag_accel_spinner = GEdit.spin_button
     ~digits:2 ~numeric:true
-    ~packing:(misc_frame_table#attach ~left:1 ~top:1) () in
+    ~packing:(misc_frame_table#attach ~left:1 ~top:3) () in
   drag_accel_spinner#adjustment#set_bounds
     ~lower:(-99.0) ~upper:99.0
     ~step_incr:0.01 ~page_incr:1.0 ();
@@ -734,10 +770,10 @@ let make_config_window () =
   let default_size_tooltip = "Size for newly created proof tree windows" in
   let default_size_label = GMisc.label
     ~text:"Default window size" ~xalign:0.0 ~xpad:5
-    ~packing:(misc_frame_table#attach ~left:0 ~top:2) () in
+    ~packing:(misc_frame_table#attach ~left:0 ~top:4) () in
   let default_size_width_spinner = GEdit.spin_button
     ~digits:0 ~numeric:true
-    ~packing:(misc_frame_table#attach ~left:1 ~top:2) () in
+    ~packing:(misc_frame_table#attach ~left:1 ~top:4) () in
   default_size_width_spinner#adjustment#set_bounds
     ~lower:(-9999.0) ~upper:9999.0
     ~step_incr:1.0 ~page_incr:100.0 ();
@@ -746,10 +782,10 @@ let make_config_window () =
   let _x_label = GMisc.label
     ~text:"\195\151" (* multiplication sign U+00D7 *)
     ~xpad:5
-    ~packing:(misc_frame_table#attach ~left:2 ~top:2) () in
+    ~packing:(misc_frame_table#attach ~left:2 ~top:4) () in
   let default_size_height_spinner = GEdit.spin_button
     ~digits:0 ~numeric:true
-    ~packing:(misc_frame_table#attach ~left:3 ~top:2) () in
+    ~packing:(misc_frame_table#attach ~left:3 ~top:4) () in
   default_size_height_spinner#adjustment#set_bounds
     ~lower:(-9999.0) ~upper:9999.0
     ~step_incr:1.0 ~page_incr:100.0 ();
@@ -766,10 +802,10 @@ let make_config_window () =
   in
   let internal_seq_lines_label = GMisc.label
     ~text:"Int. Sequent window" ~xalign:0.0 ~xpad:5
-    ~packing:(misc_frame_table#attach ~left:0 ~top:3) () in
+    ~packing:(misc_frame_table#attach ~left:0 ~top:5) () in
   let internal_seq_lines_spinner = GEdit.spin_button
     ~digits:0 ~numeric:true
-    ~packing:(misc_frame_table#attach ~left:1 ~top:3) () in
+    ~packing:(misc_frame_table#attach ~left:1 ~top:5) () in
   adjustment_set_pos_int ~lower:0.0 internal_seq_lines_spinner#adjustment;
   internal_seq_lines_spinner#adjustment#set_value
     (float_of_int !current_config.internal_sequent_window_lines);
@@ -781,10 +817,10 @@ let make_config_window () =
     "Maximal height (in lines) of additional node windows" in
   let external_node_lines_label = GMisc.label
     ~text:"Ext. node window" ~xalign:0.0 ~xpad:5
-    ~packing:(misc_frame_table#attach ~left:0 ~top:4) () in
+    ~packing:(misc_frame_table#attach ~left:0 ~top:6) () in
   let external_node_lines_spinner = GEdit.spin_button
     ~digits:0 ~numeric:true
-    ~packing:(misc_frame_table#attach ~left:1 ~top:4) () in
+    ~packing:(misc_frame_table#attach ~left:1 ~top:6) () in
   adjustment_set_pos_int external_node_lines_spinner#adjustment;
   external_node_lines_spinner#adjustment#set_value
     (float_of_int !current_config.node_window_max_lines);
@@ -797,10 +833,10 @@ let make_config_window () =
   let config_file_label = GMisc.label
     ~text:"Configuration file"
     ~xalign:0.0 ~xpad:5
-    ~packing:(misc_frame_table#attach ~left:0 ~top:5) () in
+    ~packing:(misc_frame_table#attach ~left:0 ~top:7) () in
   let config_file_alignment = GBin.alignment
     ~padding:(0,0,3,0)
-    ~packing:(misc_frame_table#attach ~left:1 ~right:4 ~top:5) () in
+    ~packing:(misc_frame_table#attach ~left:1 ~right:4 ~top:7) () in
   let _config_file_file = GMisc.label
     ~text:config_file_location
     ~xalign:0.0
@@ -895,7 +931,9 @@ let make_config_window () =
       current_color_button
       cheated_color_button
       drag_accel_spinner
-      tooltip_check_box
+      doc_tooltip_check_box
+      turnstile_tooltip_check_box
+      command_tooltip_check_box
       default_size_width_spinner default_size_height_spinner
       internal_seq_lines_spinner
       external_node_lines_spinner
@@ -913,6 +951,9 @@ let make_config_window () =
 	proved_color_label#misc; proved_color_button#misc;
 	current_color_label#misc; current_color_button#misc;
 	cheated_color_label#misc; cheated_color_button#misc;
+	doc_tooltip_alignment#misc;
+	turnstile_tooltip_alignment#misc;
+	command_tooltip_alignment#misc;
 	drag_accel_label#misc; drag_accel_spinner#misc;
 	default_size_label#misc; default_size_width_spinner#misc;
 	default_size_height_spinner#misc; 
@@ -927,7 +968,7 @@ let make_config_window () =
   top_window#set_title "Prooftree Configuration";
   config_window#toggle_tooltips ();
   config_window#tee_file_toggle();
-  ignore(tooltip_check_box#connect#toggled
+  ignore(doc_tooltip_check_box#connect#toggled
 	   ~callback:config_window#toggle_tooltips);
   ignore(tee_file_box_check_box#connect#toggled 
 	   ~callback:config_window#tee_file_toggle);

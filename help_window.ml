@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: help_window.ml,v 1.3 2011/08/10 12:01:18 tews Exp $
+ * $Id: help_window.ml,v 1.4 2011/08/10 14:03:54 tews Exp $
  *)
 
 
@@ -55,16 +55,21 @@ opposite direction). After setting a negative value for ");
 the proof tree instead (i.e, the proof tree moves in the same \
 direction as the mouse).
 
-The sequent display normally shows the ancestor sequent of the current \
+The sequent display below the proof tree \
+normally shows the ancestor sequent of the current \
 goal. With a single left mouse click one can display any goal or proof command \
 in the sequent display. A single click outside the proof tree will switch \
 back to default behavior. The initial size of the sequent display can \
 be set in the configuration dialog. A value of 0 hides the sequent display.
 
+If turnstile tool tips are switched on, the complete sequent text is \
+displayed as toop tip when the mouse stays above a sequent symbol in the \
+proof tree display.
+
 Long proof commands are truncated with \226\128\166 in the display. The \
 length at which truncation happens can be set in the configuration dialog. \
 Any truncated proof command is displayed in full length as tool tip if the \
-mouse stays long enough above it (and if tool tips are enabled).
+mouse stays long enough above it (and if command tool tips are enabled).
 
 A double click displays any goal or proof command in an additional \
 window. These additional windows are deleted when the main proof-tree \

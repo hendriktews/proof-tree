@@ -1,5 +1,9 @@
 2011-08-10  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
+	* sequent tooltips and more tool tip config
+
+2011-08-10  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
 	* change default colors
 	* show current menu item
 	* improve help

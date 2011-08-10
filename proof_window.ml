@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.29 2011/08/10 12:01:18 tews Exp $
+ * $Id: proof_window.ml,v 1.30 2011/08/10 14:03:54 tews Exp $
  *)
 
 
@@ -665,21 +665,25 @@ object (self)
       
   method drawable_tooltip ~x ~y ~(kbd : bool) (tooltip : Gtk.tooltip) =
     (* Printf.printf "TTS x %d y %d\n%!" x y; *)
-    if !current_config.display_tooltips then
-      self#locate_button_node x y 
-	(fun node -> match node#node_kind with
-	  | Turnstile -> false
-	  | Proof_command ->
-	    if node#content_shortened
-	    then begin
-	      GtkBase.Tooltip.set_text tooltip node#content;
-	      true
-	    end
-	    else false
-	)
-	(fun () -> false)
-    else
-      false
+    self#locate_button_node x y 
+      (fun node -> match node#node_kind with
+	| Turnstile -> 
+	  if !current_config.display_turnstile_tooltips then begin
+	    let contents = GMisc.label ~text:node#content () in
+	    GtkBase.Tooltip.set_custom tooltip contents#as_widget;
+	    true
+	  end 
+	  else false
+	| Proof_command ->
+	  if !current_config.display_command_tooltips && node#content_shortened
+	  then begin
+	    let contents = GMisc.label ~text:node#content () in
+	    GtkBase.Tooltip.set_custom tooltip contents#as_widget;
+	    true
+	  end
+	  else false
+      )
+      (fun () -> false)
 
 
   (***************************************************************************
