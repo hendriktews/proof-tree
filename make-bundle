@@ -20,7 +20,7 @@ fi
 
 webdir=/home/tews/www/alfa-www/askra-root/software/prooftree
 
-sed -i$(date +%s) -e "s/^<DT>XXXX-XX-XX/<DT>$timestamp/" changes.html
+sed -i.$(date +%s)~ -e "s/^<DT>XXXX-XX-XX/<DT>$timestamp/" changes.html
 
 cvsmessage="* prepare changes.html for release"
 
@@ -38,10 +38,10 @@ cvs update | grep -v '^?' | grep -v '^cvs update: Updating'
 echo
 echo Commit and copy patched [recent-]changes.html : 
 echo cvs commit -m "$cvsmessage" . ?
-echo -n [N/y]?
+echo -n [Y/n]?
 read answer
 
-if [  ${answer:=n} = n -o $answer = N ] ; then
+if [  ${answer:=y} = n -o $answer = N ] ; then
     exit 0
 fi
 
@@ -94,10 +94,10 @@ tar -czf $tgzfile $dir
 echo
 echo copy README-bundle $tgzfile
 echo to $webdir
-echo -n [N/y]?
+echo -n [Y/n]?
 read answer
 
-if [  ${answer:=n} = n -o $answer = N ] ; then
+if [  ${answer:=y} = n -o $answer = N ] ; then
     exit 0
 fi
 
@@ -111,10 +111,10 @@ popd
 
 echo
 echo Fix download links in website ?
-echo -n [N/y]?
+echo -n [Y/n]?
 read answer
 
-if [  ${answer:=n} = n -o $answer = N ] ; then
+if [  ${answer:=y} = n -o $answer = N ] ; then
     exit 0
 fi
 
@@ -141,10 +141,10 @@ mv $webdir/indexnew.shtml $webdir/index.shtml
 
 echo
 echo Upload website?
-echo -n [N/y]?
+echo -n [Y/n]?
 read answer
 
-if [  ${answer:=n} = n -o $answer = N ] ; then
+if [  ${answer:=y} = n -o $answer = N ] ; then
     exit 0
 fi
 
@@ -154,10 +154,10 @@ release_tag=prooftree-release-$timestamp
 
 echo
 echo cvs tag $release_tag ?
-echo -n [N/y]?
+echo -n [Y/n]?
 read answer
 
-if [ ${answer:=n} = n -o $answer = N ] ; then
+if [ ${answer:=y} = n -o $answer = N ] ; then
     exit 0
 fi
 
@@ -165,10 +165,10 @@ cvs tag $release_tag
 
 echo
 echo bump version number?
-echo -n [N/y]?
+echo -n [Y/n]?
 read answer
 
-if [  ${answer:=n} = n -o $answer = N ] ; then
+if [  ${answer:=y} = n -o $answer = N ] ; then
     exit 0
 fi
 
@@ -196,10 +196,10 @@ cvs update | grep -v '^?' | grep -v '^cvs update: Updating'
 
 echo
 echo cvs commit -m "$cvsmessage" . ??
-echo -n [N/y]?
+echo -n [Y/n]?
 read answer
 
-if [  ${answer:=n} = n -o $answer = N ] ; then
+if [  ${answer:=y} = n -o $answer = N ] ; then
     exit 0
 fi
 
