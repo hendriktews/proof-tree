@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: help_window.ml,v 1.4 2011/08/10 14:03:54 tews Exp $
+ * $Id: help_window.ml,v 1.5 2011/08/11 08:47:28 tews Exp $
  *)
 
 
@@ -46,7 +46,7 @@ let help_text =
    (Default, " parameters \
 can be changed in the configuration dialog.
 
-In addition to scroll bars and cursor keys one can move the proof \
+In addition to scroll bars and the usual keys one can move the proof \
 tree by dragging with mouse button 1 pressed. By default, dragging \
 moves the viewport (i.e., the proof tree underneath moves in the \
 opposite direction). After setting a negative value for ");
@@ -71,9 +71,10 @@ length at which truncation happens can be set in the configuration dialog. \
 Any truncated proof command is displayed in full length as tool tip if the \
 mouse stays long enough above it (and if command tool tips are enabled).
 
-A double click displays any goal or proof command in an additional \
+A double click or a shift-click displays any goal or proof command \
+in an additional \
 window. These additional windows are deleted when the main proof-tree \
-window disappears, unless the ");
+window disappears, unless their ");
    (Italic, "Sticky");
    (Default, " button is pressed.
 

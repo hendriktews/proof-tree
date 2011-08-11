@@ -1,0 +1,262 @@
+.\" groff -man -Tascii prooftree.1
+.\"
+.TH PROOFTREE 1 "August 2011" PROOFTREE "User Manuals"
+.SH NAME
+prooftree \- visualize proof trees for ProofGeneral
+.SH SYNOPSIS
+.B prooftree [-geometry \fIspec\fB] [\fB-tee \fIfile\fB] [-debug]
+.P
+.B prooftree -help
+.SH DESCRIPTION
+.\" ============= paragraph general purpose ===================================
+.B Prooftree
+visualizes proof trees during proof development with Proof
+General. Currently it only works for \fBCoq\fR, though adding
+support for other proof assistants should be relatively easy.
+.\" ==========================================================================
+.P
+To start a proof-tree display, hit the 
+.B Prooftree
+icon in the 
+.B ProofGeneral
+tool-bar or select the menu entry
+.I Proof-General
+-> 
+.I Start/Stop Prooftree
+or type
+.I C-c C-d
+(which runs
+.I proof-tree-external-display-toggle\fR).
+Inside a proof, this will immediately start a proof-tree display
+for the current proof. Outside a proof, 
+.B ProofGeneral
+remembers to start the proof-tree display for the next proof.
+.\" ==========================================================================
+.P
+Under normal circumstances
+.B Prooftree
+is started by 
+.B ProofGeneral
+as an
+.B Emacs
+subprocess. The user interacts with 
+.B Prooftree
+only through the graphical user interface. A substantial part of
+the proof-tree visualization task is done by
+.B ProofGeneral\fR.
+Therefore not only the 
+.B Prooftree
+command line arguments but also other aspects can only be
+configured inside 
+.B ProofGeneral\fR,
+see 
+.B ProofGeneral Customization
+below.
+.\"
+.\" ==========================================================================
+.\" ================ Static Options ==========================================
+.\" ==========================================================================
+.\"
+.SH OPTIONS
+.\" ==========================================================================
+.IP "-geometry \fIspec\fR"
+Sets the X geometry of the main window.
+.I spec
+is a standard X geometry string in the form 
+\fIxpos\fRx\fIypos\fR[+\fIxoff\fR[+\fIyoff\fR]].
+.\" ======================================= -tee =============================
+.IP "-tee \fIfile\fR"
+Write all input to
+.I file
+(usually for debugging purposes).
+.\" ======================================= -debug ===========================
+.IP "-debug"
+Provide more details on errors.
+.\" ======================================= -help ============================
+.IP "-help"
+Print synopsis and exit.
+.\"
+.\" ==========================================================================
+.\" ================ Main Window =============================================
+.\" ==========================================================================
+.\"
+.SH MAIN PROOF DISPLAY
+.B Prooftree
+opens one window for each proof that it is requested to display.
+Below the proof-tree graph this window contains a display for
+sequents and proof commands. 
+.\" ==========================================================================
+.SS Colors
+The branches in the proof-tree graph are colored
+according to their state. 
+.B Prooftree
+distinguishes between proved branches (green by default), the
+branch to the current goal (blue by default), branches finished
+with a cheating command such as 
+.I admit
+(red by default) and the currently open branches (in the default
+foreground color). The colors as well as many other
+.B Prooftree
+parameters can be changed in the 
+.B Prooftree Configuration Dialog
+(see below). 
+.\" ==========================================================================
+.SS Navigation
+When the proof tree grows large one can navigate by a variety of
+means. In addition to scroll bars and the usual keys one can move
+the proof tree by dragging with mouse button 1 pressed. By
+default, dragging moves the viewport (i.e., the proof tree
+underneath moves in the opposite direction). After setting a
+negative value for 
+.I Drag acceleration 
+in the 
+.B Prooftree Configuration Dialog\fR,
+dragging will move the proof tree instead (i.e, the proof tree
+moves in the same direction as the mouse).
+.\" ==========================================================================
+.SS Sequent Display
+The sequent display below the proof tree normally shows the
+ancestor sequent of the current goal. With a single left mouse
+click one can display any goal or proof command in the sequent
+display. A single click outside the proof tree will switch back
+to default behavior. The initial size of the sequent display can
+be set in the
+.B Prooftree Configuration Dialog\fR.
+A value of 0 hides the sequent display.
+.\" ==========================================================================
+.SS Tool Tips
+Abbreviated proof commands and sequents are shown in full as
+tool tips when the mouse pointer rests over them. Both, the tool
+tips for abbreviated proof commands and for sequents can be
+independently switched off in the
+.B Prooftree Configuration Dialog\fR.
+The length at which proof commands are abbreviated can be
+configured as well.
+.\" ==========================================================================
+.SS Additional Displays
+A double click or a shift-click displays any goal or proof
+command in an additional window. These additional windows are
+deleted when the main proof-tree window disappears, unless their
+.I Sticky 
+button is pressed.
+.\" ==========================================================================
+.SS Main Menu
+A right-click or the 
+.I Menu
+button displays the main menu. The 
+.I Clone
+item clones the current proof tree in an additional window. This
+additional window continues to display a snapshot of the cloned
+proof tree, no matter what happens with the original proof.
+.\" ==========================================================================
+.P
+The 
+.I Show current
+item moves the viewport to the proof tree such that the current
+proof goal (if there is any) will be visible.
+.\" ==========================================================================
+.P
+The
+.I Exit
+item terminates 
+.B Prooftree
+and closes all proof-tree displays.
+.\" ==========================================================================
+.P
+The remaining three items display, respectively, the
+.B Prooftree Configuration Dialog\fR,
+and the 
+.B Help
+and 
+.B About
+windows.
+.\"
+.\" ==========================================================================
+.\" ================ Configuration ===========================================
+.\" ==========================================================================
+.\"
+.SH CONFIGURATION
+.SS Prooftree Configuration Dialog
+Changes in the configuration dialog take only effect when
+the 
+.I Apply
+or
+.I OK 
+button is pressed. The 
+.I Save 
+button stores the current configuration (as marshaled 
+.B Ocaml
+record) in 
+.I ~/.prooftree\fR,
+which will overwrite the built-in default configuration for the
+following 
+.B Prooftree
+runs. The 
+.I Restore
+button loads and applies the saved configuration.
+.\" ==========================================================================
+.SS ProofGeneral Customization
+The location of the 
+.B Prooftree
+executable and the command line arguments are in the
+customization group
+.I proof-tree\fR.
+Prover specific points, such as the regular expressions for
+navigation and cheating commands are in the customization group
+.I proof-tree-internals\fR.
+To visit a customization group, type 
+.I M-x customize-group
+followed by the name of the customization group inside 
+.B ProofGeneral\fR.
+.\"
+.\" ==========================================================================
+.\" ================ Prerequisites ===========================================
+.\" ==========================================================================
+.\"
+.SH PREREQUISITES
+Currently
+.B Prooftree
+requires a special development version of
+.B ProofGeneral
+(the 
+.I ProofTreeBranch
+of the 
+.B ProofGeneral
+cvs repository) together with a patched version of 
+.B Coq
+(including the ID patch).
+.\"
+.\" ==========================================================================
+.\" ================ Files ===================================================
+.\" ==========================================================================
+.\"
+.SH FILES
+.IP "~/.prooftree"
+Loaded at application start-up for overwriting the built-in
+default configuration. Must contain a marshaled 
+.B Ocaml
+configuration record.
+.\"
+.\" ==========================================================================
+.\" ================ SEE ALSO ================================================
+.\" ==========================================================================
+.\"
+.SH SEE ALSO
+.TP
+The \fBProoftree\fR web page, \fIhttp://askra.de/software/prooftree/\fR
+.\"
+.\" ==========================================================================
+.\" ================ Credits =================================================
+.\" ==========================================================================
+.\"
+.SH CREDITS
+.B Prooftree
+has been inspired by the proof tree display of
+.B PVS\fR.
+.\"
+.\" ==========================================================================
+.\" ================ Author ==================================================
+.\" ==========================================================================
+.\"
+.SH AUTHOR
+Hendrik Tews <prooftree at askra.de>

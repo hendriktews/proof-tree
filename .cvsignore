@@ -4,4 +4,6 @@
 Makefile
 Makefile.deps
 prooftree
+prooftree.html
+prooftree.man
 version.ml
