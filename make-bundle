@@ -20,9 +20,7 @@ fi
 
 webdir=/home/tews/www/alfa-www/askra-root/software/prooftree
 
-cp changes.html changes.html.$(date +%s)~
-sed -e "s/^<DT>XXXX-XX-XX/<DT>$timestamp/" < changes.html > changesnew.html
-mv changesnew.html changes.html
+sed -i$(date +%s) -e "s/^<DT>XXXX-XX-XX/<DT>$timestamp/" changes.html
 
 cvsmessage="* prepare changes.html for release"
 
@@ -38,7 +36,8 @@ mv newchangelog ChangeLog
 cvs update | grep -v '^?' | grep -v '^cvs update: Updating'
 
 echo
-echo Commit and copy patched changes.html : cvs commit -m "$cvsmessage" . ?
+echo Commit and copy patched [recent-]changes.html : 
+echo cvs commit -m "$cvsmessage" . ?
 echo -n [N/y]?
 read answer
 
@@ -49,6 +48,8 @@ fi
 cvs commit -m "$cvsmessage" .
 cp changes.html $webdir
 
+sed -n -e '/RECENT CHANGES START/,/RECENT CHANGES END/p' \
+    < changes.html > $webdir/recent-changes.html
 
 pushd /tmp/tews
 

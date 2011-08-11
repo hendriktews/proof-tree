@@ -123,11 +123,11 @@ General or Coq version.
 ============================================================================
 
 Start Emacs and load any Coq file. Proof display with prooftree is
-initially disabled. To enable it, select menu 
-Proof-General -> Start/Stop Prooftree or type C-c C-d. If you are inside a
-proof this command will launch a proof-tree display for the current proof.
-Otherwise prooftree will be launched as soon as you start the next proof.
-
+initially disabled. To enable it, hit the prooftree tool-bar icon, select
+menu Proof-General -> Start/Stop Prooftree or type C-c C-d. If you are
+inside a proof any of these actions will launch a proof-tree display for
+the current proof. Otherwise prooftree will be launched as soon as you
+start the next proof.
 
 ============================================================================
 CREDITS / COPYRIGHT
