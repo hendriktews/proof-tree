@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.30 2011/08/10 14:03:54 tews Exp $
+ * $Id: proof_window.ml,v 1.31 2011/08/12 12:29:02 tews Exp $
  *)
 
 
@@ -70,6 +70,9 @@ object (self)
 
   val mutable selected_node = None
 
+  (** List of all external non-orphaned node windows that belong to nodes 
+      in the current proof tree. This list if stored only for optimization.
+  *)
   val mutable node_windows = []
 
   method set_root r = 
@@ -79,6 +82,10 @@ object (self)
 
   method clear_selected_node =
     selected_node <- None
+
+  method delete_node_window win =
+    node_windows <- List.filter (fun owin -> owin <> win) node_windows
+
 
   (***************************************************************************
    *
@@ -184,6 +191,15 @@ object (self)
     ignore(self#position_tree);
     GtkBase.Widget.queue_draw top_window#as_widget
     
+  method clear_for_reuse =
+    root <- None;
+    current_node <- None;
+    current_node_offset_cache <- None;
+    selected_node <- None;
+    self#refresh_sequent_area;
+    List.iter (fun w -> w#delete_non_sticky_node_window) node_windows;
+    assert(node_windows = [])
+
 
   (***************************************************************************
    *
@@ -200,7 +216,7 @@ object (self)
     a#set_value new_val
 
   method delete_proof_window =
-    List.iter (fun w -> w#delete_node_window_maybe) node_windows;
+    List.iter (fun w -> w#delete_non_sticky_node_window) node_windows;
     top_window#destroy()
 
   method user_delete_proof_window () =

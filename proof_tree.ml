@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.19 2011/07/31 18:38:20 tews Exp $
+ * $Id: proof_tree.ml,v 1.20 2011/08/12 12:29:02 tews Exp $
  *)
 
 
@@ -206,7 +206,7 @@ let reuse_surviver pt state current_sequent_id current_sequent_text =
   let proof_name = pt.proof_name in
   let hash = pt.sequent_hash in
   let sw = pt_win#new_turnstile current_sequent_id current_sequent_text in
-  pt_win#clear_selected_node;
+  pt_win#clear_for_reuse;
   Hashtbl.clear hash;
   Hashtbl.add pt.sequent_hash current_sequent_id sw;
   let sw = (sw :> proof_tree_element) in
@@ -298,6 +298,8 @@ let add_new_goal pt state proof_command cheated_flag
   in
   pt.window#message message;
   let undo () =
+    pc#delete_non_sticky_external_windows;
+    List.iter (fun s -> s#delete_non_sticky_external_windows) all_subgoals;
     clear_children old_current_sequent;
     old_current_sequent#mark_current;
     List.iter (fun id -> Hashtbl.remove pt.sequent_hash id) unhash_sequent_ids;
@@ -324,9 +326,10 @@ let finish_branch pt state proof_command cheated_flag =
   let old_cheated = pt.cheated in
   let old_current_sequent = pt.current_sequent in
   let undo () =
-    pt.cheated <- old_cheated;
+    pc#delete_non_sticky_external_windows;
     clear_children old_current_sequent;
     old_current_sequent#unmark_proved_or_cheated;
+    pt.cheated <- old_cheated;
   in
   add_undo_action pt state undo;
   if cheated_flag then pt.cheated <- true;

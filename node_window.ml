@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: node_window.ml,v 1.6 2011/07/30 18:45:50 tews Exp $
+ * $Id: node_window.ml,v 1.7 2011/08/12 12:29:02 tews Exp $
  *)
 
 
@@ -32,25 +32,60 @@ open Draw_tree
 
 
 class node_window proof_window node (top_window : GWindow.window) text_window 
-  sticky_button window_number =
+  sticky_button window_number proof_name =
 object (self)
+
+  val mutable orphaned = false
+  val mutable proof_window = Some proof_window
+  val mutable node = Some node
 
   method window_number = window_number
 
   method update_content new_content =
     text_window#buffer#set_text new_content
 
+  (** Make this node window orphaned. A orphaned node window is not
+      connected with the proof tree any more. Its Sticky button is 
+      disabled.
+  *)
+  method private orphan_node_window =
+    if not orphaned then begin
+      (match node with
+	| Some node -> 
+	  node#delete_external_window (self :> external_node_window);
+	  top_window#set_title 
+	    ((match node#node_kind with
+	      | Turnstile -> "Orphaned sequent of"
+	      | Proof_command -> "Orphaned tactic of"
+	     ) ^ proof_name)
+	| None -> assert false
+      );
+      (match proof_window with
+	| Some proof_window -> 
+	  proof_window#delete_node_window self;
+	  proof_window#invalidate_drawing_area;
+	| None -> assert false
+      );
+      sticky_button#misc#set_sensitive false;
+      node <- None;
+      proof_window <- None;
+      orphaned <- true;
+    end
+    
+
   method delete_node_window () =
-    node#delete_external_window (self :> external_node_window);
-    proof_window#invalidate_drawing_area;
+    self#orphan_node_window;
     top_window#destroy()
 
   method private delete_node_window_event _ =
     self#delete_node_window ();
     true
 
-  method delete_node_window_maybe =
-    if not sticky_button#active then self#delete_node_window ()
+  (** Delete this window if it is not sticky *)
+  method delete_non_sticky_node_window =
+    if not sticky_button#active 
+    then self#delete_node_window ()
+    else self#orphan_node_window
 
   method key_pressed_callback ev =
     match GdkEvent.Key.keyval ev with 
@@ -62,9 +97,6 @@ object (self)
   method configuration_updated =
     text_window#misc#modify_font !sequent_font_desc;
     GtkBase.Widget.queue_draw top_window#as_widget
-
-  initializer 
-    node#register_external_window (self :> external_node_window)
 
 end
 
@@ -108,8 +140,10 @@ let make_node_window proof_window proof_name node window_number =
   in
   let node_window = 
     new node_window proof_window node top_window text_win
-      sticky_button window_number 
+      sticky_button window_number proof_name
   in
+  node#register_external_window (node_window :> external_node_window);
+
   let title_start = match node#node_kind with
     | Proof_command -> "Tactic "
     | Turnstile -> "Sequent "

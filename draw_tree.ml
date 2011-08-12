@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.24 2011/08/06 21:20:42 tews Exp $
+ * $Id: draw_tree.ml,v 1.25 2011/08/12 12:29:02 tews Exp $
  *)
 
 
@@ -129,6 +129,7 @@ object
   method window_number : string
   method update_content : string -> unit
   method configuration_updated : unit
+  method delete_non_sticky_node_window : unit
 end
 
 (*****************************************************************************)
@@ -234,6 +235,11 @@ object (self)
 
   method delete_external_window win =
     external_windows <- List.filter (fun w -> w <> win) external_windows
+
+  (** Delete all non-sticky external node windows of this node.
+  *)
+  method delete_non_sticky_external_windows =
+    List.iter (fun w -> w#delete_non_sticky_node_window) external_windows
 
   method subtree_height = 
     (subtree_levels - 1) * !current_config.level_distance + 
