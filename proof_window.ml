@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.31 2011/08/12 12:29:02 tews Exp $
+ * $Id: proof_window.ml,v 1.32 2011/09/15 08:16:27 tews Exp $
  *)
 
 
@@ -80,8 +80,8 @@ object (self)
 
   method clear_root = root <- None
 
-  method clear_selected_node =
-    selected_node <- None
+  (** Return the selected node or [None] if there is none. *)
+  method get_selected_node = selected_node
 
   method delete_node_window win =
     node_windows <- List.filter (fun owin -> owin <> win) node_windows
@@ -295,7 +295,12 @@ object (self)
 	  if x_page_size >= width && y_page_size >= height
 	  then begin
 	    (* current node fits into the viewport, be sophisticated *)
-	    if y_u_f > drawing_v_adjustment#upper
+	    let (req_width, req_height) = match root with
+	      | None -> (0,0)
+	      | Some root -> (root#subtree_width, root#subtree_height)
+	    in
+	    if (float_of_int req_width) > drawing_h_adjustment#upper ||
+	       (float_of_int req_height) > drawing_v_adjustment#upper
 	    then begin
 	      (* The resize request for the drawing are has not 
 	       * been processed. It might happen that this resize

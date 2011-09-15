@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.16 2011/08/01 15:42:08 tews Exp $
+ * $Id: input.ml,v 1.17 2011/09/15 08:16:27 tews Exp $
  *)
 
 
@@ -68,7 +68,7 @@
             yielding a new current sequent and possibly additional new 
             open subgoals}
          {- The old current goal has been solved (by some proof command) 
-            and the new current sequent if one of the previously spawned 
+            and the new current sequent is one of the previously spawned 
             subgoals}
        }
     
@@ -148,7 +148,7 @@
     {- {v quit-proof proof-name-bytes %d\n\
         <data-proof-name>\n v}
     
-       Quit closed the window for the indicated proof.
+       Quit closes the window for the indicated proof.
        The only data section is:
        {ol
     	 {- Full name of the proof whoose window should be delected}

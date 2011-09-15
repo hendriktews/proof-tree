@@ -19,12 +19,14 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: main.ml,v 1.13 2011/08/10 12:01:18 tews Exp $
+ * $Id: main.ml,v 1.14 2011/09/15 08:16:27 tews Exp $
  *)
 
 
 (* 
   (setq proof-tree-arguments '("-tee" "/tmp/tews/ptlog")) 
+
+  (setq proof-tree-program "/home/tews/bin/teeprooftree")
 *)
 
 (* let _ = Configuration.tee_input_file := Some "/tmp/tews/proof-tree-input" *)

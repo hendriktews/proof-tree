@@ -19,14 +19,40 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.mli,v 1.7 2011/07/30 18:45:50 tews Exp $
+ * $Id: proof_tree.mli,v 1.8 2011/09/15 08:16:27 tews Exp $
  *)
 
 
 (** Internal representation of proof trees with undo info *)
 
 
-(** Process the new current goal, updating the display accordingly.
+(** Process a current-goals command from Proof General, updating the
+    proof-tree display in the right way. With the help of the internal
+    state, especially the {!current_proof_tree}, the following cases
+    are distinguished:
+
+    {ol
+    {- A new proof has just been started (in this case argument
+    [proof_command] is ignored). This case applies when there is no
+    {!current_proof_tree} or if the name of {!current_proof_tree}
+    differs from argument [proof_name]. In the latter case the old
+    current proof is finished.}
+    {- The old current branch has been finished (possibly with a
+    cheating command such as [admit]) and the proof assistant has
+    switched to the next open goal. This case applies when the new
+    current goal [current_sequent_id] in the hash of known
+    sequents and differs from the old current sequent.}
+    {- A proof command has been applied to the current sequent,
+    yielding a new current sequent and possibly some additional
+    subgoals. This is the remaining case that applies when the two
+    cases above do not apply. More specifically, this case applies
+    when the new current sequent [current_sequent_id] is not in the
+    hash of known sequents. As a special exception, this case does
+    also apply when the new current sequent equals the old current
+    sequent and is therefore found in the hash of known sequents (this
+    happens if the user applied a non-failing command, that didn't
+    change the goal, auch as [auto] in some cases.)
+    } }
 
     @param state state for undo
     @param proof_name name of the proof
@@ -40,7 +66,9 @@ val process_current_goals :
   int -> string -> string -> bool -> string -> string -> string list -> unit
 
 
-(** Update the sequent to show the new sequent text.
+(** Process an [update-sequent] command. This function is a wrapper
+    around {!update_sequent_element}, which looks up the right sequent
+    object and produces appropriate errors, if something goes wrong.
 
     @param state state for undo
     @param proof_name name of proof
@@ -91,6 +119,8 @@ val finish_drawing : unit -> unit
 
 
 (** Take the necessary actions when the configuration record changed.
+    Calls the {!Proof_window.proof_window.configuration_updated}
+    method on all live proof windows.
 *)
 val configuration_updated : unit -> unit
 
