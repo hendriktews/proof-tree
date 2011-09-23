@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.21 2011/09/15 08:16:27 tews Exp $
+ * $Id: proof_tree.ml,v 1.22 2011/09/23 14:48:39 tews Exp $
  *)
 
 
@@ -647,6 +647,27 @@ let process_proof_complete state proof_name proof_command cheated_flag =
       stop_proof_tree_last_selected pt state
 
 
+(** Delete the proof tree structure with the given name from the lists
+    of live and not-cloned proof tree structures. This function is
+    used for {!Proof_window.delete_proof_tree_callback}.
+*)
+let clear_proof_tree_lists proof_name =
+  let proof_tree_list_fold_fun pts pt =
+    if pt.proof_name = proof_name
+    then begin
+      pt.window#delete_proof_window;
+      pts
+    end
+    else pt :: pts
+  in
+  all_proof_trees_for_undo := 
+    List.fold_left proof_tree_list_fold_fun [] !all_proof_trees_for_undo;
+  undo_surviver_trees :=
+    List.fold_left proof_tree_list_fold_fun [] !undo_surviver_trees
+
+let _ = delete_proof_tree_callback := clear_proof_tree_lists
+
+
 let quit_proof proof_name =
   (match !current_proof_tree with 
     | None -> ()
@@ -654,17 +675,7 @@ let quit_proof proof_name =
       if pt.proof_name = proof_name
       then current_proof_tree := None
   );
-  all_proof_trees_for_undo := 
-    List.fold_left
-    (fun pts pt -> 
-      if pt.proof_name = proof_name
-      then begin
-	pt.window#delete_proof_window;
-	pts
-      end
-      else pt :: pts)
-    [] !all_proof_trees_for_undo
-
+  clear_proof_tree_lists proof_name
 
 let finish_drawing () = match !current_proof_tree with
   | None -> ()

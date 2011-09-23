@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.23 2011/08/10 14:27:34 tews Exp $
+ * $Id: configuration.ml,v 1.24 2011/09/23 14:48:39 tews Exp $
  *)
 
 
@@ -130,7 +130,7 @@ let default_configuration =
     default_height_proof_tree_window = 400;
 
     internal_sequent_window_lines = 1;
-    node_window_max_lines = 10;
+    node_window_max_lines = 35;
 
     debug_mode = false;
     copy_input = false;

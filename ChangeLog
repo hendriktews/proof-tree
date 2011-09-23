@@ -1,3 +1,8 @@
+2011-09-23  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* fix bug of not properly deleted proof tree windows and
+	  structures
+
 2011-09-15  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* fix a current node position bug

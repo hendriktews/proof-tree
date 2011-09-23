@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.32 2011/09/15 08:16:27 tews Exp $
+ * $Id: proof_window.ml,v 1.33 2011/09/23 14:48:39 tews Exp $
  *)
 
 
@@ -34,7 +34,10 @@ open Help_window
 open About_window
 
 
-(* XXX not used outside this module *)
+(** Callback for higher-level modules when the user deletes a proof
+    window. During start-up the reference is changed to
+    {!Proof_tree.clear_proof_tree_lists}.
+*)
 let delete_proof_tree_callback = ref (fun (_ : string) -> ())
 
 
@@ -217,6 +220,11 @@ object (self)
 
   method delete_proof_window =
     List.iter (fun w -> w#delete_non_sticky_node_window) node_windows;
+    let self = (self :> proof_window) in
+    cloned_proof_windows :=
+      List.fold_left 
+        (fun res w -> if w = self then res else w :: res)
+        [] !cloned_proof_windows;
     top_window#destroy()
 
   method user_delete_proof_window () =
