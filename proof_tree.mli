@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.mli,v 1.8 2011/09/15 08:16:27 tews Exp $
+ * $Id: proof_tree.mli,v 1.9 2011/09/27 06:47:27 tews Exp $
  *)
 
 
@@ -96,10 +96,12 @@ val switch_to : int -> string -> string -> unit
 *)
 val process_proof_complete : int -> string -> string -> bool -> unit
 
-(** Undo all changes up to and including state [state]. Proof trees started 
-    later than [state] will be deleted. Those finished earlier than [state]
-    remain untouched. All proof trees will be identical to the point in time
-    before the first action with state [state] has been processed.
+(** Undo all changes to reach state [state]. That is, all changes with
+    a strictly greater state number are undone. Proof trees started
+    later than [state] will be deleted. Those finished earlier than
+    [state] remain untouched. All proof trees will be identical to the
+    point in time before the first action with a state strictly
+    greater than [state] has been processed.
 *)
 val undo : int -> unit
 

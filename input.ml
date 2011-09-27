@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.17 2011/09/15 08:16:27 tews Exp $
+ * $Id: input.ml,v 1.18 2011/09/27 06:47:27 tews Exp $
  *)
 
 
@@ -79,7 +79,9 @@
        set of all open subgoals, but it must contain all newly 
        spawned subgoals.
     
-       The state number in the [current-goals] command is for undo. 
+       The state number in the [current-goals] command is for undo. It 
+       is interpreted as the state that has been reached after processing 
+       the current command. 
        [current-sequent %s] denotes the ID of the current sequent. The 
        cheated flag tells [prooftree] whether the new proof state was 
        obtained by a cheating command such as [admit] or [sorry]. 
@@ -143,7 +145,8 @@
     
        The state number here is not for undo, it is the undo-state.
        Undo tells [prooftree] to change the display to the state before 
-       the first command with state [undo-state] has been processed.
+       the first command with a state strictly greater than [undo-state]
+       has been processed.
     }
     {- {v quit-proof proof-name-bytes %d\n\
         <data-proof-name>\n v}

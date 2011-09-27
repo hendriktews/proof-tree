@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.22 2011/09/23 14:48:39 tews Exp $
+ * $Id: proof_tree.ml,v 1.23 2011/09/27 06:47:27 tews Exp $
  *)
 
 
@@ -197,14 +197,14 @@ type proof_tree_undo_result =
   | PT_undo_surviver  (** Argument proof tree should be kept as surviver *)
 
 
-(** Process all undo actions with a state greater or equal than
-    [undo_state]. Return the list of unprocessed undo actions (with
-    state strictly less than [undo_state]).
+(** Process all undo actions with a state greater than [undo_state].
+    Return the list of unprocessed undo actions (with state strictly
+    less than [undo_state]).
 *)
 let rec fire_undo_actions undo_state = function
   | [] -> []
   | ((state, undos) :: undo_rest) as undo_list ->
-    if state >= undo_state 
+    if state > undo_state 
     then begin
       List.iter (fun f -> f()) undos;
       fire_undo_actions undo_state undo_rest
