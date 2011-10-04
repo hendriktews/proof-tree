@@ -70,14 +70,14 @@ rm -f make-bundle
 popd
 # back in $dir
 
-# diff -ru orig-8.3pl2 patch-8.3pl2 \
+# diff -ru -x TAGS orig-8.3pl2 patch-8.3pl2 \
 #     | grep -v '^Only in' \
 #     | sed -e "s/^+++ patch-8.3pl2/+++ coq-8.3pl2/" \
 #     > patch-file-8.3pl2
 
 coq_patch_dir=coq-patch-$coqversion
 mkdir $coq_patch_dir
-(cd $coqdir; diff -ru $coqorig $coqpatch) \
+(cd $coqdir; diff -ru -x TAGS $coqorig $coqpatch) \
     | grep -v '^Only in' \
     | sed -e "s/^+++ $coqpatch/+++ coq-$coqversion/" \
     > $coq_patch_dir/coq-id-patch
