@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: node_window.ml,v 1.7 2011/08/12 12:29:02 tews Exp $
+ * $Id: node_window.ml,v 1.8 2011/10/20 21:08:11 tews Exp $
  *)
 
 
@@ -120,7 +120,7 @@ let make_node_window proof_window proof_name node window_number =
   Pango.Layout.set_text layout "X";
   let (_, char_height) = Pango.Layout.get_pixel_size layout in
   let lines = 
-    min (Util.number_of_lines node#content) 
+    min (Util.number_of_lines node#displayed_text) 
       !current_config.node_window_max_lines
   in
   (* 
@@ -150,7 +150,7 @@ let make_node_window proof_window proof_name node window_number =
   in
   top_window#set_title (title_start ^ window_number ^ " of " ^ proof_name);
   ignore(top_window#event#connect#key_press node_window#key_pressed_callback);
-  text_win#buffer#set_text node#content;
+  text_win#buffer#set_text node#displayed_text;
 
   ignore(top_window#connect#destroy 
 	   ~callback:node_window#delete_node_window);

@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.18 2011/09/27 06:47:27 tews Exp $
+ * $Id: input.ml,v 1.19 2011/10/20 21:08:11 tews Exp $
  *)
 
 
@@ -51,13 +51,15 @@
     Prooftree understands the following commands in the following format:
     {ul
 
-    {-  {v current-goals state %d current-sequent %s {cheated|not-cheated} \
-       proof-name-bytes %d command-bytes %d sequent-text-bytes %d \
+    {-  {v current-goals state %d current-sequent %s \
+       {cheated|not-cheated} proof-name-bytes %d command-bytes %d \
+       sequent-text-bytes %d existential-bytes %d \
        additional-id-bytes %d\n\
        <data-proof-name>\n\
        <data-command>\n\
        <data-current-sequent>\n\
-       <data-additional-ids>\n v}
+       <data-additional-ids>\n\
+       <data-uninstantiated-existentials>\n v}
 
        The [current-goals] command tells [prooftree] about a new proof 
        state with a new set of open goals. This corresponds to either of
@@ -92,6 +94,8 @@
          {- Text of the current sequent}
          {- ID's of additionally open sequents (as space separated 
             list of strings)}
+         {- Space separated list of not yet instantiated existential 
+            variables.}
        }
     
        The second data section is ignored for initial proof states.
@@ -405,7 +409,8 @@ let get_string len continuation_fn =
     @param additional_ids_string ID's of all currently open goals
 *)
 let parse_current_goals_finish state current_sequent_id cheated_string 
-    proof_name proof_command current_sequent_text additional_ids_string =
+    proof_name proof_command current_sequent_text 
+    additional_ids_string existentials_string =
   let cheated_flag = match cheated_string with
     | "not-cheated" -> false
     | "cheated" -> true
@@ -420,9 +425,11 @@ let parse_current_goals_finish state current_sequent_id cheated_string
   let current_sequent_text = chop_final_newlines current_sequent_text in
   let additional_ids_string = chop_final_newlines additional_ids_string in
   let additional_ids = string_split ' ' additional_ids_string in
+  let existentials_string = chop_final_newlines existentials_string in
+  let existentials = string_split ' ' existentials_string in
   current_parser := !read_command_line_parser;
   Proof_tree.process_current_goals state proof_name proof_command cheated_flag
-    current_sequent_id current_sequent_text additional_ids
+    current_sequent_id current_sequent_text additional_ids existentials
     
 
 (** Start parsing of the [current-goals] command. Extracts elements and 
@@ -433,9 +440,10 @@ let parse_current_goals_finish state current_sequent_id cheated_string
 let parse_current_goals com_buf =
   Scanf.bscanf com_buf 
     (" state %d current-sequent %s %s proof-name-bytes %d "
-     ^^ "command-bytes %d sequent-text-bytes %d additional-id-bytes %d")
+     ^^ "command-bytes %d sequent-text-bytes %d "
+     ^^ "additional-id-bytes %d existential-bytes %d")
     (fun state current_sequent_id cheated_string proof_name_bytes command_bytes 
-      sequent_text_bytes additional_id_bytes ->
+      sequent_text_bytes additional_id_bytes existential_bytes ->
 	get_string proof_name_bytes
 	  (fun proof_name ->
 	    get_string command_bytes
@@ -444,10 +452,12 @@ let parse_current_goals com_buf =
 		  (fun current_sequent_text ->
 		    get_string additional_id_bytes
 		      (fun additional_ids_string ->
-			parse_current_goals_finish state current_sequent_id
-			  cheated_string
-			  proof_name proof_command current_sequent_text
-			  additional_ids_string)))))
+			get_string existential_bytes
+			  (fun existentials_string ->
+			    parse_current_goals_finish state current_sequent_id
+			      cheated_string
+			      proof_name proof_command current_sequent_text
+			      additional_ids_string existentials_string))))))
 
 
 

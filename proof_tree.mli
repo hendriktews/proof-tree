@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.mli,v 1.9 2011/09/27 06:47:27 tews Exp $
+ * $Id: proof_tree.mli,v 1.10 2011/10/20 21:08:11 tews Exp $
  *)
 
 
@@ -40,7 +40,7 @@
     {- The old current branch has been finished (possibly with a
     cheating command such as [admit]) and the proof assistant has
     switched to the next open goal. This case applies when the new
-    current goal [current_sequent_id] in the hash of known
+    current goal [current_sequent_id] is in the hash of known
     sequents and differs from the old current sequent.}
     {- A proof command has been applied to the current sequent,
     yielding a new current sequent and possibly some additional
@@ -61,9 +61,11 @@
     @param current_sequent_id ID of current sequent
     @param current_sequent_text the current sequent itself
     @param additional_ids ID's of the additionally open goals
+    @param uninstantiated existential variables
 *)
 val process_current_goals :
-  int -> string -> string -> bool -> string -> string -> string list -> unit
+  int -> string -> string -> 
+  bool -> string -> string -> string list -> string list -> unit
 
 
 (** Process an [update-sequent] command. This function is a wrapper
@@ -113,9 +115,10 @@ val undo : int -> unit
 val quit_proof : string -> unit
 
 
-(** For efficiency in proof replay the proof tree display is not redrawn
-    after every change. Changes are only recorded in the internal data 
-    structures. This function cases a redisplay of the current proof tree.
+(** For efficiency in proof replay the proof tree display and the
+    sequent area are not redrawn after every change. Changes are only
+    recorded in the internal data structures. This function cases a
+    redisplay of those items.
 *)
 val finish_drawing : unit -> unit
 

@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.33 2011/09/23 14:48:39 tews Exp $
+ * $Id: proof_window.ml,v 1.34 2011/10/20 21:08:11 tews Exp $
  *)
 
 
@@ -109,7 +109,7 @@ object (self)
       let a = sequent_v_adjustment in
       a#set_value (max a#lower (a#upper -. a#page_size))
 
-  method private update_sequent label content scroll_to_bottom =
+  method private update_sequent_area label content scroll_to_bottom =
     labeled_sequent_frame#set_label (Some label);
     sequent_window#buffer#set_text content;
     sequent_window_scroll_to_bottom <- scroll_to_bottom
@@ -126,7 +126,7 @@ object (self)
 	  | Turnstile -> ("Selected sequent", true)
 	  | Proof_command -> ("Selected command", false)
 	in
-	self#update_sequent frame_text node#content scroll_to_bottom
+	self#update_sequent_area frame_text node#displayed_text scroll_to_bottom
       | None -> 
 	match current_node with
 	  | None -> self#clear_sequent_area
@@ -138,7 +138,10 @@ object (self)
 		| Some p -> match p#parent with
 		    | None -> self#clear_sequent_area
 		    | Some p ->
-		      self#update_sequent "Previous sequent" p#content true
+		      self#update_sequent_area
+			"Previous sequent"
+			p#displayed_text
+			true
 	    else
 	      self#clear_sequent_area
 
@@ -150,15 +153,11 @@ object (self)
 
   method set_current_node n =
     current_node_offset_cache <- None;
-    current_node <- Some (n : proof_tree_element);
-    if selected_node = None && n#node_kind = Turnstile 
-    then self#refresh_sequent_area
+    current_node <- Some (n : proof_tree_element)
 
-  method private clear_current_node =
+  method clear_current_node =
     current_node_offset_cache <- None;
     current_node <- None;
-    if selected_node = None
-    then self#refresh_sequent_area
 
 
   (***************************************************************************
@@ -173,7 +172,6 @@ object (self)
       | Some root -> root#children <> []
 
   method disconnect_proof =
-    self#clear_current_node;
     match root with
       | None -> ()
       | Some root -> root#disconnect_proof
@@ -203,6 +201,10 @@ object (self)
     List.iter (fun w -> w#delete_non_sticky_node_window) node_windows;
     assert(node_windows = [])
 
+  method update_existentials_display =
+    match root with
+      | None -> ()
+      | Some root -> root#update_existentials_display
 
   (***************************************************************************
    *
@@ -698,7 +700,7 @@ object (self)
       (fun node -> match node#node_kind with
 	| Turnstile -> 
 	  if !current_config.display_turnstile_tooltips then begin
-	    let contents = GMisc.label ~text:node#content () in
+	    let contents = GMisc.label ~text:node#displayed_text () in
 	    GtkBase.Tooltip.set_custom tooltip contents#as_widget;
 	    true
 	  end 
@@ -706,7 +708,7 @@ object (self)
 	| Proof_command ->
 	  if !current_config.display_command_tooltips && node#content_shortened
 	  then begin
-	    let contents = GMisc.label ~text:node#content () in
+	    let contents = GMisc.label ~text:node#displayed_text () in
 	    GtkBase.Tooltip.set_custom tooltip contents#as_widget;
 	    true
 	  end
@@ -731,7 +733,9 @@ object (self)
       let cloned_children = List.map clone_tree node#children in
       let clone = match node#node_kind with
 	| Proof_command -> 
-	  (owin#new_proof_command node#content :> proof_tree_element)
+	  (owin#new_proof_command node#content 
+	     (copy_existentials node#fresh_existentials)
+	   :> proof_tree_element)
 	| Turnstile -> 
 	  (owin#new_turnstile node#id node#content :> proof_tree_element)
       in
@@ -750,7 +754,9 @@ object (self)
     (match root with
       | None -> ()
       | Some root_node ->
-	owin#set_root (clone_tree root_node)
+	let cloned_tree = clone_tree root_node in
+	cloned_tree#propagate_existentials;
+	owin#set_root cloned_tree
     );
     owin#set_selected_node !cloned_selected;
     owin#refresh_and_position;
@@ -766,8 +772,9 @@ object (self)
   method new_turnstile sequent_id sequent_text =
     new turnstile drawable sequent_id sequent_text
 
-  method new_proof_command command =
-    new proof_command drawable command command
+  method new_proof_command command existentials =
+    new proof_command drawable command command 
+      (existentials : existential_variable list)
 end
 
 

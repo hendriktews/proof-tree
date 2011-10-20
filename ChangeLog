@@ -1,3 +1,22 @@
+2011-10-20  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* manage uninstantiated existential variables
+	* change coq patch to print the uninstantiated existentials
+	* change communication protocol to send the list of open
+	  existentials to prooftree
+	* change Proof General to extract and send uninstantiated
+	  existentials
+	* proof-tree nodes have now a list of existential
+	  variables, which is changed in place, when they get
+	  instantiated
+	* change sequent and proof-command displays to list open
+	  existentials
+	* update these displays as necessary
+
+2011-10-07  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* fix full-annotation problem (elisp only)
+
 2011-10-04  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* move recent-changes marker in sync with website

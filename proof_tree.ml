@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.23 2011/09/27 06:47:27 tews Exp $
+ * $Id: proof_tree.ml,v 1.24 2011/10/20 21:08:11 tews Exp $
  *)
 
 
@@ -85,12 +85,20 @@ type proof_tree = {
   mutable current_sequent : proof_tree_element;
   (** The object of the current sequent. Used for coloring branches. *)
 
+  mutable uninstantiated_existentials : existential_variable list;
+  (** Not yet instantiated existential variables *)
+
   mutable other_open_goals : string list;
   (** List containing the ID's of all open goals, except for
       {!current_sequent_id}. *)
 
   mutable need_redraw : bool;
-  (** [true] if the display needs a redraw. Used to delay redrawing. *)
+  (** [true] if the tree display needs a redraw. Used to delay redrawing. *)
+
+  mutable sequent_area_needs_refresh : bool;
+  (** [true] if the sequent area needs to be refreshed. Used to delay
+      sequent area refreshs.
+  *)
 
   mutable undo_actions : (int * (unit -> unit) list) list;
 (** List of undo actions for this proof tree. Each element has the
@@ -102,6 +110,10 @@ type proof_tree = {
 (** State record for displayed proof trees. The code maintains the
     following invariants.
     {ul 
+    {- The field {!uninstantiated_existentials} contains precisely
+    those existential variables that are reachable from the root of
+    this proof tree and not instantiated (i.e., whose second
+    projection is [false].)}
     {- Each live state is in precisely one the lists
     {!all_proof_trees_for_undo}, {!undo_surviver_trees} or
     {!Proof_window.cloned_proof_windows}.}
@@ -155,6 +167,59 @@ let configuration_updated () =
     !cloned_proof_windows
 
 
+(** Mark the given list of existential variables as instantiated.
+*)
+let instantiate_existentials exl =
+  List.iter (fun ex -> ex.instantiated <- true) exl
+
+(** Reset the given list of existential variables to not being
+    instantiated.
+*)
+let undo_instantiate_existentials exl =
+  List.iter (fun ex -> ex.instantiated <- false) exl
+
+
+(** Perform the necessary manipulations with existential
+    variables. From the list of existentials of the preceeding state
+    and the names of the currently uninstantiated existential
+    variables this function computes the set of existentials that got
+    instantiated, the current set of uninstantiated existentials and
+    the set of fresh uninstantiated existentials. The set of
+    instantiated existentials is already marked as being instantiated
+    and only returned for undo.
+*)
+let update_existentials old_ex new_ex =
+  let (old_inst, old_noninst) =
+    List.fold_left
+      (fun (inst, noninst) oex ->
+	if List.mem oex.existential_name new_ex
+	then (inst, oex :: noninst)
+	else (oex :: inst, noninst))
+      ([], []) old_ex
+  in
+  (* 
+   * Now old_noninst is the intersection of old_ex and new_ex.
+   * And old_inst are those existentials that got instatiated.
+   *)
+  let new_ex = 
+    list_set_diff_rev new_ex
+      (List.map (fun ex -> ex.existential_name) old_noninst) in
+  let new_uninst = 
+    List.rev_map 
+      (fun n -> {existential_name = n; instantiated = false}) 
+      new_ex 
+  in
+  let current_uninst = list_set_union_disjoint old_noninst new_uninst in
+  instantiate_existentials old_inst;
+  (old_inst, current_uninst, new_uninst)
+  
+
+let set_current_node_wrapper pt sequent =
+  pt.window#set_current_node sequent;
+  if pt.window#get_selected_node = None then
+    pt.sequent_area_needs_refresh <- true
+
+
 (** Holds the state for the currently active proof window, if any.
     Mainly used for {!finish_drawing} to delay redrawing.
 *)
@@ -170,8 +235,11 @@ let stop_proof_tree pt pa_state =
    *)
   pt.pa_end_state <- pa_state;
   pt.window#disconnect_proof;
+  pt.window#clear_current_node;
+  pt.window#refresh_sequent_area;
   pt.window#refresh_and_position;
   pt.need_redraw <- false;
+  pt.sequent_area_needs_refresh <- false;
   current_proof_tree := None
 
 
@@ -244,8 +312,7 @@ let undo_tree pt pa_state =
     pt.pa_end_state <- -1;
     pt.undo_actions <- fire_undo_actions pa_state pt.undo_actions;
     pt.current_sequent#mark_current;
-    pt.window#set_current_node pt.current_sequent;
-    pt.window#refresh_sequent_area;
+    set_current_node_wrapper pt pt.current_sequent;
     pt.window#message (Printf.sprintf "Retract to %d" pa_state);
     pt.need_redraw <- true;
     PT_undo_current
@@ -315,8 +382,10 @@ let create_new_proof_tree proof_name state
     sequent_hash = hash;
     current_sequent_id = current_sequent_id;
     current_sequent = sw;
+    uninstantiated_existentials = [];
     other_open_goals = [];
     need_redraw = true;
+    sequent_area_needs_refresh = true;
     undo_actions = [];
   } in
   pt_win#set_root sw;
@@ -344,8 +413,10 @@ let reuse_surviver pt state current_sequent_id current_sequent_text =
     sequent_hash = hash;
     current_sequent_id = current_sequent_id;
     current_sequent = sw;
+    uninstantiated_existentials = [];
     other_open_goals = [];
     need_redraw = true;
+    sequent_area_needs_refresh = true;
     undo_actions = [];
   } in
   pt_win#set_root sw;
@@ -369,7 +440,7 @@ let start_new_proof state proof_name current_sequent_id current_sequent_text =
 	reuse_surviver pt state current_sequent_id current_sequent_text
   in
   pt.current_sequent#mark_current;
-  pt.window#set_current_node pt.current_sequent;
+  set_current_node_wrapper pt pt.current_sequent;
   pt.window#message "Initial sequent";
   pt.need_redraw <- true;
   current_proof_tree := Some pt;
@@ -390,9 +461,12 @@ let start_new_proof state proof_name current_sequent_id current_sequent_text =
     that a cheating command solves the current subgoal.
 *)
 let add_new_goal pt state proof_command cheated_flag 
-    current_sequent_id current_sequent_text additional_ids =
+    current_sequent_id current_sequent_text additional_ids current_ex_names =
   assert(cheated_flag = false);
-  let pc = pt.window#new_proof_command proof_command in
+  let (old_instatiated, current_existentials, new_existentials) =
+    update_existentials pt.uninstantiated_existentials current_ex_names
+  in
+  let pc = pt.window#new_proof_command proof_command new_existentials in
   let pc = (pc :> proof_tree_element) in
   set_children pt.current_sequent [pc];
   let sw = pt.window#new_turnstile current_sequent_id current_sequent_text in
@@ -419,16 +493,22 @@ let add_new_goal pt state proof_command cheated_flag
   in
   let all_subgoals = sw :: new_goals in
   set_children pc all_subgoals;
-  sw#mark_current;
-  pt.window#set_current_node sw;
   let unhash_sequent_ids = current_sequent_id :: new_goal_ids_rev in
   let old_current_sequent_id = pt.current_sequent_id in
   let old_current_sequent = pt.current_sequent in
   let old_other_open_goals = pt.other_open_goals in
+  let old_existentials = pt.uninstantiated_existentials in
   pt.current_sequent_id <- current_sequent_id;
   pt.current_sequent <- sw;
   pt.other_open_goals <- 
     list_set_union_disjoint new_goal_ids_rev pt.other_open_goals;
+  pt.uninstantiated_existentials <- current_existentials;
+  sw#mark_current;
+  set_current_node_wrapper pt sw;
+  if old_instatiated <> [] then begin
+    pt.window#update_existentials_display;
+    pt.sequent_area_needs_refresh <- true;
+  end;
   let open_goal_count = List.length pt.other_open_goals  + 1 in
   let message = match List.length all_subgoals with
     | 0 -> assert false
@@ -453,6 +533,12 @@ let add_new_goal pt state proof_command cheated_flag
     pt.current_sequent_id <- old_current_sequent_id;
     pt.current_sequent <- old_current_sequent;
     pt.other_open_goals <- old_other_open_goals;
+    pt.uninstantiated_existentials <- old_existentials;
+    undo_instantiate_existentials old_instatiated;
+    if old_instatiated <> [] then begin
+      pt.window#update_existentials_display;
+      pt.sequent_area_needs_refresh <- true;
+    end;
   in
   add_undo_action pt state undo;
   pt.need_redraw <- true
@@ -464,8 +550,11 @@ let add_new_goal pt state proof_command cheated_flag
     branch, moving to the next open subgoal (if necessary) is done by
     {!internal_switch_to}.
 *)
-let finish_branch pt state proof_command cheated_flag =
-  let pc = pt.window#new_proof_command proof_command in
+let finish_branch pt state proof_command cheated_flag current_ex_names =
+  let (old_instatiated, current_existentials, new_existentials) =
+    update_existentials pt.uninstantiated_existentials current_ex_names
+  in
+  let pc = pt.window#new_proof_command proof_command new_existentials in
   let pc = (pc :> proof_tree_element) in
   pt.current_sequent#unmark_current;
   set_children pt.current_sequent [pc];
@@ -474,14 +563,26 @@ let finish_branch pt state proof_command cheated_flag =
   else pc#mark_proved;
   let old_cheated = pt.cheated in
   let old_current_sequent = pt.current_sequent in
+  let old_existentials = pt.uninstantiated_existentials in
   let undo () =
     pc#delete_non_sticky_external_windows;
     clear_children old_current_sequent;
     old_current_sequent#unmark_proved_or_cheated;
     pt.cheated <- old_cheated;
+    pt.uninstantiated_existentials <- old_existentials;
+    undo_instantiate_existentials old_instatiated;
+    if old_instatiated <> [] then begin
+      pt.window#update_existentials_display;
+      pt.sequent_area_needs_refresh <- true;
+    end;
   in
   add_undo_action pt state undo;
   if cheated_flag then pt.cheated <- true;
+  pt.uninstantiated_existentials <- current_existentials;
+  if old_instatiated <> [] then begin
+    pt.window#update_existentials_display;
+    pt.sequent_area_needs_refresh <- true;
+  end;
   pt.need_redraw <- true
 
 
@@ -503,8 +604,6 @@ let internal_switch_to pt state old_open_sequent_id new_current_sequent_id =
     Hashtbl.find pt.sequent_hash new_current_sequent_id 
   in
   let new_current_sequent = (new_current_sequent :> proof_tree_element) in
-  new_current_sequent#mark_current;
-  pt.window#set_current_node new_current_sequent;
   let old_current_sequent_id = pt.current_sequent_id in
   let old_current_sequent = pt.current_sequent in
   let old_other_open_goals = pt.other_open_goals in
@@ -514,6 +613,8 @@ let internal_switch_to pt state old_open_sequent_id new_current_sequent_id =
     pt.current_sequent <- old_current_sequent;
     pt.other_open_goals <- old_other_open_goals;
   in
+  new_current_sequent#mark_current;
+  set_current_node_wrapper pt new_current_sequent;
   pt.current_sequent_id <- new_current_sequent_id;
   pt.current_sequent <- new_current_sequent;
   let all_open_goals = 
@@ -532,10 +633,10 @@ let internal_switch_to pt state old_open_sequent_id new_current_sequent_id =
     [current_sequent] as next current sequent.
 *)
 let finish_branch_and_switch_to pt state proof_command cheated_flag
-    current_sequent_id additional_ids =
+    current_sequent_id additional_ids existentials =
   assert(not (List.mem current_sequent_id additional_ids));
   assert(list_set_subset additional_ids pt.other_open_goals);
-  finish_branch pt state proof_command cheated_flag;
+  finish_branch pt state proof_command cheated_flag existentials;
   internal_switch_to pt state None current_sequent_id;
   let open_goal_count = List.length pt.other_open_goals + 1 in
   let message = 
@@ -553,7 +654,7 @@ let finish_branch_and_switch_to pt state proof_command cheated_flag
 
 (* See mli for doc *)
 let process_current_goals state proof_name proof_command cheated_flag
-    current_sequent_id current_sequent_text additional_ids =
+    current_sequent_id current_sequent_text additional_ids existentials =
   (match !current_proof_tree with
     | Some pt -> 
       if pt.proof_name <> proof_name 
@@ -563,25 +664,27 @@ let process_current_goals state proof_name proof_command cheated_flag
     | None -> 
       assert(additional_ids = []);
       assert(cheated_flag = false);
+      assert(existentials = []);
       start_new_proof state proof_name current_sequent_id current_sequent_text
     | Some pt ->
       if pt.current_sequent_id <> current_sequent_id &&
 	Hashtbl.mem pt.sequent_hash current_sequent_id
       then
 	finish_branch_and_switch_to pt state proof_command cheated_flag
-	  current_sequent_id additional_ids
+	  current_sequent_id additional_ids existentials
       else
 	add_new_goal pt state proof_command cheated_flag current_sequent_id 
-	  current_sequent_text additional_ids
+	  current_sequent_text additional_ids existentials
 
 
 (** Update the sequent text for some sequent. This function is used
     for both, setting the new sequent text as well as reseting to the
     old sequent text in the undo action. 
 *)
-let change_sequent_text proof_window sequent text () =
+let change_sequent_text pt sequent text () =
   sequent#update_sequent text;
-  if sequent#is_selected then proof_window#refresh_sequent_area
+  if sequent#is_selected then 
+    pt.sequent_area_needs_refresh <- true
 
 
 (** Udate the sequent text for some sequent text and set an
@@ -589,8 +692,8 @@ let change_sequent_text proof_window sequent text () =
 *)
 let update_sequent_element pt state sw sequent_text =
   let old_sequent_text = sw#content in
-  change_sequent_text pt.window sw sequent_text ();
-  add_undo_action pt state (change_sequent_text pt.window sw old_sequent_text)  
+  change_sequent_text pt sw sequent_text ();
+  add_undo_action pt state (change_sequent_text pt sw old_sequent_text)  
 
 
 (* See mli for doc *)
@@ -635,7 +738,7 @@ let process_proof_complete state proof_name proof_command cheated_flag =
     | Some pt -> 
       if pt.proof_name <> proof_name
       then raise (Proof_tree_error "Finish other non-current proof");
-      finish_branch pt state proof_command cheated_flag;
+      finish_branch pt state proof_command cheated_flag [];
       let message = 
 	if pt.cheated 
 	then Gtk_ext.pango_markup_bold_color "False proof finished" 
@@ -680,8 +783,11 @@ let quit_proof proof_name =
 let finish_drawing () = match !current_proof_tree with
   | None -> ()
   | Some pt -> 
+    if pt.sequent_area_needs_refresh then
+      pt.window#refresh_sequent_area;
     if pt.need_redraw then 
       pt.window#refresh_and_position;
+    pt.sequent_area_needs_refresh <- false;
     pt.need_redraw <- false
       
 

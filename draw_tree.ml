@@ -19,18 +19,41 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.25 2011/08/12 12:29:02 tews Exp $
+ * $Id: draw_tree.ml,v 1.26 2011/10/20 21:08:11 tews Exp $
  *)
 
 
 (** Layout and drawing of the elements of the proof tree *)
 
 
+open Util
 open Configuration
 open Gtk_ext
 
 
-(** {1 Utility types and functions} *)
+(*****************************************************************************)
+(*****************************************************************************)
+(** {2 Utility types and functions} *)
+(*****************************************************************************)
+(*****************************************************************************)
+
+type existential_variable = {
+  existential_name : string;
+  mutable instantiated : bool;
+}
+
+let copy_existentials exl =
+  List.rev_map 
+    (fun ex -> {existential_name = ex.existential_name;
+		instantiated = ex.instantiated})
+    exl
+
+let filter_uninstantiated exl =
+  list_filter_rev (fun ex -> not ex.instantiated) exl
+
+let string_of_existential_list exl =
+  String.concat " " (List.map (fun ex -> ex.existential_name) exl)
+
 
 type node_kind =
   | Proof_command
@@ -72,9 +95,11 @@ let restore_gc drawable fc_opt = match fc_opt with
   | Some fc -> drawable#set_foreground (`COLOR fc)
 
 
-(*****************************************************************************)
-(** {1 Doubly linked trees } *)
-(*****************************************************************************)
+(*****************************************************************************
+ *
+ * Doubly linked trees
+ *
+ *****************************************************************************)
 
 class virtual ['a] doubly_linked_tree =
 object 
@@ -109,19 +134,21 @@ let clear_children parent =
  *   parent#children_changed
  *)
 
-let remove_child child =
-  match child#parent with
-    | None -> ()
-    | Some p -> 
-      p#set_children (List.filter (fun c -> c <> child) p#children);
-      child#clear_parent;
-      p#children_changed
+(* 
+ * let remove_child child =
+ *   match child#parent with
+ *     | None -> ()
+ *     | Some p -> 
+ *       p#set_children (List.filter (fun c -> c <> child) p#children);
+ *       child#clear_parent;
+ *       p#children_changed
+ *)
 
 
 (****************************************************************************
- *)
-  (** {1 External window interface } *)
-(*
+ *
+ * External window interface
+ *
  ****************************************************************************)
 
 class type external_node_window =
@@ -132,19 +159,32 @@ object
   method delete_non_sticky_node_window : unit
 end
 
+
 (*****************************************************************************)
-(** {1 Tree Elements -- 
-       Abstract base class for turnstyles and proof commands} *)
+(*****************************************************************************)
+(** {2 Tree Elements} *)
+(*****************************************************************************)
 (*****************************************************************************)
 
-class virtual proof_tree_element (drawable : better_drawable) debug_name = 
+(** Abstract base class for turnstiles and proof commands.
+*)
+class virtual proof_tree_element (drawable : better_drawable) 
+    debug_name fresh_existentials = 
 object (self)
   inherit [proof_tree_element] doubly_linked_tree as super
+
+  (***************************************************************************)
+  (***************************************************************************)
+  (** {2 Internal State Fields} *)
+  (***************************************************************************)
+  (***************************************************************************)
 
   val debug_name = (debug_name : string)
   method debug_name = debug_name
 
   method virtual node_kind : node_kind
+
+  method fresh_existentials : existential_variable list = fresh_existentials
 
   val drawable = drawable
 
@@ -184,6 +224,14 @@ object (self)
   val mutable selected = false
   val mutable external_windows : external_node_window list = []
 
+  val mutable existential_variables = fresh_existentials
+
+  (***************************************************************************)
+  (***************************************************************************)
+  (** {2 Accessors / Setters} *)
+  (***************************************************************************)
+  (***************************************************************************)
+
   method width = width
   method height = height
   method subtree_width = subtree_width
@@ -194,10 +242,19 @@ object (self)
   method is_selected = selected
   method selected b = selected <- b
 
+  method inherit_existentials existentials =
+    existential_variables <- List.rev_append fresh_existentials existentials
+
   method virtual content : string
   method virtual content_shortened : bool
   method virtual id : string
 
+
+  (***************************************************************************)
+  (***************************************************************************)
+  (** {2 Children Iterators} *)
+  (***************************************************************************)
+  (***************************************************************************)
 
   (** General iterator for all children. [iter_children left y a f]
       successively computes the [left] and [y] value of each child and
@@ -230,16 +287,12 @@ object (self)
     self#iter_children left y ()
       (fun left y () c -> f left y c; ((), true))
 
-  method register_external_window win =
-    external_windows <- win :: external_windows
 
-  method delete_external_window win =
-    external_windows <- List.filter (fun w -> w <> win) external_windows
-
-  (** Delete all non-sticky external node windows of this node.
-  *)
-  method delete_non_sticky_external_windows =
-    List.iter (fun w -> w#delete_non_sticky_node_window) external_windows
+  (***************************************************************************)
+  (***************************************************************************)
+  (** {2 Layout and Size Computation} *)
+  (***************************************************************************)
+  (***************************************************************************)
 
   method subtree_height = 
     (subtree_levels - 1) * !current_config.level_distance + 
@@ -341,16 +394,17 @@ object (self)
       | None -> ()
       | Some p -> p#update_sizes_in_branch
 
-  method children_changed =
-    (* prerr_endline("CHILDS at  " ^ self#debug_name ^ " CHANGED"); *)
-    self#update_sizes_in_branch
-    (* prerr_endline "END CHILD CHANGED" *)
+
+  (***************************************************************************)
+  (***************************************************************************)
+  (** {2 Coordinates} *)
+  (***************************************************************************)
+  (***************************************************************************)
 
   (** Computes the left offset of [child] relative to the bounding box
       of its parent, which must be this node. *)
   method child_offset child =
     self#iter_children 0 0 0 (fun left _y _a oc -> (left, child <> oc))
-
 
   (** Computes the pair of the left offset and the offset of the
       y-coordinate of this node relative to the root node of the proof
@@ -366,13 +420,11 @@ object (self)
 	in
 	(left_off, y_off)
 
-
   (** Computes the offsets of this nodes x- and y-coordinates relative
       to the root node of the proof tree. *)
   method x_y_offsets =
     let (left, y) = self#left_y_offsets in
     (left + x_offset, y)
-
 
   (** Computes the x-coordinate of this node. Argument [left] must be
       the x-coordinate of the left side of the bounding box of this
@@ -380,12 +432,17 @@ object (self)
   *)
   method get_x_coordinate left = left + x_offset
 
-  method configuration_updated =
-    List.iter (fun ex -> ex#configuration_updated) external_windows;
-    self#set_node_size;
-    self#update_subtree_size
 
-  (* draw left y => unit *)
+  (***************************************************************************)
+  (***************************************************************************)
+  (** {2 Drawing} *)
+  (***************************************************************************)
+  (***************************************************************************)
+
+  (** Draw just this node (without connecting lines) at the indicated
+      position. First argument [left] is the left border, second
+      argument [y] is the y-coordinate.
+  *)
   method private virtual draw : int -> int -> unit
 
   (* line_offset inverse_slope => (x_off, y_off) *)
@@ -482,6 +539,12 @@ object (self)
     self#draw_subtree left (top + height / 2)
 
 
+  (***************************************************************************)
+  (***************************************************************************)
+  (** {2 Locate Mouse Button Clicks} *)
+  (***************************************************************************)
+  (***************************************************************************)
+
   (** Iterate over the proof tree to determine the node that contains
       the point [(bx, by)]. Returns [None] if there is no node that
       contains this point. (If [bx] and [by] are the coordinates of a
@@ -528,6 +591,12 @@ object (self)
   method mouse_button_tree_root left top bx by =
     self#mouse_button_tree left (top + height/2) bx by
 
+
+  (***************************************************************************)
+  (***************************************************************************)
+  (** {2 Mark Branches and Nodes} *)
+  (***************************************************************************)
+  (***************************************************************************)
 
   method mark_branch (f : proof_tree_element -> bool) =
     if f (self :> proof_tree_element) then
@@ -594,14 +663,74 @@ object (self)
       | Cheated -> ()
     );
     List.iter (fun c -> c#disconnect_proof) children;
+
+
+  (***************************************************************************)
+  (***************************************************************************)
+  (** {2 Misc} *)
+  (***************************************************************************)
+  (***************************************************************************)
+
+  method displayed_text =
+    let uninst_ex = filter_uninstantiated [] existential_variables in
+    if uninst_ex = []
+    then self#content
+    else 
+      self#content 
+      ^ "\n\nOpen Existentials: " 
+      ^ (string_of_existential_list uninst_ex)
+
+  method register_external_window win =
+    external_windows <- win :: external_windows
+
+  method delete_external_window win =
+    external_windows <- List.filter (fun w -> w <> win) external_windows
+
+  (** Delete all non-sticky external node windows of this node.
+  *)
+  method delete_non_sticky_external_windows =
+    List.iter (fun w -> w#delete_non_sticky_node_window) external_windows
+
+  method private set_children_existentials =
+    List.iter (fun c -> c#inherit_existentials existential_variables)
+      children
+
+  method propagate_existentials =
+    self#set_children_existentials;
+    List.iter (fun c -> c#propagate_existentials) children
+
+  method update_existentials_display =
+    (if external_windows <> [] && existential_variables <> [] 
+     then
+	let new_text = self#displayed_text in
+	List.iter (fun ew -> ew#update_content new_text) external_windows
+    );
+    List.iter (fun c -> c#update_existentials_display) children	
+
+  method children_changed =
+    (* prerr_endline("CHILDS at  " ^ self#debug_name ^ " CHANGED"); *)
+    self#update_sizes_in_branch;
+    self#set_children_existentials
+    (* prerr_endline "END CHILD CHANGED" *)
+
+  method configuration_updated =
+    List.iter (fun ex -> ex#configuration_updated) external_windows;
+    self#set_node_size;
+    self#update_subtree_size
+
 end
 
 
-(** {1 Turnstyle } *)
+
+(*****************************************************************************
+ *
+ * Turnstile
+ *
+ *****************************************************************************)
 
 class turnstile (drawable : better_drawable) sequent_id sequent_text =
 object (self)
-  inherit proof_tree_element drawable sequent_id as super
+  inherit proof_tree_element drawable sequent_id [] as super
 
   val mutable sequent_id = sequent_id
   val mutable sequent_text = (sequent_text : string)
@@ -615,6 +744,7 @@ object (self)
   method id = sequent_id
   method update_sequent new_text = 
     sequent_text <- new_text;
+    let new_text = self#displayed_text in
     List.iter 
       (fun ew -> ew#update_content new_text)
       external_windows
@@ -711,7 +841,12 @@ end
 
 
 
-(** {1 Proof commands } *)
+(*****************************************************************************
+ *
+ * Proof commands
+ *
+ *****************************************************************************)
+
 
 (** Create a new layout with fonts from the current configuration.
     This function exists, because (I)
@@ -723,9 +858,10 @@ let make_layout context =
   context#set_font_description !proof_tree_font_desc;
   context#create_layout
 
-class proof_command (drawable_arg : better_drawable) command debug_name =
+class proof_command (drawable_arg : better_drawable) 
+  command debug_name fresh_existentials =
 object (self)
-  inherit proof_tree_element drawable_arg debug_name as super
+  inherit proof_tree_element drawable_arg debug_name fresh_existentials as super
 
   val mutable displayed_command = ""
   val command = command
