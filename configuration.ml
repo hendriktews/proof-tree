@@ -19,12 +19,13 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.24 2011/09/23 14:48:39 tews Exp $
+ * $Id: configuration.ml,v 1.25 2011/10/22 14:31:01 tews Exp $
  *)
 
 
 (** Configuration *)
 
+open Util
 open Gtk_ext
 
 (**/**)
@@ -61,9 +62,10 @@ type t = {
   proof_tree_font : string;
   sequent_font : string;
 
-  proved_color : (int * int * int);	(* (red, green, blue) *)
-  current_color : (int * int * int);
+  current_color : (int * int * int);	(* (red, green, blue; all 16 bit) *)
   cheated_color : (int * int * int);
+  proved_complete_color : (int * int * int);
+  proved_incomplete_color : (int * int * int);
 
   display_doc_tooltips : bool;
   display_turnstile_tooltips : bool;
@@ -116,11 +118,12 @@ let default_configuration =
     proof_tree_font = "Sans 8";
     sequent_font = "Sans 8";
 
-    proved_color = (0, 220 * 256, 0);
     current_color = 
       (Gdk.Color.red blue, Gdk.Color.green blue, Gdk.Color.blue blue);
     cheated_color = 
       (Gdk.Color.red red, Gdk.Color.green red, Gdk.Color.blue red);
+    proved_complete_color = (0, 220 * 256, 0);
+    proved_incomplete_color = (0, 255 * 256, 0xC4 * 256);
 
     display_doc_tooltips = true;
     display_turnstile_tooltips = true;
@@ -149,26 +152,32 @@ let proof_tree_font_desc =
 let sequent_font_desc = 
   ref(GPango.font_description default_configuration.sequent_font)
 
-let proved_gdk_color = 
-  ref(GDraw.color (`RGB default_configuration.proved_color))
-
 let current_gdk_color =
   ref(GDraw.color (`RGB default_configuration.current_color))
 
 let cheated_gdk_color =
   ref(GDraw.color (`RGB default_configuration.cheated_color))
 
+let proved_complete_gdk_color = 
+  ref(GDraw.color (`RGB default_configuration.proved_complete_color))
+
+let proved_incomplete_gdk_color = 
+  ref(GDraw.color (`RGB default_configuration.proved_incomplete_color))
+
 let update_font_and_color () =
   proof_tree_font_desc :=
     GPango.font_description !current_config.proof_tree_font;
   sequent_font_desc :=
     GPango.font_description !current_config.sequent_font;
-  proved_gdk_color :=
-    GDraw.color (`RGB !current_config.proved_color);
   current_gdk_color :=
     GDraw.color (`RGB !current_config.current_color);
   cheated_gdk_color :=
-    GDraw.color (`RGB !current_config.cheated_color)
+    GDraw.color (`RGB !current_config.cheated_color);
+  proved_complete_gdk_color :=
+    GDraw.color (`RGB !current_config.proved_complete_color);
+  proved_incomplete_gdk_color :=
+    GDraw.color (`RGB !current_config.proved_incomplete_color)
+
 
 
 (** This function reference solves the recursive module dependency
@@ -192,24 +201,29 @@ let geometry_string = ref ""
  *****************************************************************************)
 (** {2 Save / Restore configuration records} *)
 
-let config_file_header_v_1 = "Prooftree configuration file version 01\n"
+let config_file_header_start = "Prooftree configuration file version "
+let config_file_version = "02"
+let config_file_header = config_file_header_start ^ config_file_version ^ "\n"
 
 let write_config_file file_name (config : t) =
   let oc = open_out_bin file_name in
-  output_string oc config_file_header_v_1;
+  output_string oc config_file_header;
   Marshal.to_channel oc config [];
   close_out oc
 
 let read_config_file file_name : t =
-  let header_len = String.length config_file_header_v_1 in
+  let header_len = String.length config_file_header in
   let header = String.create header_len in
   let ic = open_in_bin file_name in
   really_input ic header 0 header_len;
-  if header = config_file_header_v_1 then begin
+  if header = config_file_header 
+  then begin
     let c = (Marshal.from_channel ic : t) in 
     close_in ic;
     c
   end
+  else if string_starts header config_file_header_start
+  then raise(Failure "Wrong configuration file version")
   else raise(Failure "Invalid configuration file")
 
 let try_load_config_file () =
@@ -240,9 +254,10 @@ class config_window (top_window : GWindow.window)
   level_dist_spinner
   tree_font_button
   sequent_font_button
-  proved_color_button
   current_color_button
   cheated_color_button
+  proved_complete_color_button
+  proved_incomplete_color_button
   drag_accel_spinner
   doc_tooltip_check_box
   turnstile_tooltip_check_box
@@ -280,9 +295,12 @@ object (self)
     level_dist_adjustment#set_value (float_of_int conf.level_distance);
     tree_font_button#set_font_name conf.proof_tree_font;
     sequent_font_button#set_font_name conf.sequent_font;
-    proved_color_button#set_color (GDraw.color (`RGB conf.proved_color));
     current_color_button#set_color (GDraw.color (`RGB conf.current_color));
     cheated_color_button#set_color (GDraw.color (`RGB conf.cheated_color));
+    proved_complete_color_button#set_color
+      (GDraw.color (`RGB conf.proved_complete_color));
+    proved_incomplete_color_button#set_color
+      (GDraw.color (`RGB conf.proved_incomplete_color));
     drag_accel_adjustment#set_value conf.button_1_drag_acceleration;
     doc_tooltip_check_box#set_active conf.display_doc_tooltips;
     turnstile_tooltip_check_box#set_active conf.display_turnstile_tooltips;
@@ -360,12 +378,16 @@ object (self)
       proof_tree_font = tree_font_button#font_name;
       sequent_font = sequent_font_button#font_name;
 
-      proved_color = (let c = proved_color_button#color in
-		      (Gdk.Color.red c, Gdk.Color.green c, Gdk.Color.blue c));
       current_color = (let c = current_color_button#color in
 		       (Gdk.Color.red c, Gdk.Color.green c, Gdk.Color.blue c));
       cheated_color = (let c = cheated_color_button#color in
 		       (Gdk.Color.red c, Gdk.Color.green c, Gdk.Color.blue c));
+      proved_complete_color = 
+	(let c = proved_complete_color_button#color in
+	 (Gdk.Color.red c, Gdk.Color.green c, Gdk.Color.blue c));
+      proved_incomplete_color = 
+	(let c = proved_incomplete_color_button#color in
+	 (Gdk.Color.red c, Gdk.Color.green c, Gdk.Color.blue c));
 
       display_doc_tooltips = doc_tooltip_check_box#active;
       display_turnstile_tooltips = turnstile_tooltip_check_box#active;
@@ -455,6 +477,11 @@ object (self)
       | Sys_error s when Util.string_ends s "No such file or directory" ->
 	run_message_dialog
 	  ("No configuration file at " ^ config_file_location ^ "!")
+	  `WARNING
+      | Failure "Wrong configuration file version" ->
+	run_message_dialog
+	  ("File " ^ config_file_location ^ 
+	      " is not compatible with this version of Prooftree!")
 	  `WARNING
       | Failure "Invalid configuration file" ->
 	run_message_dialog
@@ -668,52 +695,73 @@ let make_config_window () =
     ~packing:top_v_box#pack () in
   let color_frame_table = GPack.table
     ~border_width:5 ~packing:color_frame#add () in
-  let _middle_left_separator = GMisc.label ~text:"" ~xpad:4
+  let _middle_separator = GMisc.label ~text:"" ~xpad:4
     ~packing:(color_frame_table#attach ~left:2 ~top:0) () in
-  let _middle_right_separator = GMisc.label ~text:"" ~xpad:4
-    ~packing:(color_frame_table#attach ~left:5 ~top:0) () in
   let _right_separator = GMisc.label ~text:"" ~xpad:2
-    ~packing:(color_frame_table#attach ~left:8 ~top:0) () in
-
-  (* proved color *)
-  let proved_color_tooltip = "Color for proved branches" in
-  let proved_color_label = GMisc.label
-    ~text:"Proved" ~xalign:0.0 ~xpad:5
-    ~packing:(color_frame_table#attach ~left:0 ~top:0) () in
-  let proved_color_button = GButton.color_button
-    ~title:"Proved Branches Color"
-    ~color:!proved_gdk_color
-    ~packing:(color_frame_table#attach ~left:1 ~top:0) () in
-  (* proved_color_button#set_use_alpha true; *)
-  proved_color_label#misc#set_tooltip_text proved_color_tooltip;
-  proved_color_button#misc#set_tooltip_text proved_color_tooltip;
+    ~packing:(color_frame_table#attach ~left:5 ~top:0) () in
 
   (* current color *)
   let current_color_tooltip = "Color for the current branch" in
   let current_color_label = GMisc.label
     ~text:"Current" ~xalign:0.0 ~xpad:5
-    ~packing:(color_frame_table#attach ~left:3 ~top:0) () in
+    ~packing:(color_frame_table#attach ~left:0 ~top:0) () in
   let current_color_button = GButton.color_button
     ~title:"Current Branch Color"
     ~color:!current_gdk_color
-    ~packing:(color_frame_table#attach ~left:4 ~top:0) () in
+    ~packing:(color_frame_table#attach ~left:1 ~top:0) () in
   (* current_color_button#set_use_alpha true; *)
   current_color_label#misc#set_tooltip_text current_color_tooltip;
   current_color_button#misc#set_tooltip_text current_color_tooltip;
+
+  (* proved incomplete color *)
+  let proved_incomplete_color_tooltip = 
+    "Color for proved branches which still have some non-instantiated \
+     existential variables" 
+  in
+  let proved_incomplete_color_label = GMisc.label
+    ~text:"Proved incomplete" ~xalign:0.0 ~xpad:5
+    ~packing:(color_frame_table#attach ~left:3 ~top:0) () in
+  let proved_incomplete_color_button = GButton.color_button
+    ~title:"Incompletely Proved Branches Color"
+    ~color:!proved_incomplete_gdk_color
+    ~packing:(color_frame_table#attach ~left:4 ~top:0) () in
+  (* proved_incomplete_color_button#set_use_alpha true; *)
+  proved_incomplete_color_label#misc#set_tooltip_text
+    proved_incomplete_color_tooltip;
+  proved_incomplete_color_button#misc#set_tooltip_text
+    proved_incomplete_color_tooltip;
 
   (* cheated color *)
   let cheated_color_tooltip = 
     "Color for branches terminated with a cheating proof command" in
   let cheated_color_label = GMisc.label
     ~text:"Cheated" ~xalign:0.0 ~xpad:5
-    ~packing:(color_frame_table#attach ~left:6 ~top:0) () in
+    ~packing:(color_frame_table#attach ~left:0 ~top:1) () in
   let cheated_color_button = GButton.color_button
     ~title:"Cheated Branches Color"
     ~color:!cheated_gdk_color
-    ~packing:(color_frame_table#attach ~left:7 ~top:0) () in
+    ~packing:(color_frame_table#attach ~left:1 ~top:1) () in
   (* cheated_color_button#set_use_alpha true; *)
   cheated_color_label#misc#set_tooltip_text cheated_color_tooltip;
   cheated_color_button#misc#set_tooltip_text cheated_color_tooltip;
+
+  (* proved complete color *)
+  let proved_complete_color_tooltip = 
+    "Color for completely proved branches where all existential \
+     variables are instantiated" 
+  in
+  let proved_complete_color_label = GMisc.label
+    ~text:"Proved complete" ~xalign:0.0 ~xpad:5
+    ~packing:(color_frame_table#attach ~left:3 ~top:1) () in
+  let proved_complete_color_button = GButton.color_button
+    ~title:"Completely Proved Branches Color"
+    ~color:!proved_complete_gdk_color
+    ~packing:(color_frame_table#attach ~left:4 ~top:1) () in
+  (* proved_complete_color_button#set_use_alpha true; *)
+  proved_complete_color_label#misc#set_tooltip_text
+    proved_complete_color_tooltip;
+  proved_complete_color_button#misc#set_tooltip_text
+    proved_complete_color_tooltip;
 
   (****************************************************************************
    *
@@ -941,9 +989,10 @@ let make_config_window () =
       level_dist_spinner
       tree_font_button
       sequent_font_button
-      proved_color_button
       current_color_button
       cheated_color_button
+      proved_complete_color_button
+      proved_incomplete_color_button
       drag_accel_spinner
       doc_tooltip_check_box
       turnstile_tooltip_check_box
@@ -962,9 +1011,10 @@ let make_config_window () =
 	level_dist_label#misc; level_dist_spinner#misc;
 	tree_font_label#misc; tree_font_button#misc;
 	sequent_font_label#misc; sequent_font_button#misc;
-	proved_color_label#misc; proved_color_button#misc;
 	current_color_label#misc; current_color_button#misc;
 	cheated_color_label#misc; cheated_color_button#misc;
+	proved_complete_color_label#misc; proved_complete_color_button#misc;
+	proved_incomplete_color_label#misc; proved_incomplete_color_button#misc;
 	doc_tooltip_alignment#misc;
 	turnstile_tooltip_alignment#misc;
 	command_tooltip_alignment#misc;

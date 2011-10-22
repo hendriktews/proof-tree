@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.19 2011/10/20 21:08:11 tews Exp $
+ * $Id: input.ml,v 1.20 2011/10/22 14:31:01 tews Exp $
  *)
 
 
@@ -221,13 +221,15 @@ module U = Unix
 exception Protocol_error of string * (exn * string) option
 
 
-(** Check and configure for a specific proof assistant. Currently only
-    ["Coq"] is supported and no Coq specific configuration is done here.
-*)
-let match_proof_assistant = function
-  | "Coq" -> ()
-  | pa -> 
-    raise (Protocol_error ("unknown proof assistant " ^ pa, None))
+(* 
+ * (\** Check and configure for a specific proof assistant. Currently only
+ *     ["Coq"] is supported and no Coq specific configuration is done here.
+ * *\)
+ * let match_proof_assistant = function
+ *   | "Coq" -> ()
+ *   | pa -> 
+ *     raise (Protocol_error ("unknown proof assistant " ^ pa, None))
+ *)
 
 
 (** Forward pointer to {!Input.read_command_line}. Initialized in 

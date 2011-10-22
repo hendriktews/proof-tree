@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.26 2011/10/20 21:08:11 tews Exp $
+ * $Id: draw_tree.ml,v 1.27 2011/10/22 14:31:01 tews Exp $
  *)
 
 
@@ -49,7 +49,7 @@ let copy_existentials exl =
     exl
 
 let filter_uninstantiated exl =
-  list_filter_rev (fun ex -> not ex.instantiated) exl
+  list_filter_rev (fun ex -> not ex.instantiated) [] exl
 
 let string_of_existential_list exl =
   String.concat " " (List.map (fun ex -> ex.existential_name) exl)
@@ -73,7 +73,7 @@ let string_of_branch_state = function
   | Cheated     -> "Cheated"
   | Proven      -> "Proven"
 
-let safe_and_set_gc drawable state =
+let safe_and_set_gc drawable state existentials =
   match state with
     | Unproven -> None
     | CurrentNode
@@ -83,7 +83,10 @@ let safe_and_set_gc drawable state =
       res
     | Proven -> 
       let res = Some drawable#get_foreground in
-      drawable#set_foreground (`COLOR !proved_gdk_color);
+      let complete = (filter_uninstantiated existentials) = [] in
+      drawable#set_foreground 
+	(if complete then `COLOR !proved_complete_gdk_color
+	 else `COLOR !proved_incomplete_gdk_color);
       res
     | Cheated -> 
       let res = Some drawable#get_foreground in
@@ -241,6 +244,8 @@ object (self)
   method set_branch_state s = branch_state <- s
   method is_selected = selected
   method selected b = selected <- b
+
+  method existential_variables = existential_variables
 
   method inherit_existentials existentials =
     existential_variables <- List.rev_append fresh_existentials existentials
@@ -463,40 +468,13 @@ object (self)
 	let slope = float_of_int(cx - x) /. float_of_int(cy - y) in
 	let (d_x, d_y) = self#line_offset slope in
 	let (c_d_x, c_d_y) = child#line_offset slope in
-	let child_state = child#branch_state in
-	let line_state = match (branch_state, child_state) with
-	  | (Unproven, Current)
-	  | (Unproven, CurrentNode)
-	  | (Proven, Unproven)
-	  | (Proven, Current) 
-	  | (Proven, CurrentNode) 
-	  | (Cheated, Unproven)
-	  | (Cheated, CurrentNode)
-	  | (Cheated, Current)
-	  | (Cheated, Proven)
-	    -> 
-	   (* 
-            * Printf.eprintf "draw line error %s -> %s branch %s child %s\n%!"
-	    *   self#debug_name child#debug_name
-	    *   (string_of_branch_state branch_state)
-	    *   (string_of_branch_state child_state);
-            *)
-	   assert false
-	 | (Unproven, Unproven)
-	 | (Unproven, Proven) 
-	 | (Unproven, Cheated)
-	 | ((Current|CurrentNode), Unproven)
-	 | ((Current|CurrentNode), (Current|CurrentNode))
-	 | ((Current|CurrentNode), Proven) 
-	 | ((Current|CurrentNode), Cheated)
-	 | (Proven, Proven) 
-	 | (Proven, Cheated)
-	 | (Cheated, Cheated) -> child_state
-       in
-       let gc_opt = safe_and_set_gc drawable line_state in
-       drawable#line ~x:(x + d_x) ~y:(y + d_y) 
-	 ~x:(cx - c_d_x) ~y:(cy - c_d_y);
-       restore_gc drawable gc_opt)
+	let gc_opt = 
+	  safe_and_set_gc drawable
+	    child#branch_state child#existential_variables 
+	in
+	drawable#line ~x:(x + d_x) ~y:(y + d_y) 
+	  ~x:(cx - c_d_x) ~y:(cy - c_d_y);
+	restore_gc drawable gc_opt)
 
 
   (** Draw this node's subtree given the left side of the bounding box
@@ -518,7 +496,7 @@ object (self)
      *   width
      *   subtree_width;
      *)
-    let gc_opt = safe_and_set_gc drawable branch_state in
+    let gc_opt = safe_and_set_gc drawable branch_state existential_variables in
     self#draw left y;
     restore_gc drawable gc_opt;
     self#draw_lines left y;
@@ -672,7 +650,7 @@ object (self)
   (***************************************************************************)
 
   method displayed_text =
-    let uninst_ex = filter_uninstantiated [] existential_variables in
+    let uninst_ex = filter_uninstantiated existential_variables in
     if uninst_ex = []
     then self#content
     else 

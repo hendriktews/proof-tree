@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: help_window.ml,v 1.5 2011/08/11 08:47:28 tews Exp $
+ * $Id: help_window.ml,v 1.6 2011/10/22 14:31:01 tews Exp $
  *)
 
 
@@ -29,20 +29,27 @@ open Configuration
 
 type tags_symbols =
   | Default
-  | Proved_color
+  | Proved_complete_color
+  | Proved_incomplete_color
   | Cheated_color
   | Current_color
   | Italic
   | Bold
 
 let help_text = 
+  let bold_proof_tree = (Bold, "Prooftree") 
+  in
   [(Default, "The meaning of the colors in the proof tree is as follows: ");
-   (Proved_color, "proved branches (green by default), ");
+   (Proved_complete_color, 
+    "proved branches without open existential variables (green by default), ");
+   (Proved_incomplete_color,
+    "proved branches with some not (yet) instantiated existential variables \
+(cyan by default), ");
    (Current_color, "branch to the current goal (blue by default), ");
    (Default, "currently open branches (default foreground color) and ");
    (Cheated_color, "branches terminated with a cheating command such as admit");
    (Default, ". Colors as well as many ");
-   (Bold, "Prooftree");
+   bold_proof_tree;
    (Default, " parameters \
 can be changed in the configuration dialog.
 
@@ -78,6 +85,14 @@ window disappears, unless their ");
    (Italic, "Sticky");
    (Default, " button is pressed.
 
+");
+   bold_proof_tree;
+   (Default, " keeps track of existential variables and whether they \
+have been instantiated. It uses a different color for proved branches that \
+contain some non-instantiated existential variables. Displays with sequents \
+or proof commands (in tool-tips and in additional windows) list those \
+existential variables that are currently not (yet) instantiated.
+   
 A right click or a click on the menu button opens the main menu. The ");
 
    (Italic, "Clone");
@@ -108,8 +123,12 @@ at start up.
 The ");
    (Italic, "Exit");
    (Default, " item terminates ");
-   (Bold, "Prooftree");
-   (Default, " and closes all proof windows.
+   bold_proof_tree;
+   (Default, " and closes all proof windows. (Closing all windows does ");
+   (Italic, "not");
+   (Default, " terminate ");
+   bold_proof_tree;
+   (Default, ".)
 
 A major part of the proof visualization task is done by ");
    (Bold, "Proof General");
@@ -121,7 +140,7 @@ inside ");
    (Default, " and ");
    (Italic, "proof-tree-internals. ");
    (Default, "For instance, ");
-   (Bold, "Prooftree");
+   bold_proof_tree;
    (Default, " command line arguments or the regular expressions for \
 navigation and cheating commands can be configured there. \
 To visit a customization group, type ");
@@ -131,14 +150,18 @@ To visit a customization group, type ");
   ]
 
 let fill_help_buffer (buffer :GText.buffer) =
-  let proved_tag = buffer#create_tag [`FOREGROUND_GDK !proved_gdk_color] in
+  let proved_complete_tag = 
+    buffer#create_tag [`FOREGROUND_GDK !proved_complete_gdk_color] in
+  let proved_incomplete_tag = 
+    buffer#create_tag [`FOREGROUND_GDK !proved_incomplete_gdk_color] in
   let cheated_tag = buffer#create_tag [`FOREGROUND_GDK !cheated_gdk_color] in
   let current_tag = buffer#create_tag [`FOREGROUND_GDK !current_gdk_color] in
   let i_tag = buffer#create_tag [`FONT "italic"] in
   let bold_tag = buffer#create_tag [`FONT "bold"] in
   let get_tags = function
     | Default -> []
-    | Proved_color -> [proved_tag]
+    | Proved_complete_color -> [proved_complete_tag]
+    | Proved_incomplete_color -> [proved_incomplete_tag]
     | Cheated_color -> [cheated_tag]
     | Current_color -> [current_tag]
     | Italic -> [i_tag]

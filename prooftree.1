@@ -90,9 +90,11 @@ sequents and proof commands.
 The branches in the proof-tree graph are colored
 according to their state. 
 .B Prooftree
-distinguishes between proved branches (green by default), the
-branch to the current goal (blue by default), branches finished
-with a cheating command such as 
+distinguishes between proved branches without non-instantiated
+existential variables (green by default), proved branches with
+some non-instantiated existential variables (cyan by default),
+the branch to the current goal (blue by default), branches
+finished with a cheating command such as
 .I admit
 (red by default) and the currently open branches (in the default
 foreground color). The colors as well as many other
@@ -139,6 +141,15 @@ command in an additional window. These additional windows are
 deleted when the main proof-tree window disappears, unless their
 .I Sticky 
 button is pressed.
+.\" ==========================================================================
+.SS Existential Variables
+.B Prooftree
+keeps track of existential variables and whether they have
+already been instantiated. It uses different colors to display
+branches with and without non-instantiated existential variables.
+The list of currently not (yet) instantiated existential
+variables is appended to proof commands and sequents in tool-tips
+and the other displays.
 .\" ==========================================================================
 .SS Main Menu
 A right-click or the 

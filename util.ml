@@ -19,18 +19,26 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: util.ml,v 1.13 2011/10/20 21:08:11 tews Exp $
+ * $Id: util.ml,v 1.14 2011/10/22 14:31:01 tews Exp $
  *)
 
 
 (** Misc utility functions *)
 
 
+(** {2 Missing from the List module} *)
+
+(** Return the last element of a list and [assert false] on the empty
+    list.
+*)
 let rec list_last = function
   | [] -> assert false
   | [a] -> a
   | _ :: rest -> list_last rest
 
+(** List {!List.filter} but without the guarantee to preserve the
+    order of the input list. Tail recursive.
+*)
 let rec list_filter_rev p accu = function
   | [] -> accu
   | x :: l -> 
@@ -38,6 +46,11 @@ let rec list_filter_rev p accu = function
     else list_filter_rev p accu l
 
 
+(** {2 Lists as Sets: Simple Set Operations} *)
+
+(** [list_set_subset s1 s2] returns true precisely if [s1] is a
+    (non-necessarily strict) subset of [s2].
+*)
 let list_set_subset s1 s2 =
   List.for_all (fun e -> List.mem e s2) s1
 
@@ -60,6 +73,15 @@ let list_set_diff_rev s1 s2 =
 let list_set_union_disjoint s1 s2 = List.rev_append s1 s2
 
 
+(** Add element [e] to set [s] under the assumption that [e] is not
+    contained in [s]. Same as [list_set_union_disjoint [e] s].
+*)
+let list_set_add_nonpresent_element e s = e :: s
+
+
+(** Internal tail-recursive worker function for
+    {!list_set_remove_element}.
+*)
 let rec list_set_remove_element_rec e res = function
   | [] -> res
   | a :: s -> 
@@ -68,19 +90,23 @@ let rec list_set_remove_element_rec e res = function
     else list_set_remove_element_rec e (a :: res) s
 
 
-(** Add element [e] to set [s] under the assumption that [e] is not
-    contained in [s]. Same as [list_set_union_disjoint [e] s].
-*)
-let list_set_add_nonpresent_element e s = e :: s
-
-
-(** Removes element [e] from set [s]. Returns [s] (possibly
-    differently ordered if [e] is not present in [s].
+(** [list_set_remove_element e s] removes element [e] from set [s].
+    Returns [s] without [e] (possibly differently ordered if [e] is
+    not present in [s]. Only the first occurence of [e] is removed, so
+    [s] should better be a proper set. Tail recursive.
 *)
 let list_set_remove_element e s =
   list_set_remove_element_rec e [] s
 
 
+(** {2 Missing from the String module} *)
+
+(** [search_char buf start stop c] searches for character [c] in the
+    substring of [buf] starting at [start] and ending before [stop].
+    Similar to {!String.index_from} but stop searching before [stop]
+    and wrap the result in an [option] instead of raising an
+    exception.
+*)
 let rec search_char buf start stop c =
   if start < stop then
     if buf.[start] = c 
@@ -89,6 +115,7 @@ let rec search_char buf start stop c =
   else
     None
 
+(** Remove all trailing newlines (['\n']) from the argument. *)
 let chop_final_newlines s =
   let i = ref (String.length s) in
   while !i > 0 && s.[!i - 1] = '\n' do
@@ -120,6 +147,17 @@ let string_split c s =
   iter 0 []
 
 
+(** [string_starts buf start] returns [true] precisely if [start] is
+    an initial prefix of [buf].
+*)
+let string_starts buf start =
+  let buf_len = String.length buf in
+  let start_len = String.length start in
+  if buf_len >= start_len
+  then String.sub buf 0 start_len = start
+  else false
+
+
 (** [string_ends buf tail] returns [true] if the last characters of [buf] 
     equal [tail].
 *)
@@ -130,6 +168,12 @@ let string_ends buf tail =
     (String.sub buf (buf_len - tail_len) tail_len) = tail
 
 
+(** {2 Basic UTF-8 support} *)
+
+(** [utf8_sequence_length s i] returns the byte-length of character at
+    index [i] in [s]. May raise [Invalid_argument] if there is no
+    valid UTF-8 at this position.
+*)
 let utf8_sequence_length s i =
   if int_of_char(s.[i]) land 0x80 = 0x00 then 1
   else if int_of_char(s.[i]) land 0xE0 = 0xC0 then 2
@@ -139,6 +183,10 @@ let utf8_sequence_length s i =
   else if int_of_char(s.[i]) land 0xFE = 0xFC then 6
   else raise (Invalid_argument "invalid UTF-8 sequence start byte")
 
+
+(** Compute the number of characters in an UTF-8 string. May raise
+    [Invalid_argument] if the argument is not valid UTF-8.
+*)
 let utf8_string_length s =
   let rec iter s len i res =
     if i >= len then res
@@ -146,6 +194,13 @@ let utf8_string_length s =
   in
   iter s (String.length s) 0 0
 
+
+(** [utf8_string_sub s len] returns the initial substring of the UTF-8
+    string [s] with [len] characters. Raises 
+    [Invalid_argument "utf8_string_sub"] if [len] is greater than the 
+    number of characters in [s]. May raise [Invalid_argument] if the
+    argument is not valid UTF-8.
+*)
 let utf8_string_sub s len =
   let rec iter s i s_len res j res_len len hangover = 
     if len = 0 
