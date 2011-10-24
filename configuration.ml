@@ -19,11 +19,11 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.25 2011/10/22 14:31:01 tews Exp $
+ * $Id: configuration.ml,v 1.26 2011/10/24 13:01:27 tews Exp $
  *)
 
 
-(** Configuration *)
+(** Prooftree Configuration and the Configuration Dialog *)
 
 open Util
 open Gtk_ext
@@ -37,65 +37,164 @@ module U = Unix
  *****************************************************************************)
 (** {2 Configuration record and global variables} *)
 
+
+(** Hardwired location of the user-specific configuration file. *)
 let config_file_location = 
   Filename.concat
     (Sys.getenv "HOME")
     ".prooftree"
 
+(** Configuration record. For simplicity the user specific
+    configuration file is (mostly) a marshaled configuration record.
+    In order to be independent of Gdk marshaling, the configuration
+    record consists only of pure OCaml values. Fonts and colors are
+    therefore not accessed via the configuration record, but via there
+    own references (of some suitable Gdk type). These references must,
+    of course, be kept in sync with the current configuration. All
+    other configurable values are accessed through the current
+    configuration record, which is stored in {!current_config}.
+*)
 type t = {
   turnstile_radius : int;
+  (** Radius (in pixel) of the circle around the turnstile symbol for
+      the current node. Used also as kind of circular bounding box of
+      the turnstile symbol.
+  *)
+
   turnstile_left_bar_x_offset : int;
+  (** X-offset of the vertical bar of the turnstile symbol. *)
+
   turnstile_left_bar_y_offset : int;
+  (** Y-offset of the upper and lower end of the vertical bar of the
+      turnstile symbol (with respect to the centre of the vertical
+      bar).
+  *)
+
   turnstile_horiz_bar_x_offset : int;
+  (** Length of the horizontal bar of the turnstile symbol. *)
+  
   turnstile_line_width : int;
+  (** Line width of all lines (including the turnstile symbol). *)
+
   turnstile_number_x_offset : int;
+  (** X-offset (with respect to the centre of the turnstile symbol) at
+      which the number of the external sequent window is printed, if
+      there is any.
+  *)
 
   proof_command_length : int;
+  (** Maximal number of characters that are displayed for a proof
+      command in the proof-tree display.
+  *)
 
   subtree_sep : int;
+  (** Additional space added between two adjacent subtrees. (More
+      precisely, this value is added to the width of every node in the
+      proof-tree display.)
+  *)
+
   line_sep : int;
+  (** Space left between nodes and connecting lines. *)
 
   level_distance : int;
+  (** Vertical distance between two levels of the proof tree. *)
 
   button_1_drag_acceleration : float;
+  (** Acceleration multiplier for dragging the proof-tree display
+      inside its viewport. Positive values move the viewport (i.e.,
+      the tree underneath moves in the opposite direction of the
+      mouse), negative values move the tree (i.e., the tree underneath
+      moves in the same direction as the mouse).
+  *)
 
   proof_tree_font : string;
+  (** Font description (as for {!GPango.font_description}) for the
+      text inside the proof-tree display.
+  *)
+
   sequent_font : string;
+  (** Font description (as for {!GPango.font_description}) for the
+      text in the sequent display and in the additional node windows.
+  *)
 
   current_color : (int * int * int);	(* (red, green, blue; all 16 bit) *)
+  (** The color for the current branch, as 16-bit RGB value. *)
+
   cheated_color : (int * int * int);
+  (** The color for branches that have been finished with a cheating
+      command, as 16-bit RGB value 
+  *)
+
   proved_complete_color : (int * int * int);
+  (** The color for branches that have been proved and which have no
+      non-instantiated existential variables, as 16-bit RGB value.
+  *)
+
   proved_incomplete_color : (int * int * int);
+  (** The color for branches that have been proved and that have
+      non-instantiated existential variables, as 16-bit RGB value.
+  *)
 
   display_doc_tooltips : bool;
+  (** Whether to display documentation/help tool-tips. *)
+  
   display_turnstile_tooltips : bool;
+  (** Whether to display complete sequents as tool-tips over sequent
+      symbols.
+  *)
+
   display_command_tooltips : bool;
+  (** Whether to display complete proof commands as tool-tips over
+      proof commands.
+  *)
 
   default_width_proof_tree_window : int;
+  (** Default width of the proof-tree window, used if there was no
+      [-geometry] option.
+  *)
+
   default_height_proof_tree_window : int;
+  (** Default heigth of the proof-tree window, used if there was no
+      [-geometry] option.
+  *)
 
   internal_sequent_window_lines : int;
+  (** Number of text lines in the internal sequent window. If [0] the
+      internal sequent window is hidden.
+  *)
+
   node_window_max_lines : int;
+  (** Maximal number of text lines in external node windows. *)
 
   debug_mode : bool;
+  (** Print more exception backtraces for internal errors, if true. *)
+
   copy_input : bool;
+  (** Write all read input into the file {!copy_input_file}, if true. *)
+
   copy_input_file : string;
+  (** File to write read input to, if {!copy_input} is true. *)
 }
 
-
+(** Set {!turnstile_left_bar_x_offset}, {!turnstile_left_bar_y_offset}
+    and {!turnstile_horiz_bar_x_offset} as function of
+    {!turnstile_radius}. Set {!turnstile_number_x_offset} as function
+    of {!turnstile_line_width}.
+*)
 let update_sizes config =
   let radius = config.turnstile_radius in
   { config with 
-      turnstile_left_bar_x_offset = 
-        int_of_float(-0.23 *. (float_of_int radius) +. 0.5);
-      turnstile_left_bar_y_offset =
-        int_of_float(0.65 *. (float_of_int radius) +. 0.5);
-      turnstile_horiz_bar_x_offset =
-        int_of_float(0.7 *. (float_of_int radius) +. 0.5);
-
-      turnstile_number_x_offset = -(config.turnstile_line_width + 1);
+    turnstile_left_bar_x_offset = 
+      int_of_float(-0.23 *. (float_of_int radius) +. 0.5);
+    turnstile_left_bar_y_offset =
+      int_of_float(0.65 *. (float_of_int radius) +. 0.5);
+    turnstile_horiz_bar_x_offset =
+      int_of_float(0.7 *. (float_of_int radius) +. 0.5);
+    
+    turnstile_number_x_offset = -(config.turnstile_line_width + 1);
   }
 
+(** Create the default, builtin configuration record. *)
 let default_configuration = 
   let radius = 10 in
   let blue = GDraw.color (`NAME "blue") in
@@ -143,27 +242,67 @@ let default_configuration =
   update_sizes c
 
 
+(** Reference of the internal configuration record. Most configuration
+    values are accessed through this reference. For fonts and colors
+    there are separate references, which are always updated, when the
+    configuration changes.
+*)
 let current_config = ref default_configuration
 
 
+(** Font description for the text inside the proof-tree display, as
+    value of {!GPango.font_description} type. Should always be in sync
+    with the {!proof_tree_font} field of {!current_config}.
+*)
 let proof_tree_font_desc = 
   ref(GPango.font_description default_configuration.proof_tree_font)
 
+
+(** Font description for the text in the sequent display and in the
+    additional node windows, as value of {!GPango.font_description}
+    type. Should always be in sync with the {!sequent_font} field
+    of {!current_config}.
+*)
 let sequent_font_desc = 
   ref(GPango.font_description default_configuration.sequent_font)
 
+
+(** Color for the current branch, as {!Gdk.color}. Should always be in
+    sync with the {!current_color} field of {!current_config}.
+*)
 let current_gdk_color =
   ref(GDraw.color (`RGB default_configuration.current_color))
 
+
+(** Color for branches that have been finished with a cheating
+    command, as {!Gdk.color}. Should always be in sync with the
+    {!cheated_color} field of {!current_config}.
+*)
 let cheated_gdk_color =
   ref(GDraw.color (`RGB default_configuration.cheated_color))
 
+
+(** Color for branches that have been proved and which have no
+    non-instantiated esistential variables, as {!Gdk.color}. Should
+    always be in sync with the {!proved_complete_color} field of
+    {!current_config}.
+*)
 let proved_complete_gdk_color = 
   ref(GDraw.color (`RGB default_configuration.proved_complete_color))
 
+
+(** Color for branches that have been proved and that have
+    non-instantiated existential variables, as {!Gdk.color}. Should
+    always be in sync with the {!proved_incomplete_color} field of
+    {!current_config}.
+*)
 let proved_incomplete_gdk_color = 
   ref(GDraw.color (`RGB default_configuration.proved_incomplete_color))
 
+
+(** Update the references for fonts and colors after the current
+    configuration has been changed.
+*)
 let update_font_and_color () =
   proof_tree_font_desc :=
     GPango.font_description !current_config.proof_tree_font;
@@ -188,29 +327,55 @@ let update_font_and_color () =
 let configuration_updated_callback = ref (fun () -> ())
 
 
+(** [update_configuration c] does all the necessary actions to make
+    [c] the current configuration. It stores [c] in {!current_config},
+    updates the references for fonts and colors and calls all
+    [configuration_updated] functions/methods.
+*)
 let update_configuration c =
-    current_config := c;
-    update_font_and_color ();
-    !configuration_updated_callback ()
+  current_config := c;
+  update_font_and_color ();
+  !configuration_updated_callback ()
 
 
+(** Reference for the argument of the [-geometry] option. *)
 let geometry_string = ref ""
 
 
 (*****************************************************************************
- *****************************************************************************)
-(** {2 Save / Restore configuration records} *)
+*****************************************************************************)
+(** {2 Save / Restore configuration records} 
+    
+    A configuration file consists of an ASCII header (followed by a
+    newline) and a marshaled configuration record (of type {!t}).
+    Because of the header one can easily identify the file by opening
+    it in any editor. The header contains also a version field, which
+    changes whenever the type of the marshaled value changes.
+*)
 
+(** Common header of all configuration files. *)
 let config_file_header_start = "Prooftree configuration file version "
+
+(** Version specific header of the current config file version. *)
 let config_file_version = "02"
+
+(** The complete ASCII header of configuration files. *)
 let config_file_header = config_file_header_start ^ config_file_version ^ "\n"
 
+(** [write_config_file file c] writes a config file at [file],
+    containing the configuration record [c].
+*)
 let write_config_file file_name (config : t) =
   let oc = open_out_bin file_name in
   output_string oc config_file_header;
   Marshal.to_channel oc config [];
   close_out oc
 
+(** Read a configuration file at the specified location. Raises
+    [Sys_error] if the file is not present or not readable. Raises
+    [Failure] if there is no configuration file or if the file has an
+    incompatible version. Return the read configuration file on success.
+*)
 let read_config_file file_name : t =
   let header_len = String.length config_file_header in
   let header = String.create header_len in
@@ -223,9 +388,13 @@ let read_config_file file_name : t =
     c
   end
   else if string_starts header config_file_header_start
-  then raise(Failure "Wrong configuration file version")
+  then raise(Failure "Incompatible configuration file version")
   else raise(Failure "Invalid configuration file")
 
+(** Try to load the configuration file at {!config_file_location},
+    ignoring all errors. If a valid configuration file is found, the
+    current configuration is updated. Used during start-up.
+*)
 let try_load_config_file () =
   let copt =
     try
@@ -239,12 +408,61 @@ let try_load_config_file () =
 
 
 (*****************************************************************************
- *****************************************************************************)
-(** {2 Configuration window} *)
+*****************************************************************************)
+(** {2 Configuration Dialog} *)
 
 
+(** Reference to ensure that at most one configuration window does
+    exist. 
+*)
 let config_window = ref None
 
+
+(** Class for managing configuration windows. Objects are created when
+    the widget tree is completely constructed. Contains the necessary
+    state and methods to handle all callbacks. The callbacks must be
+    set up by the function that creates objects. 
+
+    Arguments are
+    - top_window		{!GWindow.window} of the top-level widget
+    - line_width_spinner 	{!GEdit.spin_button} for line width
+    - turnstile_size_spinner 	{!GEdit.spin_button} for turnstile size
+    - line_sep_spinner 		{!GEdit.spin_button} for line gap
+    - subtree_sep_spinner 	{!GEdit.spin_button} for node padding
+    - command_length_spinner 	{!GEdit.spin_button} for command length
+    - level_dist_spinner 	{!GEdit.spin_button} for vertical distance
+    - tree_font_button		{!GButton.font_button} for proof tree font
+    - sequent_font_button	{!GButton.font_button} for sequent window font
+    - current_color_button	{!GButton.color_button} for current color
+    - cheated_color_button	{!GButton.color_button} for cheated color
+    - proved_complete_color_button   {!GButton.color_button} for complete color
+    - proved_incomplete_color_button {!GButton.color_button} for incomplete color
+    - drag_accel_spinner 	  {!GEdit.spin_button} for drac acceleration
+    - doc_tooltip_check_box	  {!GButton.toggle_button} for the help 
+                                  tool-tips check bock
+    - turnstile_tooltip_check_box {!GButton.toggle_button} for the turnstile
+                                  tool-tips check bock
+    - command_tooltip_check_box	  {!GButton.toggle_button} for the command
+                                  tool-tips check bock
+    - default_size_width_spinner  {!GEdit.spin_button} for default window 
+                                  size width
+    - default_size_height_spinner {!GEdit.spin_button} for default window 
+                                  size height
+    - internal_seq_lines_spinner  {!GEdit.spin_button} for lines in the 
+                                  internal sequent window
+    - external_node_lines_spinner {!GEdit.spin_button} for lines in external 
+                                  node windows
+    - debug_check_box		{!GButton.toggle_button} for the 
+                                more-debug-info check box
+    - tee_file_box_check_box 	{!GButton.toggle_button} for log-input check box
+    - tee_file_name_label	{!GMisc.label} of the log-file label
+    - tee_file_name_entry	{!GEdit.entry} of the log-file text entry
+    - tee_file_name_button	{!GButton.button} of the log-file button that 
+                                starts the file selection dialog
+    - tooltip_misc_objects	list of {!GObj.misc_ops} of config dialog
+                                elements that have a tool-tip to switch on and
+                                off
+*)
 class config_window (top_window : GWindow.window)
   line_width_spinner
   turnstile_size_spinner
@@ -272,20 +490,49 @@ class config_window (top_window : GWindow.window)
   =
 object (self)
 
+  (** {!GData.adjustment} of the line-width spin button. *)
   val line_width_adjustment = line_width_spinner#adjustment
+
+  (** {!GData.adjustment} of the turnstile-size spin button. *)
   val turnstile_size_adjustment = turnstile_size_spinner#adjustment
+
+  (** {!GData.adjustment} of the line-gap spin button. *)
   val line_sep_adjustment = line_sep_spinner#adjustment
+
+  (** {!GData.adjustment} of the node-padding spin button. *)
   val subtree_sep_adjustment = subtree_sep_spinner#adjustment
+
+  (** {!GData.adjustment} of the command-length spin button. *)
   val command_length_adjustment = command_length_spinner#adjustment
+
+  (** {!GData.adjustment} of the vertical-distance spin button. *)
   val level_dist_adjustment = level_dist_spinner#adjustment
+
+  (** {!GData.adjustment} of the drag-acceleration spin button. *)
   val drag_accel_adjustment = drag_accel_spinner#adjustment
+
+  (** {!GData.adjustment} of the default-window-size-width spin button. *)
   val default_size_width_adjustment = default_size_width_spinner#adjustment
+
+  (** {!GData.adjustment} of the default-window-size-height spin button. *)
   val default_size_height_adjustment = default_size_height_spinner#adjustment
+
+  (** {!GData.adjustment} of the spin button for the number of lines
+      in the internal sequent window. 
+  *)
   val internal_seq_lines_adjustment = internal_seq_lines_spinner#adjustment
+
+  (** {!GData.adjustment} of the spin button for the number of lines
+      in external node windows. 
+  *)
   val external_node_lines_adjustment = external_node_lines_spinner#adjustment
 
+  (** Make this configuration dialog visible. *)
   method present = top_window#present()
 
+  (** [set_configuration c] changes spinners and buttons to show the
+      configuration of the configuration record [c].
+  *)
   method set_configuration conf =
     line_width_adjustment#set_value (float_of_int conf.turnstile_line_width);
     turnstile_size_adjustment#set_value (float_of_int conf.turnstile_radius);
@@ -318,14 +565,23 @@ object (self)
     tee_file_name_entry#set_text conf.copy_input_file;
     ()
 
+  (** Change spinners and buttons to show the compile-time default
+      configuration. 
+  *)
   method reset_to_default () =
     self#set_configuration default_configuration
 
+  (** Switch the help/documentation tool-tips on or off, according to
+      the state of the help-tool-tips check box.
+  *)
   method toggle_tooltips () =
     let flag = doc_tooltip_check_box#active in
     List.iter (fun misc -> misc#set_has_tooltip flag) tooltip_misc_objects;
     ()
 
+  (** Change the visibility of the tee-file elements, according to the
+      state of the log-input check box.
+  *)
   method tee_file_toggle () =
     let flag = tee_file_box_check_box#active in
     tee_file_name_label#misc#set_sensitive flag;
@@ -333,6 +589,10 @@ object (self)
     tee_file_name_button#misc#set_sensitive flag;
     ()
 
+  (** Start and manage the modal file selection dialog for the
+      log-file button. If the user makes a selection, the log-file
+      text entry is updated.
+  *)
   method tee_file_button_click () =
     let file_chooser = GWindow.file_chooser_dialog 
       ~action:`SAVE
@@ -358,6 +618,9 @@ object (self)
     file_chooser#destroy();
     ()
 
+  (** Create a new configuration record with the current values of the
+      spinners and buttons of this configuration dialog.
+  *)
   method private extract_configuration =
     let round_to_int f = int_of_float(f +. 0.5) in
     let c = {
@@ -410,9 +673,17 @@ object (self)
     in
     update_sizes c
 
+  (** Action for the Apply button: Extract a configuration record and
+      update the current configuration. 
+  *)
   method apply () =
     update_configuration (self#extract_configuration)
 
+  (** Action for the Save button: Saves the current configuration in
+      the user specific configuration file {!config_file_location}. If
+      the values of this configuration dialog differ from the current
+      configuration, a suitable warning is displayed. 
+  *)
   method save () = 
     let do_save = ref true in
     if self#extract_configuration <> !current_config
@@ -441,7 +712,7 @@ object (self)
 	| Sys_error s when Util.string_ends s "Permission denied" ->
 	  run_message_dialog
 	    ("No permission to write the configuration file at "
-		^ config_file_location ^ "!")
+	     ^ config_file_location ^ "!")
 	    `WARNING
 	| e ->
 	  let backtrace = Printexc.get_backtrace () in
@@ -468,6 +739,10 @@ object (self)
 	  ()
 
 
+  (** Action for the Restore button: Restore the configuration in the
+      the user specific configuration file {!config_file_location} as
+      current configuration and update this dialog accordingly.
+  *)
   method restore () = 
     try
       let c = read_config_file config_file_location in
@@ -478,7 +753,7 @@ object (self)
 	run_message_dialog
 	  ("No configuration file at " ^ config_file_location ^ "!")
 	  `WARNING
-      | Failure "Wrong configuration file version" ->
+      | Failure "Incompatible configuration file version" ->
 	run_message_dialog
 	  ("File " ^ config_file_location ^ 
 	      " is not compatible with this version of Prooftree!")
@@ -511,25 +786,32 @@ object (self)
 	prerr_endline (Buffer.contents buf);
 	run_message_dialog (Buffer.contents buf) `WARNING;
 	()
-	
+	  
 
-
+  (** Action for the Cancel button and the destroy signal. *)
   method destroy () =
     config_window := None;
     top_window#destroy()
-    
+      
+  (** Action of the OK button. *)
   method ok () =
     self#apply ();
     self#destroy ()
 
 end
 
+(** [adjustment_set_pos_int ~lower adjustment] configures [adjustment]
+    for integer values between [~lower] and [100].
+*)
 let adjustment_set_pos_int ?(lower = 1.0) (adjustment : GData.adjustment) =
   adjustment#set_bounds
     ~lower ~upper:100.0
     ~step_incr:1.0 ~page_incr:1.0 ()
 
 
+(** Create a new configuation dialog. Creates the widget hierarchy,
+    initializes the management object and registers all callbacks.
+*)
 let make_config_window () =
   let top_window = GWindow.window () in
   let top_v_box = GPack.vbox ~packing:top_window#add () in
@@ -1050,6 +1332,9 @@ let make_config_window () =
   config_window
 
 
+(** Show a configuration dialog. If there is currently none, a new one
+    is created.
+*)
 let show_config_window () =
   match !config_window with
     | Some w -> w#present

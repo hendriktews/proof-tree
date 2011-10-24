@@ -19,25 +19,43 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: gtk_ext.ml,v 1.11 2011/08/01 19:17:50 tews Exp $
+ * $Id: gtk_ext.ml,v 1.12 2011/10/24 13:01:27 tews Exp $
  *)
 
 
 (** Some misc LablGtk extensions *)
 
 
+(** An extension of {!Gdraw.drawable} with a few convinience methods. *)
 class better_drawable ?colormap w pc = 
 object (self)
   inherit GDraw.drawable ?colormap w
 
+  (** Link a writable Pango context for easy access. *)
   val pango_context = (pc : GPango.context_rw)
+
+  (** Return a writable Pango context. *)
   method pango_context = pango_context    
 
+  (** Return the current foreground color of the graphics context of
+      this drawable. 
+  *)
   method get_foreground = (Gdk.GC.get_values gc).Gdk.GC.foreground
-  method get_background = (Gdk.GC.get_values gc).Gdk.GC.background
 
+  (** Return the current background color of the graphics context of
+      this drawable. 
+  *)
+  method get_background = (Gdk.GC.get_values gc).Gdk.GC.background
 end
 
+
+(** Convinience wrapper around {!GWindow.message_dialog}.
+    [run_message_dialog message message_type] displays a modal message
+    dialog of [message_type] with message [message] and one OK button.
+    The dialog is destroyed when the OK button is pressed.
+    [message_type] must be one of [`INFO], [`WARNING], [`QUESTION] and
+    [`ERROR ].
+*)
 let run_message_dialog message message_type =
   let warn = GWindow.message_dialog ~message ~message_type
     ~buttons:GWindow.Buttons.ok ()
@@ -46,14 +64,24 @@ let run_message_dialog message message_type =
   warn#destroy()
 
 
+(** Another convenience wrapper around {!GWindow.message_dialog}.
+    [error_message_dialog message] displays a modal error message
+    dialog (of type [`ERROR]) with message [message] and one OK
+    button. The application is terminated with exit status 1 after the
+    error has been acknowledged.
+*)
 let error_message_dialog message =
   run_message_dialog message `ERROR;
   exit 1
 
-
+(** Round a 16-bit color value to 8 bit. *)
 let round_color_2_digits co =
   min ((co + 128) / 256) 0xff
 
+
+(** [pango_markup_bold_color s color] adds Pango markup for using a
+    bold font in color [color] arouns [s].
+*)
 let pango_markup_bold_color s color =
   Printf.sprintf
     "<span weight=\"bold\" color=\"#%02X%02X%02X\">%s</span>"
@@ -63,5 +91,9 @@ let pango_markup_bold_color s color =
     s
 
 (* XXX why is this necessary?? *)
+(** Reallocate a Gdk color. This is necessary because some operations
+    copy only the RGB values of a color, leaving the internal color
+    field uninitialized.
+*)
 let realloc_color c =
   GDraw.color (`RGB((Gdk.Color.red c), (Gdk.Color.green c),(Gdk.Color.blue c)))

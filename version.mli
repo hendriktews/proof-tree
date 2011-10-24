@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: version.mli,v 1.2 2011/04/18 07:20:30 tews Exp $
+ * $Id: version.mli,v 1.3 2011/10/24 13:01:27 tews Exp $
  *)
 
 
@@ -27,5 +27,5 @@
     automatically from version.txt *)
 
 
-(** version number *)
+(** Prooftree version number *)
 val version : string
