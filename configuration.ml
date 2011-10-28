@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.26 2011/10/24 13:01:27 tews Exp $
+ * $Id: configuration.ml,v 1.27 2011/10/28 15:07:29 tews Exp $
  *)
 
 
@@ -135,6 +135,21 @@ type t = {
       non-instantiated existential variables, as 16-bit RGB value.
   *)
 
+  (* 
+   * mark_subtree_color : (int * int * int);
+   * (\** The color for marked subtrees, as 16 bit RGB value. *\)
+   *)
+
+  existential_create_color : (int * int * int);
+  (** The color for marking nodes that introduce a given existential
+      variable, as 16 bit RGB value.
+  *)
+
+  existential_instantiate_color : (int * int * int);
+  (** The color for marking nodes that intantiate a given existential
+      variable, as 16 bit RGB value. 
+  *)
+
   display_doc_tooltips : bool;
   (** Whether to display documentation/help tool-tips. *)
   
@@ -223,6 +238,9 @@ let default_configuration =
       (Gdk.Color.red red, Gdk.Color.green red, Gdk.Color.blue red);
     proved_complete_color = (0, 220 * 256, 0);
     proved_incomplete_color = (0, 255 * 256, 0xC4 * 256);
+    (* mark_subtree_color = (0,0,0); *)
+    existential_create_color = (255 * 256, 0xF5 * 256, 0x8F * 256);
+    existential_instantiate_color = (255 * 256, 0xB6 * 256, 0x6D * 256);
 
     display_doc_tooltips = true;
     display_turnstile_tooltips = true;
@@ -300,6 +318,30 @@ let proved_incomplete_gdk_color =
   ref(GDraw.color (`RGB default_configuration.proved_incomplete_color))
 
 
+(* 
+ * (\** Color for marked subtrees, as {!Gdk.color}. Should always be in
+ *     sync with the {!mark_subtree_color} field of {!current_config}.
+ * *\)
+ * let mark_subtree_gdk_color =
+ *   ref(GDraw.color (`RGB default_configuration.mark_subtree_color))
+ *)
+
+
+(** Color for marking nodes that introduce a given existential
+    variable, as {!Gdk.color}. Should always be in sync with the
+    {!existential_create_color} field of {!current_config}.
+*)
+let existential_create_gdk_color =
+  ref(GDraw.color (`RGB default_configuration.existential_create_color))
+
+(** Color for marking nodes that instantiate a given existential
+    variable, as {!Gdk.color}. Should always be in sync with the
+    {!existential_instantiate_color} field of {!current_config}.
+*)
+let existential_instantiate_gdk_color =
+  ref(GDraw.color (`RGB default_configuration.existential_instantiate_color))
+
+
 (** Update the references for fonts and colors after the current
     configuration has been changed.
 *)
@@ -315,8 +357,15 @@ let update_font_and_color () =
   proved_complete_gdk_color :=
     GDraw.color (`RGB !current_config.proved_complete_color);
   proved_incomplete_gdk_color :=
-    GDraw.color (`RGB !current_config.proved_incomplete_color)
-
+    GDraw.color (`RGB !current_config.proved_incomplete_color);
+  (* 
+   * mark_subtree_gdk_color :=
+   *   GDraw.color (`RGB !current_config.mark_subtree_color);
+   *)
+  existential_create_gdk_color :=
+    GDraw.color (`RGB !current_config.existential_create_color);
+  existential_instantiate_gdk_color :=
+    GDraw.color (`RGB !current_config.existential_instantiate_color)
 
 
 (** This function reference solves the recursive module dependency
@@ -437,6 +486,8 @@ let config_window = ref None
     - cheated_color_button	{!GButton.color_button} for cheated color
     - proved_complete_color_button   {!GButton.color_button} for complete color
     - proved_incomplete_color_button {!GButton.color_button} for incomplete color
+    - ext_create_color_button     {!GButton.color_button} for create exist.
+    - ext_inst_color_button       {!GButton.color_button} for instant. exist.
     - drag_accel_spinner 	  {!GEdit.spin_button} for drac acceleration
     - doc_tooltip_check_box	  {!GButton.toggle_button} for the help 
                                   tool-tips check bock
@@ -463,7 +514,8 @@ let config_window = ref None
                                 elements that have a tool-tip to switch on and
                                 off
 *)
-class config_window (top_window : GWindow.window)
+class config_window 
+  top_window
   line_width_spinner
   turnstile_size_spinner
   line_sep_spinner
@@ -476,6 +528,9 @@ class config_window (top_window : GWindow.window)
   cheated_color_button
   proved_complete_color_button
   proved_incomplete_color_button
+  (* mark_subtree_color_button *)
+  ext_create_color_button
+  ext_inst_color_button
   drag_accel_spinner
   doc_tooltip_check_box
   turnstile_tooltip_check_box
@@ -548,6 +603,14 @@ object (self)
       (GDraw.color (`RGB conf.proved_complete_color));
     proved_incomplete_color_button#set_color
       (GDraw.color (`RGB conf.proved_incomplete_color));
+    (* 
+     * mark_subtree_color_button#set_color
+     *   (GDraw.color (`RGB conf.mark_subtree_color));
+     *)
+    ext_create_color_button#set_color
+      (GDraw.color (`RGB conf.existential_create_color));
+    ext_inst_color_button#set_color
+      (GDraw.color (`RGB conf.existential_instantiate_color));
     drag_accel_adjustment#set_value conf.button_1_drag_acceleration;
     doc_tooltip_check_box#set_active conf.display_doc_tooltips;
     turnstile_tooltip_check_box#set_active conf.display_turnstile_tooltips;
@@ -650,6 +713,17 @@ object (self)
 	 (Gdk.Color.red c, Gdk.Color.green c, Gdk.Color.blue c));
       proved_incomplete_color = 
 	(let c = proved_incomplete_color_button#color in
+	 (Gdk.Color.red c, Gdk.Color.green c, Gdk.Color.blue c));
+      (* 
+       * mark_subtree_color = 
+       * 	(let c = mark_subtree_color_button#color in
+       * 	 (Gdk.Color.red c, Gdk.Color.green c, Gdk.Color.blue c));
+       *)
+      existential_create_color = 
+	(let c = ext_create_color_button#color in
+	 (Gdk.Color.red c, Gdk.Color.green c, Gdk.Color.blue c));
+      existential_instantiate_color = 
+	(let c = ext_inst_color_button#color in
 	 (Gdk.Color.red c, Gdk.Color.green c, Gdk.Color.blue c));
 
       display_doc_tooltips = doc_tooltip_check_box#active;
@@ -966,6 +1040,7 @@ let make_config_window () =
   sequent_font_label#misc#set_tooltip_text sequent_font_tooltip;
   sequent_font_button#misc#set_tooltip_text sequent_font_tooltip;
 
+
   (****************************************************************************
    *
    * Colors
@@ -982,68 +1057,85 @@ let make_config_window () =
   let _right_separator = GMisc.label ~text:"" ~xpad:2
     ~packing:(color_frame_table#attach ~left:5 ~top:0) () in
 
+  let make_color_conf row column color 
+      label_text selection_dialog_title tooltip =
+    let label = GMisc.label
+      ~text:label_text ~xalign:0.0 ~xpad:5
+      ~packing:(color_frame_table#attach ~left:column ~top:row) () in
+    let button = GButton.color_button
+      ~title:selection_dialog_title
+      ~color:color
+      ~packing:(color_frame_table#attach ~left:(column + 1) ~top:row) () in
+    (* button#set_use_alpha true; *)
+    label#misc#set_tooltip_text tooltip;
+    button#misc#set_tooltip_text tooltip;
+    (label, button)
+  in
+
+  let row = 0 in
+  let column = 0 in
+
   (* current color *)
-  let current_color_tooltip = "Color for the current branch" in
-  let current_color_label = GMisc.label
-    ~text:"Current" ~xalign:0.0 ~xpad:5
-    ~packing:(color_frame_table#attach ~left:0 ~top:0) () in
-  let current_color_button = GButton.color_button
-    ~title:"Current Branch Color"
-    ~color:!current_gdk_color
-    ~packing:(color_frame_table#attach ~left:1 ~top:0) () in
-  (* current_color_button#set_use_alpha true; *)
-  current_color_label#misc#set_tooltip_text current_color_tooltip;
-  current_color_button#misc#set_tooltip_text current_color_tooltip;
+  let (current_color_label, current_color_button) =
+    make_color_conf row column !current_gdk_color "Current branch" 
+      "Current Branch Color"
+      "Color for the current branch" in
+
+  let column = column + 3 in
 
   (* proved incomplete color *)
-  let proved_incomplete_color_tooltip = 
-    "Color for proved branches which still have some non-instantiated \
-     existential variables" 
-  in
-  let proved_incomplete_color_label = GMisc.label
-    ~text:"Proved incomplete" ~xalign:0.0 ~xpad:5
-    ~packing:(color_frame_table#attach ~left:3 ~top:0) () in
-  let proved_incomplete_color_button = GButton.color_button
-    ~title:"Incompletely Proved Branches Color"
-    ~color:!proved_incomplete_gdk_color
-    ~packing:(color_frame_table#attach ~left:4 ~top:0) () in
-  (* proved_incomplete_color_button#set_use_alpha true; *)
-  proved_incomplete_color_label#misc#set_tooltip_text
-    proved_incomplete_color_tooltip;
-  proved_incomplete_color_button#misc#set_tooltip_text
-    proved_incomplete_color_tooltip;
+  let (proved_incomplete_color_label, proved_incomplete_color_button) =
+    make_color_conf row column !proved_incomplete_gdk_color "Proved incomplete"
+      "Incompletely Proved Branches Color"
+      "Color for proved branches which still have some non-instantiated \
+       existential variables" in
+
+  let row = 1 in
+  let column = 0 in
 
   (* cheated color *)
-  let cheated_color_tooltip = 
-    "Color for branches terminated with a cheating proof command" in
-  let cheated_color_label = GMisc.label
-    ~text:"Cheated" ~xalign:0.0 ~xpad:5
-    ~packing:(color_frame_table#attach ~left:0 ~top:1) () in
-  let cheated_color_button = GButton.color_button
-    ~title:"Cheated Branches Color"
-    ~color:!cheated_gdk_color
-    ~packing:(color_frame_table#attach ~left:1 ~top:1) () in
-  (* cheated_color_button#set_use_alpha true; *)
-  cheated_color_label#misc#set_tooltip_text cheated_color_tooltip;
-  cheated_color_button#misc#set_tooltip_text cheated_color_tooltip;
+  let (cheated_color_label, cheated_color_button) =
+    make_color_conf row column !cheated_gdk_color "Cheated"
+      "Cheated Branches Color"
+      "Color for branches terminated with a cheating proof command" in
+
+  let column = column + 3 in
 
   (* proved complete color *)
-  let proved_complete_color_tooltip = 
-    "Color for completely proved branches where all existential \
-     variables are instantiated" 
+  let (proved_complete_color_label, proved_complete_color_button) =
+    make_color_conf row column !proved_complete_gdk_color "Proved complete"
+      "Completely Proved Branches Color"
+      "Color for completely proved branches where all existential \
+       variables are instantiated" in
+
+  let row = 2 in
+  let column = 0 in
+
+  (* 
+   * (\* mark subtree color *\)
+   * let (mark_subtree_color_label, mark_subtree_color_button) =
+   *   make_color_conf row column !mark_subtree_gdk_color "Mark"
+   *     "Mark Subtree Color"
+   *     "Color for marking subtrees, e.g., those that contain a certain \
+   *      existential variable" in
+   *)
+
+  (* existential create color *)
+  let (ext_create_color_label, ext_create_color_button) =
+    make_color_conf row column !existential_create_gdk_color
+      "Create existential"
+      "Create Existential Variable Color"
+      "Color for marking the node that introduces some existential variable" in
+
+  let column = column + 3 in
+
+  (* existential instantiate color *)
+  let (ext_inst_color_label, ext_inst_color_button) =
+    make_color_conf row column !existential_instantiate_gdk_color
+      "Instantiate existential"
+      "Instantiate Existential Variable Color"
+      "Color for marking the node that instantiates some existential variable"
   in
-  let proved_complete_color_label = GMisc.label
-    ~text:"Proved complete" ~xalign:0.0 ~xpad:5
-    ~packing:(color_frame_table#attach ~left:3 ~top:1) () in
-  let proved_complete_color_button = GButton.color_button
-    ~title:"Completely Proved Branches Color"
-    ~color:!proved_complete_gdk_color
-    ~packing:(color_frame_table#attach ~left:4 ~top:1) () in
-  (* proved_complete_color_button#set_use_alpha true; *)
-  proved_complete_color_label#misc#set_tooltip_text
-    proved_complete_color_tooltip;
-  proved_complete_color_button#misc#set_tooltip_text
-    proved_complete_color_tooltip;
 
   (****************************************************************************
    *
@@ -1275,6 +1367,9 @@ let make_config_window () =
       cheated_color_button
       proved_complete_color_button
       proved_incomplete_color_button
+      (* mark_subtree_color_button *)
+      ext_create_color_button
+      ext_inst_color_button
       drag_accel_spinner
       doc_tooltip_check_box
       turnstile_tooltip_check_box
@@ -1297,6 +1392,9 @@ let make_config_window () =
 	cheated_color_label#misc; cheated_color_button#misc;
 	proved_complete_color_label#misc; proved_complete_color_button#misc;
 	proved_incomplete_color_label#misc; proved_incomplete_color_button#misc;
+	(* mark_subtree_color_label#misc; mark_subtree_color_button#misc; *)
+	ext_create_color_label#misc; ext_create_color_button#misc;
+	ext_inst_color_label#misc; ext_inst_color_button#misc;
 	doc_tooltip_alignment#misc;
 	turnstile_tooltip_alignment#misc;
 	command_tooltip_alignment#misc;

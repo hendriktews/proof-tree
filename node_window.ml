@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: node_window.ml,v 1.8 2011/10/20 21:08:11 tews Exp $
+ * $Id: node_window.ml,v 1.9 2011/10/28 15:07:30 tews Exp $
  *)
 
 
@@ -31,7 +31,7 @@ open Gtk_ext
 open Draw_tree
 
 
-class node_window proof_window node (top_window : GWindow.window) text_window 
+class node_window proof_window node top_window text_window 
   sticky_button window_number proof_name =
 object (self)
 

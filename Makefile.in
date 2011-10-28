@@ -19,7 +19,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
 ## 
-## $Id: Makefile.in,v 1.12 2011/10/20 21:08:11 tews Exp $
+## $Id: Makefile.in,v 1.13 2011/10/28 15:07:29 tews Exp $
 ## 
 ## Commentary: Makefile
 ## 
@@ -73,6 +73,7 @@ ML_SOURCES:=\
 	about_window.ml \
 	help_window.ml \
 	node_window.ml \
+	ext_dialog.ml \
 	proof_window.ml \
 	proof_tree.ml \
 	input.ml \

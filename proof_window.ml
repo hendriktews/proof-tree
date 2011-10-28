@@ -19,19 +19,21 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.34 2011/10/20 21:08:11 tews Exp $
+ * $Id: proof_window.ml,v 1.35 2011/10/28 15:07:30 tews Exp $
  *)
 
 
 (** Creation, display and drawing of the proof tree window *)
 
 
+open Util
 open Configuration
 open Gtk_ext
 open Draw_tree
 open Node_window
 open Help_window
 open About_window
+open Ext_dialog
 
 
 (** Callback for higher-level modules when the user deletes a proof
@@ -77,6 +79,11 @@ object (self)
       in the current proof tree. This list if stored only for optimization.
   *)
   val mutable node_windows = []
+
+  (** The management object for the dialog for existential
+      variables, if present. 
+  *)
+  val mutable existential_window = None
 
   method set_root r = 
     root <- Some (r : proof_tree_element)
@@ -145,6 +152,7 @@ object (self)
 	    else
 	      self#clear_sequent_area
 
+
   (***************************************************************************
    *
    * Current node
@@ -199,12 +207,106 @@ object (self)
     selected_node <- None;
     self#refresh_sequent_area;
     List.iter (fun w -> w#delete_non_sticky_node_window) node_windows;
-    assert(node_windows = [])
+    assert(node_windows = []);
+    self#clear_existential_dialog_for_reuse
 
   method update_existentials_display =
     match root with
       | None -> ()
       | Some root -> root#update_existentials_display
+
+  method find_node p =
+    let res = ref None in
+    let rec iter node =
+      if p node 
+      then begin
+	res := Some node;
+	raise Exit
+      end
+      else List.iter iter node#children
+    in
+    (match root with
+      | None -> ()
+      | Some root ->
+	try iter root
+	with Exit -> ()
+    );
+    !res
+
+
+  (***************************************************************************
+   *
+   * Position to nodes and points
+   *
+   ***************************************************************************)
+
+  method private clamp_to_node node =
+    let (x_l, x_u, y_l, y_u) = node#bounding_box top_left top_top in
+    drawing_h_adjustment#clamp_page ~lower:x_l ~upper:x_u;
+    drawing_v_adjustment#clamp_page ~lower:y_l ~upper:y_u
+
+
+  method private centre_point x y =
+    let x_size = drawing_h_adjustment#page_size in
+    let adj_x_l = drawing_h_adjustment#lower in
+    let adj_x_u = drawing_h_adjustment#upper in
+    let x = x -. x_size /. 2.0 in
+    let x = if x +. x_size > adj_x_u then adj_x_u -. x_size else x in
+    drawing_h_adjustment#set_value (max adj_x_l x);
+    let y_size = drawing_v_adjustment#page_size in
+    let adj_y_l = drawing_v_adjustment#lower in
+    let adj_y_u = drawing_v_adjustment#upper in
+    let y = y -. y_size /. 2.0 in
+    let y = if y +. y_size > adj_y_u then adj_y_u -. y_size else y in
+    drawing_v_adjustment#set_value (max adj_y_l y)
+
+  method private centre_node node =
+    let (x_l, x_u, y_l, y_u) = node#bounding_box top_left top_top in
+    self#centre_point ((x_l +. x_u) /. 2.0) ((y_l +. y_u) /. 2.0)
+
+  method private is_partially_visible node =
+    let (node_x_l, node_x_u, node_y_l, node_y_u) = 
+      node#bounding_box top_left top_top in
+    let in_x = inside_adj_range drawing_h_adjustment in
+    let in_y = inside_adj_range drawing_v_adjustment
+    in
+    ((in_x node_x_l) || (in_x node_x_u))
+    && ((in_y node_y_l) || (in_y node_y_u))
+
+  method show_node node =
+    if self#is_partially_visible node 
+    then self#clamp_to_node node
+    else self#centre_node node
+
+  method show_both_nodes n1 n2 =
+    let (x1_l, x1_u, y1_l, y1_u) = n1#bounding_box top_left top_top in
+    let (x2_l, x2_u, y2_l, y2_u) = n2#bounding_box top_left top_top in
+    let x_l = min x1_l x2_l in
+    let x_u = max x1_u x2_u in
+    let y_l = min y1_l y2_l in
+    let y_u = max y1_u y2_u in
+    (* 
+     * Printf.fprintf (debugc()) 
+     *   "SBN n1 x %.0f-%.0f y %.0f-%.0f  "
+     *   "n2 x %.0f-%.0f y %.0f-%.0f bb x %.0f-%.0f y %.0f-%.0f\n%!"
+     *   x1_l x1_u y1_l y1_u
+     *   x2_l x2_u y2_l y2_u
+     *   x_l x_u y_l y_u;
+     *)
+    if x_u -. x_l <= drawing_h_adjustment#page_size
+      && y_u -. y_l <= drawing_v_adjustment#page_size
+    then
+      (* both n1 and n2 fit on the page *)
+      if self#is_partially_visible n1 || self#is_partially_visible n2
+      then begin
+	self#clamp_to_node n1;
+	self#clamp_to_node n2
+      end
+      else
+	self#centre_point ((x_l +. x_u) /. 2.0) ((y_l +. y_u) /. 2.0)
+    else
+      self#show_node n2
+
 
   (***************************************************************************
    *
@@ -222,6 +324,7 @@ object (self)
 
   method delete_proof_window =
     List.iter (fun w -> w#delete_non_sticky_node_window) node_windows;
+    self#destroy_existential_dialog;
     let self = (self :> proof_window) in
     cloned_proof_windows :=
       List.fold_left 
@@ -239,6 +342,11 @@ object (self)
 
   method key_pressed_callback ev =
     match GdkEvent.Key.keyval ev with 
+      | ks when 
+	  (ks = GdkKeysyms._Q or ks = GdkKeysyms._q) 
+	  && (List.mem `CONTROL (GdkEvent.Key.state ev))
+	  -> 
+	exit 0
       | ks when (ks = GdkKeysyms._Q or ks = GdkKeysyms._q)  -> 
 	self#delete_proof_window_event ev
       | ks when ks = GdkKeysyms._Left -> 
@@ -250,7 +358,65 @@ object (self)
       | ks when ks = GdkKeysyms._Down -> 
 	self#scroll drawing_v_adjustment 1; true
 
+      (* 
+       * | ks when (ks = GdkKeysyms._E or ks = GdkKeysyms._e)  -> 
+       * 	self#show_existential_window (); true
+       *)
+
       | _ -> false
+
+
+  (***************************************************************************
+   *
+   * Window for existential variables
+   *
+   ***************************************************************************)
+
+  method existential_clear () = 
+    existential_window <- None
+
+  (** Show a dialog for existential variables. If there is currently
+      none, a new one is created.
+  *)
+  method show_existential_window () =
+    match existential_window with
+      | Some w -> w#present
+      | None -> 
+	let ext = 
+	  make_ext_dialog (self :> proof_window) proof_name 
+	in
+	(match root with
+	  | None -> ()
+	  | Some root_node -> ext#fill_table root_node
+	);
+	existential_window <- Some ext
+
+  method destroy_existential_dialog =
+    match existential_window with
+      | None -> ()
+      | Some w -> 
+	w#destroy ();
+	existential_window <- None
+
+  method clear_existential_dialog_for_reuse =
+    match existential_window with
+      | None -> ()
+      | Some w -> w#clear_for_reuse
+
+  method ext_dialog_add status_ext new_ext =
+    match existential_window with
+      | Some w -> w#change_and_add status_ext new_ext
+      | None -> ()
+
+  method ext_dialog_undo status_ext remove_ext =
+    match existential_window with
+      | Some w -> w#change_and_delete status_ext remove_ext
+      | None -> ()
+
+  method update_ext_dialog =
+    match existential_window with
+      | Some w -> w#update_ext_dialog
+      | None -> ()
 
 
   (***************************************************************************
@@ -265,15 +431,12 @@ object (self)
       | None -> match current_node with
 	  | None -> None
 	  | Some node ->
-	    let width = node#width in
-	    let height = node#height in
-	    let (x_off, y_off) = node#x_y_offsets in
-	    let res = Some((x_off, y_off, width, height)) in
+	    let res = Some node#bounding_box_offsets in
 	    current_node_offset_cache <- res;
 	    res
 
   method private erase = 
-    (* Printf.eprintf "ERASE\n%!"; *)
+    (* Printf.fprintf (debugc()) "ERASE\n%!"; *)
     let (x,y) = drawable#size in
     let fg = drawable#get_foreground in
     drawable#set_foreground (`NAME("white"));
@@ -285,15 +448,19 @@ object (self)
       match self#get_current_offset with
 	| None -> 
 	  position_to_current_node <- false
-	| Some((x_off, y_off, width, height)) ->
-	  (* Printf.eprintf "TRY ADJUSTMENT %!"; *)
+	| Some((x_l_off, x_u_off, y_l_off, y_u_off)) ->
 	  let x_page_size = int_of_float drawing_h_adjustment#page_size in
 	  let y_page_size = int_of_float drawing_v_adjustment#page_size in
-	  let x_l_f = float_of_int(top_left + x_off - width / 2) in
-	  let x_u_f = float_of_int(top_left + x_off + width / 2) in
-	  let y_l_f = float_of_int(top_top + y_off - height / 2) in
-	  let y_u_i = top_top + y_off + height / 2 in
+	  let x_l_f = float_of_int(top_left + x_l_off) in
+	  let x_u_f = float_of_int(top_left + x_u_off) in
+	  let y_l_f = float_of_int(top_top + y_l_off) in
+	  let y_u_i = top_top + y_u_off in
 	  let y_u_f = float_of_int y_u_i in
+	  (* 
+           * Printf.fprintf (debugc()) 
+	   *   "TRY ADJUSTMENT x %.1f-%.1f y %.1f-%.1f\n%!"
+	   *   x_l_f x_u_f y_l_f y_u_f;
+           *)
 	  let success = ref true in
           (* The following code might immediately trigger
 	   * expose events, which will call try_adjustment again. To avoid
@@ -302,7 +469,8 @@ object (self)
 	   *)
 	  position_to_current_node <- false;
 
-	  if x_page_size >= width && y_page_size >= height
+	  if x_page_size >= (x_u_off - x_l_off) && 
+	    y_page_size >= (y_u_off - y_l_off)
 	  then begin
 	    (* current node fits into the viewport, be sophisticated *)
 	    let (req_width, req_height) = match root with
@@ -322,7 +490,7 @@ object (self)
 	       * adjustment.
 	       *)
 	      success := false;
-	      (* Printf.eprintf "clever forced error %!" *)
+	      (* Printf.fprintf (debugc()) "clever forced error %!" *)
 	    end else begin
 	      let y_val = 
 		max drawing_v_adjustment#lower 
@@ -331,7 +499,7 @@ object (self)
 	      drawing_v_adjustment#set_value y_val;
 	      drawing_h_adjustment#clamp_page ~lower:x_l_f ~upper:x_u_f;
 	      (* 
-               * Printf.eprintf "clever y_u_i %d up %d y_val %d %!"
+               * Printf.fprintf (debugc()) "clever y_u_i %d up %d y_val %d %!"
 	       * 	y_u_i
 	       * 	(int_of_float drawing_v_adjustment#upper)
 	       * 	(int_of_float y_val);
@@ -339,36 +507,39 @@ object (self)
 	    end
 	  end else begin
 	    (* very small viewport, use dump strategy *)
-	    (* Printf.eprintf "dump clamp %!"; *)
+	    (* Printf.fprintf (debugc()) "dump clamp %!"; *)
 	    drawing_h_adjustment#clamp_page ~lower:x_l_f ~upper:x_u_f;
 	    drawing_v_adjustment#clamp_page ~lower:y_l_f ~upper:y_u_f;
 	  end;
 
-	  let x_val = drawing_h_adjustment#value in
-	  let x_page_size = drawing_h_adjustment#page_size in
-	  let y_val = drawing_v_adjustment#value in
-	  let y_page_size = drawing_v_adjustment#page_size in
-	  if !success &&
-	    x_l_f >= x_val && x_u_f <= x_val +. x_page_size &&
-	    y_l_f >= y_val && y_u_f <= y_val +. y_page_size
+	  if !success && 
+	    range_inside_adj_range drawing_h_adjustment x_l_f x_u_f &&
+	    range_inside_adj_range drawing_v_adjustment y_l_f y_u_f
 	  then begin
-	    (* Printf.eprintf "SUCCESSFUL\n%!"; *)
+	    (* Printf.fprintf (debugc()) "SUCCESSFUL\n%!"; *)
 	    () (* Do nothing: leave position_to_current_node disabled *)
 	  end else begin
-	    (* Printf.eprintf "UNSUCCESSFUL\n%!"; *)
+	    (* Printf.fprintf (debugc()) "UNSUCCESSFUL %b\n%!" !success; *)
 	    (* Schedule the adjustment again, hope that we are more
 	     * successful next time.
 	     *)
 	    position_to_current_node <- true;
-	  end
+	  end;
           (* 
-	   * (let a = drawing_v_adjustment in
-	   *  Printf.eprintf 
-	   * 	 "TA %s VADJ low %f val %f up %f size %f step %f page %f\n%!"
-	   * 	 (match scheduled_adjustment with | None -> "N" | Some _ -> "S")
-	   * 	 a#lower a#value a#upper a#page_size 
-	   * 	 a#step_increment a#page_increment)
-	   *)
+           * (let a = drawing_h_adjustment in
+	   *  Printf.fprintf (debugc()) 
+	   *    ("TA HADJ low %.1f val %.1f " ^^ 
+	   * 	 "up %.1f size %.1f step %.1f page %.1f\n%!")
+	   *    a#lower a#value a#upper a#page_size 
+	   *    a#step_increment a#page_increment);
+           * (let a = drawing_v_adjustment in
+	   *  Printf.fprintf (debugc()) 
+	   *    ("TA VADJ low %.1f val %.1f " ^^
+	   * 	 "up %.1f size %.1f step %.1f page %.1f\n%!")
+	   *    a#lower a#value a#upper a#page_size 
+	   *    a#step_increment a#page_increment);
+           *)
+	  ()
 
   method private expand_drawing_area =
     match root with
@@ -377,7 +548,7 @@ object (self)
 	let new_width = root#subtree_width in
 	let new_height = root#subtree_height in
 	(* 
-         * Printf.eprintf "DRAWING AREA SIZE REQUEST %d x %d\n%!" 
+         * Printf.fprintf (debugc()) "DRAWING AREA SIZE REQUEST %d x %d\n%!" 
 	 *   new_width new_height;
          *)
 	(* 
@@ -405,7 +576,7 @@ object (self)
   method private redraw =
     (* 
      * (let a = drawing_v_adjustment in
-     *  Printf.eprintf 
+     *  Printf.fprintf (debugc()) 
      *    "RD %s VADJ low %f val %f up %f size %f step %f page %f\n%!"
      *    (match scheduled_adjustment with | None -> "N" | Some _ -> "S")
      *    a#lower a#value a#upper a#page_size 
@@ -417,11 +588,11 @@ object (self)
     match root with
       | None -> ()
       | Some root ->
-	(* Printf.eprintf "REDRAW\n%!"; *)
+	(* Printf.fprintf (debugc()) "REDRAW\n%!"; *)
 	ignore(root#draw_tree_root top_left top_top)
 
   method invalidate_drawing_area =
-    (* Printf.eprintf "INVALIDATE\n%!"; *)
+    (* Printf.fprintf (debugc()) "INVALIDATE\n%!"; *)
     GtkBase.Widget.queue_draw drawing_area#as_widget
 
   (** Method for updating the display after the proof tree has changed.
@@ -429,13 +600,13 @@ object (self)
       complete redraw and makes the current node (if any) visible.
   *)
   method refresh_and_position =
-    (* Printf.eprintf "REFRESH & POSITION\n%!"; *)
+    (* Printf.fprintf (debugc()) "REFRESH & POSITION\n%!"; *)
     position_to_current_node <- true;
     self#expand_drawing_area;
     ignore(self#position_tree);
     self#try_adjustment;
     self#invalidate_drawing_area;
-    (* Printf.eprintf "REFRESH & POSITION END\n%!"; *)
+    (* Printf.fprintf (debugc()) "REFRESH & POSITION END\n%!"; *)
     ()
 
   (** Make the current node visible.
@@ -444,16 +615,24 @@ object (self)
     position_to_current_node <- true;
     self#try_adjustment
 
+  method show_current_node () =
+    match current_node with
+      | None -> ()
+      | Some current ->
+	if self#is_partially_visible current
+	then self#show_node current
+	else self#reposition_current_node ()
+
   method draw_scroll_size_allocate_callback (_size : Gtk.rectangle) =
     (* 
-     * Printf.eprintf "SCROLLING SIZE ALLOC SIGNAL size %d x %d\n%!"
+     * Printf.fprintf (debugc()) "SCROLLING SIZE ALLOC SIGNAL size %d x %d\n%!"
      *   (int_of_float (drawing_h_adjustment#upper +. 0.5))
      *   (int_of_float (drawing_v_adjustment#upper +. 0.5));
      *)
     let need_redraw = self#position_tree in
     (* 
      * (let a = drawing_v_adjustment in
-     *  Printf.eprintf 
+     *  Printf.fprintf (debugc()) 
      *    "SA %s VADJ low %f val %f up %f size %f step %f page %f\n%!"
      *    (match scheduled_adjustment with | None -> "N" | Some _ -> "S")
      *    a#lower a#value a#upper a#page_size 
@@ -465,14 +644,14 @@ object (self)
 
   (* 
    * method draw_area_size_allocate_callback (_size : Gtk.rectangle) =
-   *   Printf.eprintf "AREA SIZE ALLOC SIGNAL size %d x %d\n%!"
+   *   Printf.fprintf (debugc()) "AREA SIZE ALLOC SIGNAL size %d x %d\n%!"
    *     (int_of_float (drawing_h_adjustment#upper +. 0.5))
    *     (int_of_float (drawing_v_adjustment#upper +. 0.5));
    *)
   
   (* 
    * method draw_area_configure_callback configure_event =
-   *   Printf.eprintf 
+   *   Printf.fprintf (debugc()) 
    *     "AREA CONFIGURE SIGNAL area size %d x %d scroll size %d x %d\n%!"
    *     (GdkEvent.Configure.width configure_event)
    *     (GdkEvent.Configure.height configure_event)
@@ -484,23 +663,26 @@ object (self)
   method expose_callback (ev : GdkEvent.Expose.t) =
     (* 
      * let r = GdkEvent.Expose.area ev in
-     * Printf.eprintf "EXPOSE count %d %d x %d at %d x %d\n%!"
+     * Printf.fprintf (debugc()) "EXPOSE count %d %d x %d at %d x %d\n%!"
      *   (GdkEvent.Expose.count ev)
      *   (Gdk.Rectangle.width r) (Gdk.Rectangle.height r)
      *   (Gdk.Rectangle.x r) (Gdk.Rectangle.y r);
      *)
     (* 
      * (let a = drawing_v_adjustment in
-     *  Printf.eprintf "EX VADJ low %f val %f up %f size %f step %f page %f\n%!"
+     *  Printf.fprintf (debugc())
+     * "EX VADJ low %f val %f up %f size %f step %f page %f\n%!"
      *    a#lower a#value a#upper a#page_size 
      *    a#step_increment a#page_increment);
      *)
     (* 
      * (let a = drawing_h_adjustment in
-     *  Printf.eprintf "HADJ low %f val %f up %f size %f step %f page %f\n"
+     *  Printf.fprintf (debugc())
+     * "HADJ low %f val %f up %f size %f step %f page %f\n"
      *    a#lower a#value a#upper a#page_size a#step_increment a#page_increment);
      * (let a = drawing_v_adjustment in
-     *  Printf.eprintf "VADJ low %f val %f up %f size %f step %f page %f\n%!"
+     *  Printf.fprintf (debugc())
+     * "VADJ low %f val %f up %f size %f step %f page %f\n%!"
      *    a#lower a#value a#upper a#page_size a#step_increment a#page_increment);
      *)
     self#redraw;
@@ -535,7 +717,7 @@ object (self)
   method private remember_for_dragging =
     let (x, y) = Gdk.Window.get_pointer_location top_window#misc#window in
     (* 
-     * Printf.printf "Button press %d x %d\n%!" 
+     * Printf.fprintf (debugc()) "Button press %d x %d\n%!" 
      *   (fst new_poi_loc) (snd new_poi_loc);
      *)
     last_button_press_top_x <- x;
@@ -630,7 +812,7 @@ object (self)
      * last_button_press_time <- GdkEvent.Button.time ev;
      *)
     (* 
-     * Printf.printf "%s Button %s%d at %d x %d\n%!" 
+     * Printf.fprintf (debugc()) "%s Button %s%d at %d x %d\n%!" 
      *   (match GdkEvent.get_type ev with
      * 	| `BUTTON_PRESS -> "single"
      * 	| `TWO_BUTTON_PRESS -> "double"
@@ -666,7 +848,8 @@ object (self)
     in
     (* 
      * let hint = GdkEvent.Motion.is_hint _ev in
-     * Printf.printf "PM %d %d%s\n%!" x y (if hint then " H" else "");
+     * Printf.fprintf (debugc()) 
+     * "PM %d %d%s\n%!" x y (if hint then " H" else "");
      *)
     if not restored_selected_node 
     then self#single_restore_selected_node;
@@ -695,7 +878,7 @@ object (self)
    ***************************************************************************)
       
   method drawable_tooltip ~x ~y ~(kbd : bool) (tooltip : Gtk.tooltip) =
-    (* Printf.printf "TTS x %d y %d\n%!" x y; *)
+    (* Printf.fprintf (debugc()) "TTS x %d y %d\n%!" x y; *)
     self#locate_button_node x y 
       (fun node -> match node#node_kind with
 	| Turnstile -> 
@@ -734,6 +917,7 @@ object (self)
       let clone = match node#node_kind with
 	| Proof_command -> 
 	  (owin#new_proof_command node#content 
+	     (copy_existentials node#inst_existentials)
 	     (copy_existentials node#fresh_existentials)
 	   :> proof_tree_element)
 	| Turnstile -> 
@@ -772,9 +956,10 @@ object (self)
   method new_turnstile sequent_id sequent_text =
     new turnstile drawable sequent_id sequent_text
 
-  method new_proof_command command existentials =
+  method new_proof_command command inst_existentials new_existentials =
     new proof_command drawable command command 
-      (existentials : existential_variable list)
+      (inst_existentials : existential_variable list)
+      (new_existentials : existential_variable list)
 end
 
 
@@ -921,6 +1106,7 @@ let rec make_proof_window name geometry_string =
   GToolbox.build_menu menu
     [`I("Clone", clone_fun);
      `I("Show current", proof_window#reposition_current_node);
+     `I("Existentials", proof_window#show_existential_window);
      `I("Configuration", show_config_window);
      `I("Help", show_help_window);
      `I("About", show_about_window);

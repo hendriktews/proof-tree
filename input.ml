@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.20 2011/10/22 14:31:01 tews Exp $
+ * $Id: input.ml,v 1.21 2011/10/28 15:07:30 tews Exp $
  *)
 
 
@@ -284,7 +284,7 @@ let init_string len =
   String.blit command_buffer n command_buffer 0 new_command_buffer_index;
   command_buffer_index := new_command_buffer_index;
   (* 
-   * Printf.eprintf "IS ret %d bytes %s\n|%s|\n%!"
+   * Printf.fprintf (debugc()) "IS ret %d bytes %s\n|%s|\n%!"
    *   n 
    *   (String.sub s 0 n)
    *   (String.sub command_buffer 0 !command_buffer_index);
@@ -663,7 +663,7 @@ let parse_quit_proof com_buf =
            some other protocol error occured
 *)
 let parse_command command =
-  (* Printf.eprintf "PC %s\n%!" command; *)
+  (* Printf.fprintf (debugc()) "PC %s\n%!" command; *)
   let com_buf = Scanf.Scanning.from_string command in
   try
     Scanf.bscanf com_buf "%s " 
@@ -699,7 +699,7 @@ let parse_command command =
     @raise Protocol_error for parsing and protocol errors
 *)
 let read_command_line () =
-  (* Printf.eprintf "RCL start\n%!"; *)
+  (* Printf.fprintf (debugc()) "RCL start\n%!"; *)
   let old_index = !command_buffer_index in
   let (blocked, bytes_read) = 
     try
@@ -711,7 +711,7 @@ let read_command_line () =
   let new_index = old_index + bytes_read in
   command_buffer_index := new_index;
   (* 
-   * Printf.eprintf "RCL read %d bytes, com buf:\n|%s|\n%!"
+   * Printf.fprintf (debugc()) "RCL read %d bytes, com buf:\n|%s|\n%!"
    *   bytes_read (String.sub command_buffer 0 !command_buffer_index);
    *)
   match search_char command_buffer 0 new_index '\n' with
@@ -732,7 +732,7 @@ let read_command_line () =
       String.blit command_buffer (i + 1) command_buffer 0 rest_index;
       command_buffer_index := rest_index;
       (* 
-       * Printf.eprintf "RCL 2 |%s|\n%!"
+       * Printf.fprintf (debugc()) "RCL 2 |%s|\n%!"
        * 	(String.sub command_buffer 0 !command_buffer_index);
        *)
       parse_command command
@@ -757,15 +757,15 @@ let read_command_line () =
 *)
 let parse_input () =
   try
-    (* Printf.eprintf "PI first\n%!"; *)
+    (* Printf.fprintf (debugc()) "PI first\n%!"; *)
     while true do
-      (* Printf.eprintf "PI next\n%!"; *)
+      (* Printf.fprintf (debugc()) "PI next\n%!"; *)
       !current_parser ()
     done;
     true
   with
     | Sys_blocked_io -> 
-      (* Printf.eprintf "PI finished\n%!"; *)
+      (* Printf.fprintf (debugc()) "PI finished\n%!"; *)
       Proof_tree.finish_drawing ();
       true
 

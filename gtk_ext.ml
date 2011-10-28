@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: gtk_ext.ml,v 1.12 2011/10/24 13:01:27 tews Exp $
+ * $Id: gtk_ext.ml,v 1.13 2011/10/28 15:07:30 tews Exp $
  *)
 
 
@@ -74,10 +74,41 @@ let error_message_dialog message =
   run_message_dialog message `ERROR;
   exit 1
 
+
+(** [inside_adj_range adjustment x] checks if [x] is inside the
+    visible range of the adjustment [adjustment].
+*)
+let inside_adj_range adjustment x =
+  let page_l = adjustment#value in
+  let page_u = page_l +. adjustment#page_size in
+  page_l <= x && x <= page_u
+
+(** [range_inside_adj_range adjustment xl xh] checks if the range from
+    [xl] to [xh] is inside the visible range of the adjustment
+    [adjustment]. Does only produce correct results if [xl <= xh].
+*)
+let range_inside_adj_range adjustment xl xh =
+  let page_l = adjustment#value in
+  let page_u = page_l +. adjustment#page_size in
+  page_l <= xl && xh <= page_u
+
+
+
 (** Round a 16-bit color value to 8 bit. *)
 let round_color_2_digits co =
   min ((co + 128) / 256) 0xff
 
+
+(** [pango_markup_color s color] adds Pango markup for using color
+    [color] arouns [s].
+*)
+let pango_markup_color s color =
+  Printf.sprintf
+    "<span color=\"#%02X%02X%02X\">%s</span>"
+    (round_color_2_digits (Gdk.Color.red color))
+    (round_color_2_digits (Gdk.Color.green color))
+    (round_color_2_digits (Gdk.Color.blue color))
+    s
 
 (** [pango_markup_bold_color s color] adds Pango markup for using a
     bold font in color [color] arouns [s].

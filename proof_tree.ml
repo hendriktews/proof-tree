@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.25 2011/10/22 14:31:01 tews Exp $
+ * $Id: proof_tree.ml,v 1.26 2011/10/28 15:07:30 tews Exp $
  *)
 
 
@@ -206,7 +206,10 @@ let update_existentials old_ex new_ex =
       (List.map (fun ex -> ex.existential_name) old_noninst) in
   let new_uninst = 
     List.rev_map 
-      (fun n -> {existential_name = n; instantiated = false}) 
+      (fun n -> {existential_name = n; 
+		 instantiated = false; 
+		 existential_mark = false
+		}) 
       new_ex 
   in
   let current_uninst = list_set_union_disjoint old_noninst new_uninst in
@@ -238,6 +241,7 @@ let stop_proof_tree pt pa_state =
   pt.window#clear_current_node;
   pt.window#refresh_sequent_area;
   pt.window#refresh_and_position;
+  pt.window#update_ext_dialog;
   pt.need_redraw <- false;
   pt.sequent_area_needs_refresh <- false;
   current_proof_tree := None
@@ -466,7 +470,9 @@ let add_new_goal pt state proof_command cheated_flag
   let (old_instatiated, current_existentials, new_existentials) =
     update_existentials pt.uninstantiated_existentials current_ex_names
   in
-  let pc = pt.window#new_proof_command proof_command new_existentials in
+  let pc = 
+    pt.window#new_proof_command proof_command old_instatiated new_existentials
+  in
   let pc = (pc :> proof_tree_element) in
   set_children pt.current_sequent [pc];
   let sw = pt.window#new_turnstile current_sequent_id current_sequent_text in
@@ -520,6 +526,7 @@ let add_new_goal pt state proof_command cheated_flag
 	open_goal_count (if open_goal_count > 1 then "s" else "") (n - 1)
   in
   pt.window#message message;
+  pt.window#ext_dialog_add old_existentials new_existentials;
   let undo () =
     pc#delete_non_sticky_external_windows;
     List.iter (fun s -> s#delete_non_sticky_external_windows) all_subgoals;
@@ -539,6 +546,7 @@ let add_new_goal pt state proof_command cheated_flag
       pt.window#update_existentials_display;
       pt.sequent_area_needs_refresh <- true;
     end;
+    pt.window#ext_dialog_undo old_existentials new_existentials;
   in
   add_undo_action pt state undo;
   pt.need_redraw <- true
@@ -554,7 +562,9 @@ let finish_branch pt state proof_command cheated_flag current_ex_names =
   let (old_instatiated, current_existentials, new_existentials) =
     update_existentials pt.uninstantiated_existentials current_ex_names
   in
-  let pc = pt.window#new_proof_command proof_command new_existentials in
+  let pc = 
+    pt.window#new_proof_command proof_command old_instatiated new_existentials
+  in
   let pc = (pc :> proof_tree_element) in
   pt.current_sequent#unmark_current;
   set_children pt.current_sequent [pc];
@@ -570,11 +580,12 @@ let finish_branch pt state proof_command cheated_flag current_ex_names =
     old_current_sequent#unmark_proved_or_cheated;
     pt.cheated <- old_cheated;
     pt.uninstantiated_existentials <- old_existentials;
-    undo_instantiate_existentials old_instatiated;
     if old_instatiated <> [] then begin
+      undo_instantiate_existentials old_instatiated;
       pt.window#update_existentials_display;
       pt.sequent_area_needs_refresh <- true;
     end;
+    pt.window#ext_dialog_undo old_existentials new_existentials;
   in
   add_undo_action pt state undo;
   if cheated_flag then pt.cheated <- true;
@@ -583,6 +594,7 @@ let finish_branch pt state proof_command cheated_flag current_ex_names =
     pt.window#update_existentials_display;
     pt.sequent_area_needs_refresh <- true;
   end;
+  pt.window#ext_dialog_add old_existentials new_existentials;
   pt.need_redraw <- true
 
 
@@ -785,8 +797,10 @@ let finish_drawing () = match !current_proof_tree with
   | Some pt -> 
     if pt.sequent_area_needs_refresh then
       pt.window#refresh_sequent_area;
-    if pt.need_redraw then 
+    if pt.need_redraw then begin
       pt.window#refresh_and_position;
+      pt.window#update_ext_dialog;
+    end;
     pt.sequent_area_needs_refresh <- false;
     pt.need_redraw <- false
       

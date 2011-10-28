@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: util.ml,v 1.14 2011/10/22 14:31:01 tews Exp $
+ * $Id: util.ml,v 1.15 2011/10/28 15:07:30 tews Exp $
  *)
 
 
@@ -243,3 +243,16 @@ let number_of_lines s =
     if s.[i] = '\n' then incr lines
   done;
   !lines
+
+
+(** Return the filehandle for debugmessages. Only used during
+    debugging sessions. 
+*)
+let debugc =
+  let copt = ref None in
+  fun () -> match !copt with
+    | Some c -> c
+    | None ->
+      let c = open_out "/tmp/prooftree-debug" in
+      copt := Some c;
+      c

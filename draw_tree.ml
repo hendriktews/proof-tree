@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.27 2011/10/22 14:31:01 tews Exp $
+ * $Id: draw_tree.ml,v 1.28 2011/10/28 15:07:29 tews Exp $
  *)
 
 
@@ -40,12 +40,15 @@ open Gtk_ext
 type existential_variable = {
   existential_name : string;
   mutable instantiated : bool;
+  mutable existential_mark : bool;
 }
 
 let copy_existentials exl =
   List.rev_map 
     (fun ex -> {existential_name = ex.existential_name;
-		instantiated = ex.instantiated})
+		instantiated = ex.instantiated;
+		existential_mark = false;
+	       })
     exl
 
 let filter_uninstantiated exl =
@@ -73,30 +76,40 @@ let string_of_branch_state = function
   | Cheated     -> "Cheated"
   | Proven      -> "Proven"
 
-let safe_and_set_gc drawable state existentials =
+let save_gc drawable =
+  Some drawable#get_foreground
+
+let restore_gc drawable fc_opt = match fc_opt with
+  | None -> ()
+  | Some fc -> drawable#set_foreground (`COLOR fc)
+
+let save_and_set_gc drawable state existentials =
+  (* 
+   * if List.exists (fun e -> e.existential_mark) existentials
+   * then begin
+   *   let res = save_gc drawable in
+   *   drawable#set_foreground (`COLOR !mark_subtree_gdk_color);
+   *   res
+   * end else
+   *)
   match state with
     | Unproven -> None
     | CurrentNode
     | Current ->
-      let res = Some drawable#get_foreground in
+      let res = save_gc drawable in
       drawable#set_foreground (`COLOR !current_gdk_color);
       res
     | Proven -> 
-      let res = Some drawable#get_foreground in
+      let res = save_gc drawable in
       let complete = (filter_uninstantiated existentials) = [] in
       drawable#set_foreground 
 	(if complete then `COLOR !proved_complete_gdk_color
 	 else `COLOR !proved_incomplete_gdk_color);
       res
     | Cheated -> 
-      let res = Some drawable#get_foreground in
+      let res = save_gc drawable in
       drawable#set_foreground (`COLOR !cheated_gdk_color);
       res
-
-let restore_gc drawable fc_opt = match fc_opt with
-  | None -> ()
-  | Some fc -> drawable#set_foreground (`COLOR fc)
-
 
 (*****************************************************************************
  *
@@ -171,8 +184,8 @@ end
 
 (** Abstract base class for turnstiles and proof commands.
 *)
-class virtual proof_tree_element (drawable : better_drawable) 
-    debug_name fresh_existentials = 
+class virtual proof_tree_element drawable
+    debug_name inst_existentials fresh_existentials = 
 object (self)
   inherit [proof_tree_element] doubly_linked_tree as super
 
@@ -187,7 +200,9 @@ object (self)
 
   method virtual node_kind : node_kind
 
-  method fresh_existentials : existential_variable list = fresh_existentials
+  method fresh_existentials = fresh_existentials
+
+  method inst_existentials : existential_variable list = inst_existentials
 
   val drawable = drawable
 
@@ -313,6 +328,11 @@ object (self)
     let (children_width, max_levels, last_child) = 
       List.fold_left 
 	(fun (sum_width, max_levels, last_child) c -> 
+	  (* 
+           * (if parent = None || (match parent with Some p -> p#parent = None)
+	   *  then Printf.fprintf (debugc())
+	   *     "USS child width %d\n%!" c#subtree_width);
+           *)
 	  (sum_width + c#subtree_width,
 	   (if c#subtree_levels > max_levels 
 	    then c#subtree_levels 
@@ -336,7 +356,8 @@ object (self)
 	      (first#x_offset + last_x_offset) / 2
       );
     (* 
-     * Printf.eprintf "USS %s childrens width %d first x_offset %d\n%!"
+     * Printf.fprintf (debugc()) 
+     *   "USS %s childrens width %d first x_offset %d\n%!"
      *   self#debug_name
      *   children_width
      *   x_offset;
@@ -359,7 +380,11 @@ object (self)
       (* this node's left side is right of the left margin of the first child *)
       first_child_offset <- 0;
     end;
-    if subtree_width - x_offset < width / 2 
+    (* The real condition for the next if is
+     *   subtree_width - x_offset < width / 2
+     * but it has rounding issues when width is odd.
+     *)
+    if 2 * (subtree_width - x_offset) < width
     then begin
       (* Part of this node is right of rightmost child.
        * Need to increase subtree_width about the outside part, 
@@ -368,14 +393,14 @@ object (self)
        *    subtree_width + width / 2 - (subtree_width - x_offset) =
        *      x_offset + width / 2
        *)
-      subtree_width <- x_offset + width / 2;
+      subtree_width <- x_offset + (width + 1) / 2;
     end else begin
       (* This node's right side is left of right margin of last child.
        * Nothing to do.
        *)
     end;
     (* 
-     * Printf.eprintf 
+     * Printf.fprintf (debugc()) 
      *   "USS %s END subtree width %d x_offset %d \
      *    first_child_offset %d height %d\n%!"
      *   self#debug_name
@@ -412,8 +437,9 @@ object (self)
     self#iter_children 0 0 0 (fun left _y _a oc -> (left, child <> oc))
 
   (** Computes the pair of the left offset and the offset of the
-      y-coordinate of this node relative to the root node of the proof
-      tree. *)
+      y-coordinate of this node relative to the upper-left corner of
+      the root node of the proof tree. 
+  *)
   method left_y_offsets =
     match parent with
       | None -> (0, height / 2)
@@ -425,11 +451,32 @@ object (self)
 	in
 	(left_off, y_off)
 
-  (** Computes the offsets of this nodes x- and y-coordinates relative
-      to the root node of the proof tree. *)
-  method x_y_offsets =
+  (** Computes the bounding box (that is a 4-tuple [(x_low, x_high,
+      y_low, y_high)]) relative to the upper-left corner of the root
+      node of the proof tree.
+  *)
+  method bounding_box_offsets =
     let (left, y) = self#left_y_offsets in
-    (left + x_offset, y)
+    (* 
+     * Printf.fprintf (debugc())
+     *   "BBO left %d width %d height %d | x %d-%d y %d-%d\n%!"
+     *   left width height 
+     *   left (left + width) (y - height / 2) (y + height / 2);
+     *)
+    (left, left + width, y - height / 2, y + height / 2)
+
+  (** [bounding_box left top] computes the bounding box (that is a
+      4-tuple [(x_low, x_high, y_low, y_high)]) of this node in
+      absolute values as floats. Arguments [left] and [top] specify
+      the upper left corner of the root node of the proof tree. 
+  *)
+  method bounding_box left top =
+    let (x_l, x_u, y_l, y_u) = self#bounding_box_offsets in
+    (float_of_int (x_l + left), 
+     float_of_int (x_u + left), 
+     float_of_int (y_l + top), 
+     float_of_int (y_u + top))
+
 
   (** Computes the x-coordinate of this node. Argument [left] must be
       the x-coordinate of the left side of the bounding box of this
@@ -469,7 +516,7 @@ object (self)
 	let (d_x, d_y) = self#line_offset slope in
 	let (c_d_x, c_d_y) = child#line_offset slope in
 	let gc_opt = 
-	  safe_and_set_gc drawable
+	  save_and_set_gc drawable
 	    child#branch_state child#existential_variables 
 	in
 	drawable#line ~x:(x + d_x) ~y:(y + d_y) 
@@ -487,7 +534,8 @@ object (self)
   *)
   method draw_subtree left y =
     (* 
-     * Printf.eprintf "DST %s parent %s childs %s width %d tree_width %d\n%!"
+     * Printf.fprintf (debugc())
+     * "DST %s parent %s childs %s width %d tree_width %d\n%!"
      *   debug_name
      *   (match parent with
      * 	| None -> "None"
@@ -496,7 +544,7 @@ object (self)
      *   width
      *   subtree_width;
      *)
-    let gc_opt = safe_and_set_gc drawable branch_state existential_variables in
+    let gc_opt = save_and_set_gc drawable branch_state existential_variables in
     self#draw left y;
     restore_gc drawable gc_opt;
     self#draw_lines left y;
@@ -596,7 +644,10 @@ object (self)
       (fun (self : proof_tree_element) ->
 	if (List.for_all (fun c -> c#branch_state = Proven) self#children)
 	then (self#set_branch_state Proven; 
-	      (* Printf.eprintf "Mark %s proven\n%!" self#debug_name; *)
+	      (* 
+               * Printf.fprintf (debugc()) 
+	       * 	"Mark %s proven\n%!" self#debug_name;
+               *)
 	      true)
 	else false
       )
@@ -708,7 +759,7 @@ end
 
 class turnstile (drawable : better_drawable) sequent_id sequent_text =
 object (self)
-  inherit proof_tree_element drawable sequent_id [] as super
+  inherit proof_tree_element drawable sequent_id [] [] as super
 
   val mutable sequent_id = sequent_id
   val mutable sequent_text = (sequent_text : string)
@@ -785,7 +836,7 @@ object (self)
   method private draw left y =
     let x = self#get_x_coordinate left in
     (* 
-     * Printf.printf "DRAW TURN %s l %d t %d x %d y %d\n%!" 
+     * Printf.fprintf (debugc()) "DRAW TURN %s l %d t %d x %d y %d\n%!" 
      *   debug_name left top x y;
      *)
     self#draw_turnstile x y
@@ -809,7 +860,7 @@ object (self)
   initializer
     self#set_node_size;
     (* 
-     * Printf.printf "INIT %s width %d height %d\n%!"
+     * Printf.fprintf (debugc()) "INIT %s width %d height %d\n%!"
      *   self#debug_name width height;
      *)
     self#update_subtree_size;
@@ -837,9 +888,11 @@ let make_layout context =
   context#create_layout
 
 class proof_command (drawable_arg : better_drawable) 
-  command debug_name fresh_existentials =
+  command debug_name inst_existentials fresh_existentials =
 object (self)
-  inherit proof_tree_element drawable_arg debug_name fresh_existentials as super
+  inherit proof_tree_element drawable_arg debug_name 
+    inst_existentials fresh_existentials 
+    as super
 
   val mutable displayed_command = ""
   val command = command
@@ -910,9 +963,23 @@ object (self)
   method private draw left y = 
     let x = self#get_x_coordinate left in
     (* 
-     * Printf.printf "DRAW TURN %s l %d t %d x %d y %d\n%!" 
+     * Printf.fprintf (debugc()) "DRAW TURN %s l %d t %d x %d y %d\n%!" 
      *   debug_name left top x y;
      *)
+    let crea = List.exists (fun e -> e.existential_mark) fresh_existentials in
+    let inst = List.exists (fun e -> e.existential_mark) inst_existentials in
+    if crea || inst
+    then begin
+      let w = layout_width + 1 * !current_config.subtree_sep in
+      let h = layout_height + 2 * !current_config.subtree_sep in
+      let gc = save_gc drawable in
+      if crea 
+      then drawable#set_foreground (`COLOR !existential_create_gdk_color)
+      else drawable#set_foreground (`COLOR !existential_instantiate_gdk_color);
+      drawable#arc ~x:(x - w/2) ~y:(y - h/2) 
+	~width:w ~height:h ~filled:true ();
+      restore_gc drawable gc
+    end;
     drawable#put_layout ~x:(x - layout_width/2) ~y:(y - layout_height/2) layout;
     if selected 
     then
@@ -941,11 +1008,11 @@ object (self)
     self#set_displayed_command;
     self#set_node_size;
     (* 
-     * Printf.printf "INIT %s w %d width %d height %d\n%!"
+     * Printf.fprintf (debugc()) "INIT %s w %d width %d height %d\n%!"
      *   self#debug_name w width height;
      *)
     self#update_subtree_size;
-    (* Printf.eprintf "INIT PC %s done\n%!" self#debug_name; *)
+    (* Printf.fprintf (debugc()) "INIT PC %s done\n%!" self#debug_name; *)
     ()
 
 end
