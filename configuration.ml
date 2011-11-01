@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.27 2011/10/28 15:07:29 tews Exp $
+ * $Id: configuration.ml,v 1.28 2011/11/01 12:19:33 tews Exp $
  *)
 
 
@@ -894,6 +894,14 @@ let make_config_window () =
     ~xpad:10 ~ypad:10
     ~packing:top_v_box#pack () in
 
+  let notebook = GPack.notebook
+    ~show_border:true
+    ~packing:top_v_box#pack () in
+  let append_to_notebook label =
+    let label = GMisc.label ~markup:label () in
+    fun w -> ignore(notebook#append_page ~tab_label:label#coerce w)
+  in
+
   (****************************************************************************
    *
    * tree configuration frame 
@@ -902,7 +910,7 @@ let make_config_window () =
   let tree_frame = GBin.frame 
     ~label:"Tree Layout Parameters"
     ~border_width:5
-    ~packing:top_v_box#pack () in
+    ~packing:(append_to_notebook "Layout") () in
   let tree_frame_table = GPack.table 
     (* ~columns:2 ~rows:2 *) ~border_width:5
     ~packing:tree_frame#add () in
@@ -1008,7 +1016,7 @@ let make_config_window () =
   let font_frame = GBin.frame 
     ~label:"Fonts"
     ~border_width:5
-    ~packing:top_v_box#pack () in
+    ~packing:(append_to_notebook "Fonts") () in
   let font_frame_table = GPack.table
     ~border_width:5 ~packing:font_frame#add () in
 
@@ -1049,7 +1057,7 @@ let make_config_window () =
   let color_frame = GBin.frame 
     ~label:"Colors"
     ~border_width:5
-    ~packing:top_v_box#pack () in
+    ~packing:(append_to_notebook "Colors") () in
   let color_frame_table = GPack.table
     ~border_width:5 ~packing:color_frame#add () in
   let _middle_separator = GMisc.label ~text:"" ~xpad:4
@@ -1145,7 +1153,7 @@ let make_config_window () =
   let misc_frame = GBin.frame 
     ~label:"Miscellaneous"
     ~border_width:5
-    ~packing:top_v_box#pack () in
+    ~packing:(append_to_notebook "Misc") () in
   let misc_frame_table = GPack.table 
     (* ~columns:2 ~rows:2 *) ~border_width:5
     ~packing:misc_frame#add () in
@@ -1288,7 +1296,7 @@ let make_config_window () =
   let debug_frame = GBin.frame 
     ~label:"Debugging Options"
     ~border_width:5
-    ~packing:top_v_box#pack () in
+    ~packing:(append_to_notebook "Debug") () in
   let debug_frame_table = GPack.table 
     (* ~columns:2 ~rows:2 *) ~border_width:5
     ~packing:debug_frame#add () in
@@ -1340,7 +1348,7 @@ let make_config_window () =
    *   ~packing:top_v_box#pack () in
    *)
   let button_box = GPack.hbox 
-    ~spacing:5 ~border_width:5 ~packing:top_v_box#pack () in
+    ~spacing:5 (* ~border_width:5 *) ~packing:top_v_box#pack () in
   let reset_button = GButton.button 
     ~label:"Set defaults" ~packing:button_box#pack () in
   let apply_button = GButton.button

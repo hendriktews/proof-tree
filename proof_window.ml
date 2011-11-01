@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.36 2011/11/01 08:25:36 tews Exp $
+ * $Id: proof_window.ml,v 1.37 2011/11/01 12:19:33 tews Exp $
  *)
 
 
@@ -361,6 +361,11 @@ object (self)
       (* 
        * | ks when (ks = GdkKeysyms._E or ks = GdkKeysyms._e)  -> 
        * 	self#show_existential_window (); true
+       *)
+
+      (* 
+       * | ks when (ks = GdkKeysyms._C or ks = GdkKeysyms._c)  -> 
+       * 	show_config_window (); true
        *)
 
       | _ -> false
