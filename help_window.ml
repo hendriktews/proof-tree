@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: help_window.ml,v 1.6 2011/10/22 14:31:01 tews Exp $
+ * $Id: help_window.ml,v 1.7 2011/11/01 11:38:37 tews Exp $
  *)
 
 
@@ -29,10 +29,8 @@ open Configuration
 
 type tags_symbols =
   | Default
-  | Proved_complete_color
-  | Proved_incomplete_color
-  | Cheated_color
-  | Current_color
+  | Color of Gdk.color
+  | Background of Gdk.color
   | Italic
   | Bold
 
@@ -40,14 +38,15 @@ let help_text =
   let bold_proof_tree = (Bold, "Prooftree") 
   in
   [(Default, "The meaning of the colors in the proof tree is as follows: ");
-   (Proved_complete_color, 
+   (Color !proved_complete_gdk_color, 
     "proved branches without open existential variables (green by default), ");
-   (Proved_incomplete_color,
+   (Color !proved_incomplete_gdk_color,
     "proved branches with some not (yet) instantiated existential variables \
 (cyan by default), ");
-   (Current_color, "branch to the current goal (blue by default), ");
+   (Color !current_gdk_color, "branch to the current goal (blue by default), ");
    (Default, "currently open branches (default foreground color) and ");
-   (Cheated_color, "branches terminated with a cheating command such as admit");
+   (Color !cheated_gdk_color, 
+    "branches terminated with a cheating command such as admit");
    (Default, ". Colors as well as many ");
    bold_proof_tree;
    (Default, " parameters \
@@ -105,6 +104,27 @@ The ");
    (Default, " menu item repositions the proof tree such that the \
 current proof goal is visible.
 
+The item ");
+   (Italic, "Existentials");
+   (Default, " opens the dialog for existential variables, which contains \
+a table with all existential variables that currently appear in the proof. \
+For each existential variable, the table contains a ");
+   (Italic, "Mark");
+   (Default, " button, which marks the proof command that introduced \
+this variable ");
+   (Background !existential_create_gdk_color,
+    "(with yellow background, by default)");
+   (Default, " and, if present, the proof command that instantiated \
+this variable ");
+   (Background !existential_instantiate_gdk_color,
+    "(with orange background, by default)");
+   (Default, " in the proof-tree display. Dependencies between different \
+existential variables (i.e., ");
+   (Italic, "X");
+   (Default, " appears in the instantiation of ");
+   (Italic, "Y");
+   (Default, ") cannot be displayed.
+
 The ");
    (Italic, "Configuration");
    (Default, " item displays the configuration dialog. Changing values \
@@ -150,20 +170,12 @@ To visit a customization group, type ");
   ]
 
 let fill_help_buffer (buffer :GText.buffer) =
-  let proved_complete_tag = 
-    buffer#create_tag [`FOREGROUND_GDK !proved_complete_gdk_color] in
-  let proved_incomplete_tag = 
-    buffer#create_tag [`FOREGROUND_GDK !proved_incomplete_gdk_color] in
-  let cheated_tag = buffer#create_tag [`FOREGROUND_GDK !cheated_gdk_color] in
-  let current_tag = buffer#create_tag [`FOREGROUND_GDK !current_gdk_color] in
   let i_tag = buffer#create_tag [`FONT "italic"] in
   let bold_tag = buffer#create_tag [`FONT "bold"] in
   let get_tags = function
     | Default -> []
-    | Proved_complete_color -> [proved_complete_tag]
-    | Proved_incomplete_color -> [proved_incomplete_tag]
-    | Cheated_color -> [cheated_tag]
-    | Current_color -> [current_tag]
+    | Color gdk_color -> [buffer#create_tag [`FOREGROUND_GDK gdk_color]]
+    | Background gdk_color -> [buffer#create_tag [`BACKGROUND_GDK gdk_color]]
     | Italic -> [i_tag]
     | Bold -> [bold_tag]
   in

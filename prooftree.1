@@ -151,6 +151,21 @@ The list of currently not (yet) instantiated existential
 variables is appended to proof commands and sequents in tool-tips
 and the other displays.
 .\" ==========================================================================
+.P
+The
+.B Existential Variable Dialog
+displays a table with all existential variables that currently
+appear in the proof. Each line of the table contains a button
+that marks the proof command that introduced this variable (with
+yellow background, by default) and, if present, the proof command
+that instantiated this variable (with orange background, by
+default). Dependencies between different existential variables
+(i.e., 
+.I X
+appears in the instantiation of 
+.I Y\fR)
+cannot be displayed.
+.\" ==========================================================================
 .SS Main Menu
 A right-click or the 
 .I Menu
