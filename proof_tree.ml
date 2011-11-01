@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.26 2011/10/28 15:07:30 tews Exp $
+ * $Id: proof_tree.ml,v 1.27 2011/11/01 10:00:01 tews Exp $
  *)
 
 
@@ -297,7 +297,7 @@ let rec fire_undo_actions undo_state = function
     }
 *)
 let undo_tree pt pa_state =
-  if pa_state <= pt.pa_start_state
+  if pa_state < pt.pa_start_state
   then begin
     if pt.window#survive_undo_before_start 
     then begin
@@ -310,7 +310,7 @@ let undo_tree pt pa_state =
       PT_undo_delete
     end
   end 
-  else if pt.pa_end_state >= 0 && pa_state > pt.pa_end_state 
+  else if pt.pa_end_state >= 0 && pa_state >= pt.pa_end_state 
   then PT_undo_keep
   else begin
     pt.pa_end_state <- -1;
