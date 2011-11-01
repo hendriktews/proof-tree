@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.28 2011/10/28 15:07:29 tews Exp $
+ * $Id: draw_tree.ml,v 1.29 2011/11/01 08:25:36 tews Exp $
  *)
 
 
@@ -37,19 +37,19 @@ open Gtk_ext
 (*****************************************************************************)
 (*****************************************************************************)
 
+
+(** Representation of existential variables. The code for marking and
+    displaying existential variables depends on proper sharing of
+    these records: For each proof-tree window there must only one
+    record for each existential variables. The same existential
+    variable in different (cloned) proof trees must have exactly one
+    record for each proof-tree window. 
+*)
 type existential_variable = {
   existential_name : string;
   mutable instantiated : bool;
   mutable existential_mark : bool;
 }
-
-let copy_existentials exl =
-  List.rev_map 
-    (fun ex -> {existential_name = ex.existential_name;
-		instantiated = ex.instantiated;
-		existential_mark = false;
-	       })
-    exl
 
 let filter_uninstantiated exl =
   list_filter_rev (fun ex -> not ex.instantiated) [] exl

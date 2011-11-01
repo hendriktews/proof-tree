@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.35 2011/10/28 15:07:30 tews Exp $
+ * $Id: proof_window.ml,v 1.36 2011/11/01 08:25:36 tews Exp $
  *)
 
 
@@ -912,13 +912,26 @@ object (self)
       | None -> selected_node
     in
     let cloned_selected = ref None in
+    let ex_hash = Hashtbl.create 503 in
+    let copy_existential ex =
+      try Hashtbl.find ex_hash ex.existential_name
+      with
+	| Not_found -> 
+	  let nex = { existential_name = ex.existential_name;
+		      instantiated = ex.instantiated;
+		      existential_mark = false;
+		    }
+	  in
+	  Hashtbl.add ex_hash ex.existential_name nex;
+	  nex
+    in
     let rec clone_tree node =
       let cloned_children = List.map clone_tree node#children in
       let clone = match node#node_kind with
 	| Proof_command -> 
 	  (owin#new_proof_command node#content 
-	     (copy_existentials node#inst_existentials)
-	     (copy_existentials node#fresh_existentials)
+	     (List.map copy_existential node#inst_existentials)
+	     (List.map copy_existential node#fresh_existentials)
 	   :> proof_tree_element)
 	| Turnstile -> 
 	  (owin#new_turnstile node#id node#content :> proof_tree_element)

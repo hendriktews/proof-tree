@@ -1,3 +1,7 @@
+2011-11-01  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* fix clone existentials bug
+
 2011-10-28  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* existential variable window/dialog
