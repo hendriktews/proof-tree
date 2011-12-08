@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.mli,v 1.10 2011/10/20 21:08:11 tews Exp $
+ * $Id: proof_tree.mli,v 1.11 2011/12/08 08:42:56 tews Exp $
  *)
 
 
@@ -62,10 +62,12 @@
     @param current_sequent_text the current sequent itself
     @param additional_ids ID's of the additionally open goals
     @param uninstantiated existential variables
+    @param inst_deps instantiated existential variables with dependencies
 *)
 val process_current_goals :
   int -> string -> string -> 
-  bool -> string -> string -> string list -> string list -> unit
+  bool -> string -> string -> string list -> string list -> 
+  (string * string list) list -> unit
 
 
 (** Process an [update-sequent] command. This function is a wrapper

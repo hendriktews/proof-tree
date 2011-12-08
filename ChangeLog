@@ -1,3 +1,20 @@
+2011-12-08  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* more documentation
+	* move to coq trunk
+	  - protocol change: current-goals gets the complete evar
+	    info as string, which is parsed inside prooftree
+	  - added coq specific evar info parser
+	* new option -config
+
+2011-12-06  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* abandon coq patches, work with coq trunk now (elisp only)
+	  Many thanks to Arnaud Spiwack for his dependent evar patch!
+
+	* use match-string-no-properties instead of
+	  buffer-substring-no-properties (elisp only)
+
 2011-11-01  Hendrik Tews <prooftree@askra.de>
 
 	* release version 0.7 on 2011-11-01 13:23:57 UTC

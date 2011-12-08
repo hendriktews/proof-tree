@@ -19,55 +19,14 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.mli,v 1.8 2011/07/30 18:45:50 tews Exp $
+ * $Id: input.mli,v 1.9 2011/12/08 08:42:56 tews Exp $
  *)
 
 
 (** Reading commands from nonblocking stdin *)
 
 
-(*****************************************************************************
- *****************************************************************************)
-(** The communication protocol with Proof General is one-way (only 
-    Proof General sends commands to prooftree). All data is UTF-8 
-    encoded. Prooftree understands the following commands in the
-    following format:
-    
-      current-goals state %d current-sequent %s {cheated|not-cheated} \
-      proof-name-bytes %d command-bytes %d sequent-text-bytes %d \
-      additional-id-bytes %d\n\
-      <data-proof-name>\n\
-      <data-command>\n\
-      <data-current-sequent>\n\
-      <data-additional-ids>\n
-
-      update-sequent state %d sequent %s proof-name-bytes %d \
-      sequent-text-bytes %d\n\
-      <data-proof-name>\n\
-      <data-sequent>\n
-
-      switch-goal state %d sequent %s proof-name-bytes %d\n
-      <data-proof-name>\n
-
-      proof-complete state %d {cheated|not-cheated} \
-      proof-name-bytes %d command-bytes %d\n\
-      <data-proof-name>\n\
-      <data-command>\n
-      
-      undo-to state %d\n
-    
-      quit-proof proof-name-bytes %d\n\
-      <data-proof-name>\n
-    
-    Here ``%d'' stands for a positive integer and %s for a string
-    which contains no white space. ``{cheated|not-cheated}'' denotes
-    the alternative of either ``cheated'' or ``not-cheated''. An
-    integer following the keyword state is a state number. An integer
-    following some xxx-bytes denotes the number of bytes of the next
-    <data>, including the final newline after <data>.
-*)
-(*****************************************************************************
- *****************************************************************************)
+(* for documentation, see input.ml *)
 
 (** Take the necessary actions when the configuration record changed.
 *)

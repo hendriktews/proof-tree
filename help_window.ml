@@ -19,21 +19,45 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: help_window.ml,v 1.7 2011/11/01 11:38:37 tews Exp $
+ * $Id: help_window.ml,v 1.8 2011/12/08 08:42:56 tews Exp $
  *)
 
 
 (** Creation and display of the help window *)
 
+(** {2 General remarks}
+
+    The help text is formatted inside a GText.buffer, which is
+    displayed in a GText.view. The help text needs some basic markup
+    (colors, italic, bold). The markup system for Gdk text buffers is
+    rather heavy weight and there is apparently no simple way to use
+    some basic markup.
+
+    The help text uses therefore its own rudimentary markup system.
+    The help text itself is a list of pairs, where each pair consists
+    of a style-tag and a string. The string is the help text and the
+    style-tag (of type {!tags_symbols} determines the markup. To
+    create the help text, one iterates over the list, translates the
+    style-tags into appropriate {!GText.tag}'s and inserts the text.
+*)
+
+
 open Configuration
 
-type tags_symbols =
-  | Default
-  | Color of Gdk.color
-  | Background of Gdk.color
-  | Italic
-  | Bold
 
+(** {2 Module contents} *)
+
+
+(** Style-tags for the help text *)
+type tags_symbols =
+  | Default				(** Default, no style *)
+  | Color of Gdk.color			(** Foreground color *)
+  | Background of Gdk.color		(** Background color *)
+  | Italic				(** Set in italic *)
+  | Bold				(** Set in bold *)
+
+
+(** The help text *)
 let help_text = 
   let bold_proof_tree = (Bold, "Prooftree") 
   in
@@ -169,7 +193,13 @@ To visit a customization group, type ");
    (Bold, "Proof General.");
   ]
 
-let fill_help_buffer (buffer :GText.buffer) =
+
+(** Format {!help_text} and insert it into the given buffer. The
+    style-tags are translated into appropriate {!GText.tag_property},
+    which are used to create {!GText.tag}'s, which in turn are used to
+    insert the help text.
+*)
+let fill_help_buffer (buffer : GText.buffer) =
   let i_tag = buffer#create_tag [`FONT "italic"] in
   let bold_tag = buffer#create_tag [`FONT "bold"] in
   let get_tags = function
@@ -184,6 +214,10 @@ let fill_help_buffer (buffer :GText.buffer) =
     help_text
 
 
+(** Create and display a new help window. This function creates a new
+    {!GWindow.dialog} that contains the formatted help text inside a
+    {GText.view}.
+*)
 let show_help_window () =
   let help_win = 
     GWindow.dialog

@@ -19,11 +19,49 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.29 2011/11/01 08:25:36 tews Exp $
+ * $Id: draw_tree.ml,v 1.30 2011/12/08 08:42:56 tews Exp $
  *)
 
 
-(** Layout and drawing of the elements of the proof tree *)
+(** Layout and drawing of the elements of the proof tree.
+
+    Internally a proof tree is organized as an n-ary tree, where the
+    nodes are proof goals and proof commands and the vertices connect
+    them appropriately. This module is responsible for manipulating
+    and displaying these trees and for locating nodes (e.g., on mouse
+    clicks). 
+
+    A real proof tree has a number of properties, about which this
+    module is completely ignorant. For instance, the root node is
+    always a proof goal; proof goal nodes have zero or more successor
+    nodes, all of which are proof commands; and, finally, every proof
+    command has precisely one proof-goal successor. These properties
+    are neither assumed nor checked, they hopefully hold, because the
+    tree is created in the right way.
+
+    The common code of both proof-goal and proof-command nodes is in
+    the class {!proof_tree_element}. The class for proof goals,
+    {!turnstile} and the class {!proof_command} are derived from it.
+    To work around the impossible down-casts, {!proof_tree_element}
+    contains some virtual method hooks for stuff that is really
+    specific for just one of its subclasses.
+
+    The tree layout functionallity has been designed such that its
+    running time is independent of the size of the complete tree. When
+    a new node is inserted into the tree, only its direct and indirect
+    parent nodes need to recompute their layout data. No sibling node
+    must be visited. The achieve this the nodes do not store absolut
+    positions. Instead nodes only store the width and height of
+    themselves and of their subtrees. 
+
+    Adjusting the tree layout when new elements are inserted works
+    bottom up. Drawing the tree or looking up nodes (for mouse events)
+    works top down. Therefore the nodes are organized in a
+    doubly-linked tree, where children nodes contain a link to their
+    parent. The doubly-linked tree functionality is in
+    {!doubly_linked_tree}. 
+
+*)
 
 
 open Util
@@ -31,58 +69,126 @@ open Configuration
 open Gtk_ext
 
 
-(*****************************************************************************)
-(*****************************************************************************)
 (** {2 Utility types and functions} *)
+
+(*****************************************************************************)
+(*****************************************************************************)
+(** {3 Existential variables} *)
 (*****************************************************************************)
 (*****************************************************************************)
 
+(** The code for marking and displaying existential variables depends
+    on proper sharing of these records: For each proof-tree window
+    there must only be one record for each existential variable. The
+    same existential variable in different (cloned) proof trees must
+    have exactly one record for each proof-tree window.
 
-(** Representation of existential variables. The code for marking and
-    displaying existential variables depends on proper sharing of
-    these records: For each proof-tree window there must only one
-    record for each existential variables. The same existential
-    variable in different (cloned) proof trees must have exactly one
-    record for each proof-tree window. 
+    There is no data structure which contains all existential
+    variables for a given proof tree. There is only the list of
+    currently uninstantiated existentials in the proof tree state
+    ({!Proof_tree.proof_tree}). Changing the state of an existental
+    variable and marking one in the proof-tree display works by side
+    effect: All proof tree nodes refer to the very same instance and
+    therefore see the state change.
+
+    Sets of existential variables are stored as lists, whoose order is
+    usually not important. Therefore most functions that manipulate
+    lists of existential variables do not preserve the order.
 *)
+
+(** Representation of existential variables. *)
 type existential_variable = {
-  existential_name : string;
-  mutable instantiated : bool;
-  mutable existential_mark : bool;
+  existential_name : string;		(** The name *)
+  mutable instantiated : bool;		(** [true] if instantiated already *)
+  mutable existential_mark : bool;	(** [true] if this existential should 
+					    be marked in the proof-tree
+					    display 
+					*)
 }
 
+(** Filter the non-instantiated existentials from the argument. 
+*)
 let filter_uninstantiated exl =
   list_filter_rev (fun ex -> not ex.instantiated) [] exl
 
+
+(** Convert a set of existential variables into a single string for
+    display purposes.
+*)
 let string_of_existential_list exl =
   String.concat " " (List.map (fun ex -> ex.existential_name) exl)
 
 
+(*****************************************************************************)
+(*****************************************************************************)
+(** {3 Misc types} *)
+(*****************************************************************************)
+(*****************************************************************************)
+
+(** Kind of nodes in the proof-tree display. The two kinds correspond
+    to the two subclasses {!proof_command} and {!turnstile} of
+    {!proof_tree_element}.
+*)
 type node_kind =
-  | Proof_command
-  | Turnstile
+  | Proof_command			(** proof command *)
+  | Turnstile				(** sequent *)
 
+
+(** Proof state of a node in the proof-tree display. *)
 type branch_state_type = 
-  | Unproven
-  | CurrentNode
-  | Current
-  | Cheated
-  | Proven
+  | Unproven				(** no finished yet *)
+  | CurrentNode				(** current sequent in prover *)
+  | Current				(** on the path from the current 
+					    sequent to the root of the tree *)
+  | Cheated				(** proved, but with a cheating 
+					    command *)
+  | Proven				(** proved *)
 
-let string_of_branch_state = function
-  | Unproven    -> "Unproven"
-  | CurrentNode	-> "CurrentNode"
-  | Current	-> "Current"
-  | Cheated     -> "Cheated"
-  | Proven      -> "Proven"
 
+(* 
+ * write doc when used
+ * let string_of_branch_state = function
+ *   | Unproven    -> "Unproven"
+ *   | CurrentNode	-> "CurrentNode"
+ *   | Current	-> "Current"
+ *   | Cheated     -> "Cheated"
+ *   | Proven      -> "Proven"
+ *)
+
+
+(*****************************************************************************)
+(*****************************************************************************)
+(** {3 Graphics context color manipulations} *)
+(*****************************************************************************)
+(*****************************************************************************)
+
+(** The following functions implement a simple save/restore feature
+    for the forground color of the graphics context. A saved state is
+    a color option. The value [None] means that the foreground color
+    has not been changed and that there is therefore no need to
+    restore it.
+*)
+
+(** Save the current foreground color in a value suitable for
+    {!restore_gc}.
+*)
 let save_gc drawable =
   Some drawable#get_foreground
 
+
+(** Restore the saved foreground color. Do nothing if the foreground
+    color has not been changed.
+*)
 let restore_gc drawable fc_opt = match fc_opt with
   | None -> ()
   | Some fc -> drawable#set_foreground (`COLOR fc)
 
+
+(** [save_and_set_gc drawable state existentials] sets the foreground
+    color to one of the configured colors, depending on [state] and
+    [existentials]. The function returns a value suitable for
+    {!restore_gc} to restore the old foreground color.
+*)
 let save_and_set_gc drawable state existentials =
   (* 
    * if List.exists (fun e -> e.existential_mark) existentials
@@ -111,33 +217,78 @@ let save_and_set_gc drawable state existentials =
       drawable#set_foreground (`COLOR !cheated_gdk_color);
       res
 
-(*****************************************************************************
- *
- * Doubly linked trees
- *
- *****************************************************************************)
 
+
+(*****************************************************************************)
+(*****************************************************************************)
+(** {3 Double linked trees} *)
+(*****************************************************************************)
+(*****************************************************************************)
+
+(** The proof trees in the proof-tree display are organized as
+    doubly-linked trees, where children contain a link to their parent
+    nodes. This is needed, because, for efficiency, the tree layout
+    computation starts at the last inserted child and walks upwards to
+    the root of the tree.
+*)
+
+(** Abstract base class for doubly linked trees. Because of
+    type-checking problems the functionality for setting and clearing
+    children nodes is not inside the class but outside, in the
+    functions {!Draw_tree.set_children} and
+    {!Draw_tree.clear_children}.
+*)
 class virtual ['a] doubly_linked_tree =
 object 
+  (** The parent link. *)
   val mutable parent = None
+  
+  (** The childrens list. *)
   val mutable children = []
 
+
+  (** Accessor method for the parent field. *)
   method parent = parent
+
+  (** Low-level setter for the {!parent} field. To insert child nodes
+      into the tree, use {!Draw_tree.set_children}. 
+  *)
   method set_parent (p : 'a) = parent <- Some p
+
+  (** Another low-level setter for the parent field. To delete nodes
+      from the tree, use {!Draw_tree.clear_children} on the parent.
+  *)
   method clear_parent = parent <- None
 
+  (** Accessor for the children field. *)
   method children = children
+
+  (** Low-level setter for the children field. To insert child nodes
+      into the tree, use {!Draw_tree.set_children}.
+  *)
   method set_children (cs : 'a list) = 
     children <- cs
 
+  (** Method to be called when the children list has been changed. *)
   method virtual children_changed : unit
 end
 
+(** [set_children parent children] correctly insert [children] into
+    the doubly linked tree as children of node [parent]. After the
+    change {!children_changed} is called on [parent]. Asserts that the
+    children list of [parent] is empty.
+*)
 let set_children parent children =
+  assert(parent#children = []);
   parent#set_children children;
   List.iter (fun c -> c#set_parent parent) children;
   parent#children_changed
 
+
+(** [clear_children parent] removes all children from [parent] from
+    the doubly linked tree. After the change {!children_changed} is
+    called on [parent].
+*)
 let clear_children parent =
   List.iter (fun c -> c#clear_parent) parent#children;
   parent#set_children [];
@@ -161,11 +312,11 @@ let clear_children parent =
  *)
 
 
-(****************************************************************************
- *
- * External window interface
- *
- ****************************************************************************)
+(*****************************************************************************)
+(*****************************************************************************)
+(** {3 External window interface} *)
+(*****************************************************************************)
+(*****************************************************************************)
 
 class type external_node_window =
 object
@@ -178,7 +329,7 @@ end
 
 (*****************************************************************************)
 (*****************************************************************************)
-(** {2 Tree Elements} *)
+(** {2 Generic tree element} *)
 (*****************************************************************************)
 (*****************************************************************************)
 
@@ -751,11 +902,11 @@ end
 
 
 
-(*****************************************************************************
- *
- * Turnstile
- *
- *****************************************************************************)
+(*****************************************************************************)
+(*****************************************************************************)
+(** {3 The tree element for sequents} *)
+(*****************************************************************************)
+(*****************************************************************************)
 
 class turnstile (drawable : better_drawable) sequent_id sequent_text =
 object (self)
@@ -869,13 +1020,11 @@ object (self)
 end
 
 
-
-(*****************************************************************************
- *
- * Proof commands
- *
- *****************************************************************************)
-
+(*****************************************************************************)
+(*****************************************************************************)
+(** {3 The tree element for proof commands} *)
+(*****************************************************************************)
+(*****************************************************************************)
 
 (** Create a new layout with fonts from the current configuration.
     This function exists, because (I)

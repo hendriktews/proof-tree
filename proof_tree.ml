@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.27 2011/11/01 10:00:01 tews Exp $
+ * $Id: proof_tree.ml,v 1.28 2011/12/08 08:42:56 tews Exp $
  *)
 
 
@@ -179,14 +179,15 @@ let undo_instantiate_existentials exl =
   List.iter (fun ex -> ex.instantiated <- false) exl
 
 
-(** Perform the necessary manipulations with existential
-    variables. From the list of existentials of the preceeding state
-    and the names of the currently uninstantiated existential
-    variables this function computes the set of existentials that got
-    instantiated, the current set of uninstantiated existentials and
-    the set of fresh uninstantiated existentials. The set of
-    instantiated existentials is already marked as being instantiated
-    and only returned for undo.
+(** Perform the necessary manipulations with uninstantiated
+    existential variables. From the list of uninstantiated
+    existentials of the preceeding state and the names of the
+    currently uninstantiated existential variables this function
+    computes the set of existentials that got instantiated, the
+    current set of uninstantiated existentials and the set of fresh
+    uninstantiated existentials. The set of instantiated existentials
+    is already marked as being instantiated and only returned for
+    undo and display marking and update purposes.
 *)
 let update_existentials old_ex new_ex =
   let (old_inst, old_noninst) =
@@ -464,11 +465,12 @@ let start_new_proof state proof_name current_sequent_id current_sequent_text =
     [cheated_flag] is asserted to be false, because the code assumes
     that a cheating command solves the current subgoal.
 *)
-let add_new_goal pt state proof_command cheated_flag 
-    current_sequent_id current_sequent_text additional_ids current_ex_names =
+let add_new_goal pt state proof_command cheated_flag current_sequent_id
+    current_sequent_text additional_ids uninstantiated_existentials =
   assert(cheated_flag = false);
   let (old_instatiated, current_existentials, new_existentials) =
-    update_existentials pt.uninstantiated_existentials current_ex_names
+    update_existentials pt.uninstantiated_existentials 
+      uninstantiated_existentials
   in
   let pc = 
     pt.window#new_proof_command proof_command old_instatiated new_existentials
@@ -511,6 +513,10 @@ let add_new_goal pt state proof_command cheated_flag
   pt.uninstantiated_existentials <- current_existentials;
   sw#mark_current;
   set_current_node_wrapper pt sw;
+  (* The uninstantiated existentials are displayed together with the
+   * sequent. Therefore, if some existential got instantiated we have
+   * to update all those sequent displays.
+   *)
   if old_instatiated <> [] then begin
     pt.window#update_existentials_display;
     pt.sequent_area_needs_refresh <- true;
@@ -541,8 +547,8 @@ let add_new_goal pt state proof_command cheated_flag
     pt.current_sequent <- old_current_sequent;
     pt.other_open_goals <- old_other_open_goals;
     pt.uninstantiated_existentials <- old_existentials;
-    undo_instantiate_existentials old_instatiated;
     if old_instatiated <> [] then begin
+      undo_instantiate_existentials old_instatiated;
       pt.window#update_existentials_display;
       pt.sequent_area_needs_refresh <- true;
     end;
@@ -558,9 +564,11 @@ let add_new_goal pt state proof_command cheated_flag
     branch, moving to the next open subgoal (if necessary) is done by
     {!internal_switch_to}.
 *)
-let finish_branch pt state proof_command cheated_flag current_ex_names =
+let finish_branch pt state proof_command cheated_flag 
+    uninstantiated_existentials =
   let (old_instatiated, current_existentials, new_existentials) =
-    update_existentials pt.uninstantiated_existentials current_ex_names
+    update_existentials pt.uninstantiated_existentials 
+      uninstantiated_existentials
   in
   let pc = 
     pt.window#new_proof_command proof_command old_instatiated new_existentials
@@ -645,10 +653,10 @@ let internal_switch_to pt state old_open_sequent_id new_current_sequent_id =
     [current_sequent] as next current sequent.
 *)
 let finish_branch_and_switch_to pt state proof_command cheated_flag
-    current_sequent_id additional_ids existentials =
+    current_sequent_id additional_ids uninstantiated_existentials =
   assert(not (List.mem current_sequent_id additional_ids));
   assert(list_set_subset additional_ids pt.other_open_goals);
-  finish_branch pt state proof_command cheated_flag existentials;
+  finish_branch pt state proof_command cheated_flag uninstantiated_existentials;
   internal_switch_to pt state None current_sequent_id;
   let open_goal_count = List.length pt.other_open_goals + 1 in
   let message = 
@@ -666,7 +674,8 @@ let finish_branch_and_switch_to pt state proof_command cheated_flag
 
 (* See mli for doc *)
 let process_current_goals state proof_name proof_command cheated_flag
-    current_sequent_id current_sequent_text additional_ids existentials =
+    current_sequent_id current_sequent_text additional_ids 
+    uninstatiated_existentials instantiated_ex_deps =
   (match !current_proof_tree with
     | Some pt -> 
       if pt.proof_name <> proof_name 
@@ -676,17 +685,17 @@ let process_current_goals state proof_name proof_command cheated_flag
     | None -> 
       assert(additional_ids = []);
       assert(cheated_flag = false);
-      assert(existentials = []);
+      assert(uninstatiated_existentials = []);
       start_new_proof state proof_name current_sequent_id current_sequent_text
     | Some pt ->
       if pt.current_sequent_id <> current_sequent_id &&
 	Hashtbl.mem pt.sequent_hash current_sequent_id
       then
 	finish_branch_and_switch_to pt state proof_command cheated_flag
-	  current_sequent_id additional_ids existentials
+	  current_sequent_id additional_ids uninstatiated_existentials
       else
 	add_new_goal pt state proof_command cheated_flag current_sequent_id 
-	  current_sequent_text additional_ids existentials
+	  current_sequent_text additional_ids uninstatiated_existentials
 
 
 (** Update the sequent text for some sequent. This function is used

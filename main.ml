@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: main.ml,v 1.14 2011/09/15 08:16:27 tews Exp $
+ * $Id: main.ml,v 1.15 2011/12/08 08:42:56 tews Exp $
  *)
 
 
@@ -47,8 +47,12 @@ let configuration_updated () =
 
 let _ = configuration_updated_callback := configuration_updated
 
+let start_config_dialog = ref false
+
 (** Argument list for [Arg.parse] *)
 let arguments = Arg.align [
+  ("-config", Arg.Set start_config_dialog,
+   " display the configuration dialog on startup");
   ("-geometry", Arg.Set_string Configuration.geometry_string,
    " X geometry");
   ("-tee", 
@@ -89,6 +93,8 @@ let main () =
     ("Prooftree version %s awaiting input on stdin.\n" ^^
 	"Entering LablGTK main loop ...\n\n%!")
     Version.version;
+  if !start_config_dialog then
+    Configuration.show_config_window ();
   GMain.Main.main ()
 
 

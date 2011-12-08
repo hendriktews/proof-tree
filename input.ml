@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.21 2011/10/28 15:07:30 tews Exp $
+ * $Id: input.ml,v 1.22 2011/12/08 08:42:56 tews Exp $
  *)
 
 
@@ -38,6 +38,9 @@
     contains the length (in bytes including the final newline) of each 
     data section. All data is UTF-8 encoded. 
 
+    Some data sections have a prover specific format. Currently, 
+    [prooftree] only supports Coq.
+
     In the following list 
     of commands, ``%d'' stands for a positive integer and %s for a string
     which contains no white space. ``\{cheated|not-cheated\}'' denotes
@@ -53,13 +56,12 @@
 
     {-  {v current-goals state %d current-sequent %s \
        {cheated|not-cheated} proof-name-bytes %d command-bytes %d \
-       sequent-text-bytes %d existential-bytes %d \
-       additional-id-bytes %d\n\
+       sequent-text-bytes %d additional-id-bytes %d existential-bytes %d\n\
        <data-proof-name>\n\
        <data-command>\n\
        <data-current-sequent>\n\
        <data-additional-ids>\n\
-       <data-uninstantiated-existentials>\n v}
+       <data-existentials>\n v}
 
        The [current-goals] command tells [prooftree] about a new proof 
        state with a new set of open goals. This corresponds to either of
@@ -94,8 +96,7 @@
          {- Text of the current sequent}
          {- ID's of additionally open sequents (as space separated 
             list of strings)}
-         {- Space separated list of not yet instantiated existential 
-            variables.}
+         {- Prover specific information about existential variables.}
        }
     
        The second data section is ignored for initial proof states.
@@ -380,16 +381,143 @@ let get_string len continuation_fn =
   let (s, n) = init_string len in
   get_string_cont s n len continuation_fn ()
 
+(*****************************************************************************
+ *****************************************************************************)
+(** {3 Coq existential info parser} *)
+(*****************************************************************************
+ *****************************************************************************)
+
+
+(* (dependent evars:)
+ * (dependent evars: ?35 open, ?36 using ?42 ?41 , ?42 open,) 
+ * (dependent evars: ?35 open, ?36 using ?42 ?41 , ?42 using ,)
+ *)
+
+(** This function parses one evar uid without the question mark. *)
+let coq_parse_evar_without_question scan_buf =
+  Scanf.bscanf scan_buf " %[0-9] " (fun evar -> evar)
+
+
+(** This function parses the dependency list that follows ``using'',
+    looking like
+
+    [ ?42 ?41 ,]
+
+    [ ,]
+
+    When the final comma is encountered the now completely parsed evar
+    group is appended to the accumulated results and
+    {!coq_parse_next_evar_info} is called as continuation.
+*)
+let rec coq_parse_evar_dependency scan_buf uninst inst evar deps =
+  Scanf.bscanf scan_buf " %c " (function
+    | ',' ->
+      coq_parse_next_evar_info scan_buf 
+	uninst ((evar, List.rev deps) :: inst) ()
+    | '?' ->
+      let dep = coq_parse_evar_without_question scan_buf in
+      coq_parse_evar_dependency scan_buf uninst inst evar (dep :: deps)
+    | c ->
+      raise (Scanf.Scan_failure
+	       (Printf.sprintf
+		  ("expected an evar (starting with '?') or ',' "
+		   ^^ "for the end of the dependency list; but found '%c'")
+		  c))
+  )
+
+(** This function parses one evar group, looking like
+
+    [?35 open,]
+
+    [?36 using ?42 ?41 ,]
+
+    [?42 using ,]
+
+    When finished {!coq_parse_next_evar_info} is invoked on the
+    updated accumulated results.
+*)
+and coq_parse_one_evar_info scan_buf uninst inst =
+  let evar = coq_parse_evar_without_question scan_buf in
+  Scanf.bscanf scan_buf " %[^, ]" (function
+    | "open" ->
+      Scanf.bscanf scan_buf ", " 
+	(coq_parse_next_evar_info scan_buf (evar :: uninst) inst) ()
+    | "using" ->
+      coq_parse_evar_dependency scan_buf uninst inst evar []
+    | x ->
+      raise (Scanf.Scan_failure 
+	       (Printf.sprintf
+		  "expected \"open\" or \"using\" but found \"%s\"" x))
+  )
+  
+
+(** This function decides whether to continue parsing with reading the
+    next evar group or whether the end of evar information has been
+    reached. In the latter case the accumulated results are returned. 
+*)
+and coq_parse_next_evar_info scan_buf uninst inst () =
+  Scanf.bscanf scan_buf "%c" (function 
+    | '?' -> coq_parse_one_evar_info scan_buf uninst inst
+    | ')' -> (List.rev uninst, List.rev inst)
+    | c ->
+      raise (Scanf.Scan_failure
+	       (Printf.sprintf
+		  ("expected an evar (starting with '?') or " 
+		   ^^ "the end of the evar info (a ')'); but found '%c'")
+		  c))
+  )
+
+
+(** Parse the information display for existential variables of Coq.
+    This information can look like one of the folling lines:
+
+    [(dependent evars:)]
+
+    [(dependent evars: ?35 open, ?36 using ?42 ?41 , ?42 open,) ]
+
+    [(dependent evars: ?35 open, ?36 using ?42 ?41 , ?42 using ,)]
+
+    This function returns a tuple, where the first element is the list
+    of open, uninstantiated existential variables. The second element
+    is a list of pairs, where each pair contains an instantiated
+    existential variable and the list of variables that are used in its
+    instantiation.
+
+    If parsing dies with an exception, a suitable error dialog is 
+    displayed.
+*)
+let coq_parse_existential_info ex_string =
+  let scan_buf = Scanf.Scanning.from_string ex_string in
+  try
+    Scanf.bscanf scan_buf "(dependent evars: " 
+      (coq_parse_next_evar_info scan_buf [] []) ()
+  with
+    | Scanf.Scan_failure msg ->
+      error_message_dialog 
+	(Printf.sprintf 
+	   ("Coq existential variable info parsing error!\n" 
+	    ^^ "The parser died on the input\n  %s\n"
+	    ^^ "with an exception Scan_failure with message\n%s")
+	   ex_string msg)
+    | End_of_file ->
+      error_message_dialog
+	(Printf.sprintf
+	   ("Coq existential variable info parsing error!\n" 
+	    ^^ "The parser died on the input\n  %s\n"
+	    ^^ "with an End_of_file exception.")
+	   ex_string)
+    | _ -> assert false
 
 
 (******************************************************************************
  * current-goals state %d current-sequent %s {cheated|not-cheated} \
  * proof-name-bytes %d command-bytes %d sequent-text-bytes %d \
- * additional-id-bytes %d\n\
+ * additional-id-bytes %d existential-bytes %d\n\
  * <data-proof-name>\n\
  * <data-command>\n\
  * <data-current-sequent>\n\
- * <data-additional-ids>\n
+ * <data-additional-ids>\n\
+ * <data-existentials>\n
  *)
 
 (** {3 Current-goals command parser} *)
@@ -409,6 +537,9 @@ let get_string len continuation_fn =
            this is the first state of the proof)
     @param current_sequent_text text of the current sequent
     @param additional_ids_string ID's of all currently open goals
+    @param existentials_string prover specific information about 
+           existentials
+
 *)
 let parse_current_goals_finish state current_sequent_id cheated_string 
     proof_name proof_command current_sequent_text 
@@ -428,10 +559,10 @@ let parse_current_goals_finish state current_sequent_id cheated_string
   let additional_ids_string = chop_final_newlines additional_ids_string in
   let additional_ids = string_split ' ' additional_ids_string in
   let existentials_string = chop_final_newlines existentials_string in
-  let existentials = string_split ' ' existentials_string in
+  let (ex_uninst, ex_inst) = coq_parse_existential_info existentials_string in
   current_parser := !read_command_line_parser;
   Proof_tree.process_current_goals state proof_name proof_command cheated_flag
-    current_sequent_id current_sequent_text additional_ids existentials
+    current_sequent_id current_sequent_text additional_ids ex_uninst ex_inst
     
 
 (** Start parsing of the [current-goals] command. Extracts elements and 
