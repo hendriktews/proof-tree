@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.28 2011/12/08 08:42:56 tews Exp $
+ * $Id: proof_tree.ml,v 1.29 2011/12/08 15:47:12 tews Exp $
  *)
 
 
@@ -85,8 +85,11 @@ type proof_tree = {
   mutable current_sequent : proof_tree_element;
   (** The object of the current sequent. Used for coloring branches. *)
 
-  mutable uninstantiated_existentials : existential_variable list;
-  (** Not yet instantiated existential variables *)
+  existential_hash : (string, existential_variable) Hashtbl.t;
+  (** Mapping containing all existential variables in the proof tree.
+      Needed to establish the dependency links in instantiated
+      existentials. 
+  *)
 
   mutable other_open_goals : string list;
   (** List containing the ID's of all open goals, except for
@@ -167,57 +170,98 @@ let configuration_updated () =
     !cloned_proof_windows
 
 
-(** Mark the given list of existential variables as instantiated.
+(** Mark the given existential as instantiated and link it with its
+    dependencies.
 *)
-let instantiate_existentials exl =
-  List.iter (fun ex -> ex.instantiated <- true) exl
+let instantiate_existential ex_hash ex dependency_names =
+  assert(ex.dependencies = []);
+  ex.instantiated <- true;
+  ex.dependencies <- List.map (Hashtbl.find ex_hash) dependency_names
+
 
 (** Reset the given list of existential variables to not being
     instantiated.
 *)
 let undo_instantiate_existentials exl =
-  List.iter (fun ex -> ex.instantiated <- false) exl
+  List.iter
+    (fun ex -> 
+      ex.instantiated <- false;
+      ex.dependencies <- [];
+    )
+    exl
 
 
-(** Perform the necessary manipulations with uninstantiated
-    existential variables. From the list of uninstantiated
-    existentials of the preceeding state and the names of the
-    currently uninstantiated existential variables this function
-    computes the set of existentials that got instantiated, the
-    current set of uninstantiated existentials and the set of fresh
-    uninstantiated existentials. The set of instantiated existentials
-    is already marked as being instantiated and only returned for
-    undo and display marking and update purposes.
+(** Create a new existential variable and add it to the hash of
+    existentials. The newly created existential is returned.
 *)
-let update_existentials old_ex new_ex =
-  let (old_inst, old_noninst) =
-    List.fold_left
-      (fun (inst, noninst) oex ->
-	if List.mem oex.existential_name new_ex
-	then (inst, oex :: noninst)
-	else (oex :: inst, noninst))
-      ([], []) old_ex
+let make_new_existential ex_hash ex_name =
+  let ex = {existential_name = ex_name; 
+	    instantiated = false; 
+	    existential_mark = false;
+	    dependencies = [];
+	   }
   in
-  (* 
-   * Now old_noninst is the intersection of old_ex and new_ex.
-   * And old_inst are those existentials that got instatiated.
-   *)
-  let new_ex = 
-    list_set_diff_rev new_ex
-      (List.map (fun ex -> ex.existential_name) old_noninst) in
-  let new_uninst = 
-    List.rev_map 
-      (fun n -> {existential_name = n; 
-		 instantiated = false; 
-		 existential_mark = false
-		}) 
-      new_ex 
-  in
-  let current_uninst = list_set_union_disjoint old_noninst new_uninst in
-  instantiate_existentials old_inst;
-  (old_inst, current_uninst, new_uninst)
-  
+  Hashtbl.add ex_hash ex_name ex;
+  ex
 
+
+(** Update the hash of existential variables and the existentials
+    themselves. First the list of uninstantiated existentials and the
+    one of instantiated existentials are scanned for new existentials.
+    Note that new existentials can even be found in the dependencies
+    of instantiated existentials, if some complex strategy creates and
+    instantiates several existentials. Newly created existentials are
+    registered in the hash of existential variables. Finally the state
+    of those existentials that got instantiated is updated. 
+
+    This function returns the list of newly instantiated existentials
+    and the list of new uninstantiated existentials.
+*)
+let update_existentials ex_hash uninst_ex inst_ex_deps =
+  let test_and_create_ex_list exl accu =
+    List.fold_left
+      (fun res ex_name ->
+	if Hashtbl.mem ex_hash ex_name
+	then res
+	else (make_new_existential ex_hash ex_name) :: res
+      )
+      accu exl
+  in
+  let new_uninst = test_and_create_ex_list uninst_ex [] in
+  let new_uninst =
+    List.fold_left
+      (fun res (ex_name, deps) ->
+	(* Complex stategies might create and instantiate several
+	 * existentials. It may therefore happen that some
+	 * instantiated existential and even some of its dependencies
+	 * are actually new.
+	 *)
+	test_and_create_ex_list (ex_name :: deps) res
+      )
+      new_uninst inst_ex_deps
+  in
+  let ex_got_instatiated =
+    List.fold_left
+      (fun res (ex_name, deps) ->
+	let ex = Hashtbl.find ex_hash ex_name in
+	if ex.instantiated 
+	then res
+	else begin
+	  instantiate_existential ex_hash ex deps;
+	  ex :: res
+	end
+      )
+      [] inst_ex_deps
+  in
+  (* XXX use a coq specific comparison function for sorting *)
+  (ex_got_instatiated, List.sort compare new_uninst)
+	 
+
+
+(** Local convenience function for changing the current node. Sets the
+    current node in the proof-tree window and schedules an update for the
+    sequent area if there is no selected node.
+*)
 let set_current_node_wrapper pt sequent =
   pt.window#set_current_node sequent;
   if pt.window#get_selected_node = None then
@@ -387,7 +431,7 @@ let create_new_proof_tree proof_name state
     sequent_hash = hash;
     current_sequent_id = current_sequent_id;
     current_sequent = sw;
-    uninstantiated_existentials = [];
+    existential_hash = Hashtbl.create 251;
     other_open_goals = [];
     need_redraw = true;
     sequent_area_needs_refresh = true;
@@ -403,10 +447,12 @@ let create_new_proof_tree proof_name state
 let reuse_surviver pt state current_sequent_id current_sequent_text =
   let pt_win = pt.window in
   let proof_name = pt.proof_name in
-  let hash = pt.sequent_hash in
+  let sequent_hash = pt.sequent_hash in
+  let ex_hash = pt.existential_hash in
   let sw = pt_win#new_turnstile current_sequent_id current_sequent_text in
   pt_win#clear_for_reuse;
-  Hashtbl.clear hash;
+  Hashtbl.clear sequent_hash;
+  Hashtbl.clear ex_hash;
   Hashtbl.add pt.sequent_hash current_sequent_id sw;
   let sw = (sw :> proof_tree_element) in
   let pt = {
@@ -415,10 +461,10 @@ let reuse_surviver pt state current_sequent_id current_sequent_text =
     pa_start_state = state;
     pa_end_state = -1;
     cheated = false;
-    sequent_hash = hash;
+    sequent_hash = sequent_hash;
     current_sequent_id = current_sequent_id;
     current_sequent = sw;
-    uninstantiated_existentials = [];
+    existential_hash = ex_hash;
     other_open_goals = [];
     need_redraw = true;
     sequent_area_needs_refresh = true;
@@ -466,14 +512,16 @@ let start_new_proof state proof_name current_sequent_id current_sequent_text =
     that a cheating command solves the current subgoal.
 *)
 let add_new_goal pt state proof_command cheated_flag current_sequent_id
-    current_sequent_text additional_ids uninstantiated_existentials =
+    current_sequent_text additional_ids 
+    uninstantiated_existentials instantiated_ex_deps =
   assert(cheated_flag = false);
-  let (old_instatiated, current_existentials, new_existentials) =
-    update_existentials pt.uninstantiated_existentials 
-      uninstantiated_existentials
+  let (ex_got_instantiated, new_existentials) =
+    update_existentials pt.existential_hash 
+      uninstantiated_existentials instantiated_ex_deps
   in
   let pc = 
-    pt.window#new_proof_command proof_command old_instatiated new_existentials
+    pt.window#new_proof_command 
+      proof_command ex_got_instantiated new_existentials
   in
   let pc = (pc :> proof_tree_element) in
   set_children pt.current_sequent [pc];
@@ -505,19 +553,17 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   let old_current_sequent_id = pt.current_sequent_id in
   let old_current_sequent = pt.current_sequent in
   let old_other_open_goals = pt.other_open_goals in
-  let old_existentials = pt.uninstantiated_existentials in
   pt.current_sequent_id <- current_sequent_id;
   pt.current_sequent <- sw;
   pt.other_open_goals <- 
     list_set_union_disjoint new_goal_ids_rev pt.other_open_goals;
-  pt.uninstantiated_existentials <- current_existentials;
   sw#mark_current;
   set_current_node_wrapper pt sw;
   (* The uninstantiated existentials are displayed together with the
    * sequent. Therefore, if some existential got instantiated we have
    * to update all those sequent displays.
    *)
-  if old_instatiated <> [] then begin
+  if ex_got_instantiated <> [] then begin
     pt.window#update_existentials_display;
     pt.sequent_area_needs_refresh <- true;
   end;
@@ -532,7 +578,7 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
 	open_goal_count (if open_goal_count > 1 then "s" else "") (n - 1)
   in
   pt.window#message message;
-  pt.window#ext_dialog_add old_existentials new_existentials;
+  pt.window#ext_dialog_add ex_got_instantiated new_existentials;
   let undo () =
     pc#delete_non_sticky_external_windows;
     List.iter (fun s -> s#delete_non_sticky_external_windows) all_subgoals;
@@ -546,13 +592,14 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
     pt.current_sequent_id <- old_current_sequent_id;
     pt.current_sequent <- old_current_sequent;
     pt.other_open_goals <- old_other_open_goals;
-    pt.uninstantiated_existentials <- old_existentials;
-    if old_instatiated <> [] then begin
-      undo_instantiate_existentials old_instatiated;
+    if ex_got_instantiated <> [] then begin
+      undo_instantiate_existentials ex_got_instantiated;
       pt.window#update_existentials_display;
       pt.sequent_area_needs_refresh <- true;
     end;
-    pt.window#ext_dialog_undo old_existentials new_existentials;
+    List.iter (fun ex -> Hashtbl.remove pt.existential_hash ex.existential_name)
+      new_existentials;
+    pt.window#ext_dialog_undo ex_got_instantiated new_existentials;
   in
   add_undo_action pt state undo;
   pt.need_redraw <- true
@@ -565,13 +612,14 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
     {!internal_switch_to}.
 *)
 let finish_branch pt state proof_command cheated_flag 
-    uninstantiated_existentials =
-  let (old_instatiated, current_existentials, new_existentials) =
-    update_existentials pt.uninstantiated_existentials 
-      uninstantiated_existentials
+    uninstantiated_existentials instantiated_ex_deps =
+  let (ex_got_instantiated, new_existentials) =
+    update_existentials pt.existential_hash 
+      uninstantiated_existentials instantiated_ex_deps
   in
   let pc = 
-    pt.window#new_proof_command proof_command old_instatiated new_existentials
+    pt.window#new_proof_command 
+      proof_command ex_got_instantiated new_existentials
   in
   let pc = (pc :> proof_tree_element) in
   pt.current_sequent#unmark_current;
@@ -581,28 +629,27 @@ let finish_branch pt state proof_command cheated_flag
   else pc#mark_proved;
   let old_cheated = pt.cheated in
   let old_current_sequent = pt.current_sequent in
-  let old_existentials = pt.uninstantiated_existentials in
   let undo () =
     pc#delete_non_sticky_external_windows;
     clear_children old_current_sequent;
     old_current_sequent#unmark_proved_or_cheated;
     pt.cheated <- old_cheated;
-    pt.uninstantiated_existentials <- old_existentials;
-    if old_instatiated <> [] then begin
-      undo_instantiate_existentials old_instatiated;
+    if ex_got_instantiated <> [] then begin
+      undo_instantiate_existentials ex_got_instantiated;
       pt.window#update_existentials_display;
       pt.sequent_area_needs_refresh <- true;
     end;
-    pt.window#ext_dialog_undo old_existentials new_existentials;
+    List.iter (fun ex -> Hashtbl.remove pt.existential_hash ex.existential_name)
+      new_existentials;
+    pt.window#ext_dialog_undo ex_got_instantiated new_existentials;
   in
   add_undo_action pt state undo;
   if cheated_flag then pt.cheated <- true;
-  pt.uninstantiated_existentials <- current_existentials;
-  if old_instatiated <> [] then begin
+  if ex_got_instantiated <> [] then begin
     pt.window#update_existentials_display;
     pt.sequent_area_needs_refresh <- true;
   end;
-  pt.window#ext_dialog_add old_existentials new_existentials;
+  pt.window#ext_dialog_add ex_got_instantiated new_existentials;
   pt.need_redraw <- true
 
 
@@ -653,10 +700,12 @@ let internal_switch_to pt state old_open_sequent_id new_current_sequent_id =
     [current_sequent] as next current sequent.
 *)
 let finish_branch_and_switch_to pt state proof_command cheated_flag
-    current_sequent_id additional_ids uninstantiated_existentials =
+    current_sequent_id additional_ids 
+    uninstantiated_existentials instantiated_ex_deps =
   assert(not (List.mem current_sequent_id additional_ids));
   assert(list_set_subset additional_ids pt.other_open_goals);
-  finish_branch pt state proof_command cheated_flag uninstantiated_existentials;
+  finish_branch pt state proof_command cheated_flag 
+    uninstantiated_existentials instantiated_ex_deps;
   internal_switch_to pt state None current_sequent_id;
   let open_goal_count = List.length pt.other_open_goals + 1 in
   let message = 
@@ -692,10 +741,12 @@ let process_current_goals state proof_name proof_command cheated_flag
 	Hashtbl.mem pt.sequent_hash current_sequent_id
       then
 	finish_branch_and_switch_to pt state proof_command cheated_flag
-	  current_sequent_id additional_ids uninstatiated_existentials
+	  current_sequent_id additional_ids 
+	  uninstatiated_existentials instantiated_ex_deps
       else
 	add_new_goal pt state proof_command cheated_flag current_sequent_id 
-	  current_sequent_text additional_ids uninstatiated_existentials
+	  current_sequent_text additional_ids 
+	  uninstatiated_existentials instantiated_ex_deps
 
 
 (** Update the sequent text for some sequent. This function is used
@@ -759,7 +810,7 @@ let process_proof_complete state proof_name proof_command cheated_flag =
     | Some pt -> 
       if pt.proof_name <> proof_name
       then raise (Proof_tree_error "Finish other non-current proof");
-      finish_branch pt state proof_command cheated_flag [];
+      finish_branch pt state proof_command cheated_flag [] [];
       let message = 
 	if pt.cheated 
 	then Gtk_ext.pango_markup_bold_color "False proof finished" 

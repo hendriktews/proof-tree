@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.30 2011/12/08 08:42:56 tews Exp $
+ * $Id: draw_tree.ml,v 1.31 2011/12/08 15:47:12 tews Exp $
  *)
 
 
@@ -83,13 +83,12 @@ open Gtk_ext
     same existential variable in different (cloned) proof trees must
     have exactly one record for each proof-tree window.
 
-    There is no data structure which contains all existential
-    variables for a given proof tree. There is only the list of
-    currently uninstantiated existentials in the proof tree state
-    ({!Proof_tree.proof_tree}). Changing the state of an existental
-    variable and marking one in the proof-tree display works by side
-    effect: All proof tree nodes refer to the very same instance and
-    therefore see the state change.
+    The proof-tree record ({!Proof_tree.proof_tree}) contains a hash
+    table containing all existential variables for a given proof.
+    Changing the state of an existental variable and marking one in
+    the proof-tree display works by side effect: All proof tree nodes
+    refer to the very same instance and therefore see the state
+    change.
 
     Sets of existential variables are stored as lists, whoose order is
     usually not important. Therefore most functions that manipulate
@@ -102,8 +101,11 @@ type existential_variable = {
   mutable instantiated : bool;		(** [true] if instantiated already *)
   mutable existential_mark : bool;	(** [true] if this existential should 
 					    be marked in the proof-tree
-					    display 
-					*)
+					    display *)
+  mutable dependencies : existential_variable list;
+                                        (** The list of evars that are used 
+					    in the instantiation, 
+					    if instantiated *)
 }
 
 (** Filter the non-instantiated existentials from the argument. 
@@ -478,7 +480,7 @@ object (self)
   method private update_subtree_size =
     let (children_width, max_levels, last_child) = 
       List.fold_left 
-	(fun (sum_width, max_levels, last_child) c -> 
+	(fun (sum_width, max_levels, _last_child) c -> 
 	  (* 
            * (if parent = None || (match parent with Some p -> p#parent = None)
 	   *  then Printf.fprintf (debugc())

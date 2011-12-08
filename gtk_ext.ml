@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: gtk_ext.ml,v 1.13 2011/10/28 15:07:30 tews Exp $
+ * $Id: gtk_ext.ml,v 1.14 2011/12/08 15:47:12 tews Exp $
  *)
 
 
@@ -28,7 +28,7 @@
 
 (** An extension of {!Gdraw.drawable} with a few convinience methods. *)
 class better_drawable ?colormap w pc = 
-object (self)
+object
   inherit GDraw.drawable ?colormap w
 
   (** Link a writable Pango context for easy access. *)

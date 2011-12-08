@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.37 2011/11/01 12:19:33 tews Exp $
+ * $Id: proof_window.ml,v 1.38 2011/12/08 15:47:12 tews Exp $
  *)
 
 
@@ -665,7 +665,7 @@ object (self)
    *   false
    *)
 
-  method expose_callback (ev : GdkEvent.Expose.t) =
+  method expose_callback (_ev : GdkEvent.Expose.t) =
     (* 
      * let r = GdkEvent.Expose.area ev in
      * Printf.fprintf (debugc()) "EXPOSE count %d %d x %d at %d x %d\n%!"
@@ -882,7 +882,7 @@ object (self)
    *
    ***************************************************************************)
       
-  method drawable_tooltip ~x ~y ~(kbd : bool) (tooltip : Gtk.tooltip) =
+  method drawable_tooltip ~x ~y ~kbd:(_kbd : bool) (tooltip : Gtk.tooltip) =
     (* Printf.fprintf (debugc()) "TTS x %d y %d\n%!" x y; *)
     self#locate_button_node x y 
       (fun node -> match node#node_kind with
@@ -917,14 +917,16 @@ object (self)
       | None -> selected_node
     in
     let cloned_selected = ref None in
-    let ex_hash = Hashtbl.create 503 in
-    let copy_existential ex =
+    let ex_hash = Hashtbl.create 251 in
+    let rec copy_existential ex =
       try Hashtbl.find ex_hash ex.existential_name
       with
 	| Not_found -> 
+	  let deps = List.map copy_existential ex.dependencies in
 	  let nex = { existential_name = ex.existential_name;
 		      instantiated = ex.instantiated;
 		      existential_mark = false;
+		      dependencies = deps;
 		    }
 	  in
 	  Hashtbl.add ex_hash ex.existential_name nex;
@@ -1094,7 +1096,8 @@ let rec make_proof_window name geometry_string =
      * ignore(drawing_area#event#connect#key_press 
      *                  proof_window#key_pressed_callback);
      *)
-  ignore(top_window#event#connect#key_press proof_window#key_pressed_callback);
+  ignore(top_window#event#connect#key_press 
+	   ~callback:proof_window#key_pressed_callback);
   ignore(drawing_area#event#connect#expose 
 	   ~callback:proof_window#expose_callback);
   (* ignore(drawing_area#misc#connect#size_allocate ~callback:resize); *)
@@ -1122,14 +1125,14 @@ let rec make_proof_window name geometry_string =
 	       ~time:(GtkMain.Main.get_current_event_time ())));
 
   GToolbox.build_menu menu
-    [`I("Clone", clone_fun);
-     `I("Show current", proof_window#reposition_current_node);
-     `I("Existentials", proof_window#show_existential_window);
-     `I("Configuration", show_config_window);
-     `I("Help", show_help_window);
-     `I("About", show_about_window);
-     `I("Exit", (fun _ -> exit 0));
-    ];
+    ~entries:[`I("Clone", clone_fun);
+	      `I("Show current", proof_window#reposition_current_node);
+	      `I("Existentials", proof_window#show_existential_window);
+	      `I("Configuration", show_config_window);
+	      `I("Help", show_help_window);
+	      `I("About", show_about_window);
+	      `I("Exit", (fun _ -> exit 0));
+	     ];
 
   top_window#show ();
   if geometry_string <> "" then

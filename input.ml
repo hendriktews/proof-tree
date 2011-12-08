@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.22 2011/12/08 08:42:56 tews Exp $
+ * $Id: input.ml,v 1.23 2011/12/08 15:47:12 tews Exp $
  *)
 
 
@@ -805,7 +805,7 @@ let parse_command command =
 	| "proof-complete" -> parse_proof_complete com_buf
 	| "undo-to" -> do_undo com_buf
 	| "quit-proof" -> parse_quit_proof com_buf
-	| x -> 
+	| _ -> 
 	  raise (Protocol_error ("Parse error on input \"" ^ command ^ "\"",
 				 None))
       )
@@ -962,7 +962,7 @@ let parse_input_callback_ex clist =
 	  prev_exception := prev_e
 	| End_of_file ->
 	  Buffer.add_string buf "Connection closed."
-	| e ->
+	| _ ->
 	  Buffer.add_string buf
 	    "Internal error: Escaping exception in parse_input";
 	  print_backtrace := true;

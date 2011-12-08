@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.28 2011/11/01 12:19:33 tews Exp $
+ * $Id: configuration.ml,v 1.29 2011/12/08 15:47:12 tews Exp $
  *)
 
 
@@ -449,7 +449,7 @@ let try_load_config_file () =
     try
       Some(read_config_file config_file_location)
     with
-      | e -> None
+      | _ -> None
   in
   match copt with
     | None -> ()

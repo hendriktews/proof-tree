@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: node_window.ml,v 1.9 2011/10/28 15:07:30 tews Exp $
+ * $Id: node_window.ml,v 1.10 2011/12/08 15:47:12 tews Exp $
  *)
 
 
@@ -149,7 +149,8 @@ let make_node_window proof_window proof_name node window_number =
     | Turnstile -> "Sequent "
   in
   top_window#set_title (title_start ^ window_number ^ " of " ^ proof_name);
-  ignore(top_window#event#connect#key_press node_window#key_pressed_callback);
+  ignore(top_window#event#connect#key_press 
+	   ~callback:node_window#key_pressed_callback);
   text_win#buffer#set_text node#displayed_text;
 
   ignore(top_window#connect#destroy 
