@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: ext_dialog.ml,v 1.2 2011/12/09 13:27:07 tews Exp $
+ * $Id: ext_dialog.ml,v 1.3 2011/12/09 15:04:24 tews Exp $
  *)
 
 (** The Existential Variable Dialog *)
@@ -28,15 +28,9 @@ open Gtk_ext
 open Configuration
 open Draw_tree
 
-type precise_existential_status =
-  | Unknown
-  | Uninstantiated
-  | Partially_instantiated
-  | Fully_instantiated
 
 type ext_table_line = {
   ext_table_ext : existential_variable;
-  (* mutable ext_table_current_status : precise_existential_status; *)
   ext_table_row : int;
   ext_table_status_label : GMisc.label;
   ext_table_using_label : GMisc.label;
@@ -136,7 +130,7 @@ object (self)
 	| None -> assert false
 	| Some n -> n
     in
-    if existential.instantiated then
+    if existential.status <> Uninstantiated then
       let inst_node =  
 	proof_window#find_node
 	  (fun n -> List.memq existential n#inst_existentials)
@@ -166,68 +160,28 @@ object (self)
       proof_window#invalidate_drawing_area;
     end
 
-  method private set_ext_line_status tl new_status_hash =
-    let new_tl_status = 
-      Hashtbl.find new_status_hash tl.ext_table_ext.existential_name in
-    (* tl.ext_table_current_status <- new_tl_status; *)
+  method private set_ext_line_status tl =
     tl.ext_table_status_label#set_label
-      (match new_tl_status with
+      (match tl.ext_table_ext.status with
 	| Uninstantiated -> uninst_label
 	| Partially_instantiated -> partially_inst_label
 	| Fully_instantiated -> fully_inst_label
-	| Unknown -> assert false
       );
     let color_ex_name ex =
-      match Hashtbl.find new_status_hash ex.existential_name with
+      match ex.status with
 	| Uninstantiated -> ex.existential_name
 	| Partially_instantiated -> 
 	  pango_markup_color ex.existential_name !proved_partial_gdk_color
 	| Fully_instantiated -> 
 	  pango_markup_color ex.existential_name !proved_complete_gdk_color
-	| Unknown -> assert false
     in
     let colored_dep_names =
       String.concat ", " 
 	(List.map color_ex_name tl.ext_table_ext.dependencies) in
-    (* Printf.printf "SELS set using label %s\n%!" colored_dep_names; *)
     tl.ext_table_using_label#set_label colored_dep_names
 	    
 
   method private update_existential_status =
-    let new_status_hash = Hashtbl.create 251 in
-    let rec collect ex = 
-      if Hashtbl.mem new_status_hash ex.existential_name
-      then begin
-	(* Printf.printf "UES %s in hash\n%!" ex.existential_name; *)
-	()
-      end
-      else begin
-	List.iter collect ex.dependencies;
-	let ex_status =
-	  if ex.instantiated 
-	  then
-	    if (List.for_all 
-		  (fun dep -> 
-		    Hashtbl.find new_status_hash dep.existential_name = 
-		      Fully_instantiated)
-		  ex.dependencies)
-	    then Fully_instantiated
-	    else Partially_instantiated
-	  else Uninstantiated
-	in
-	(* 
-         * Printf.printf "UES add %s : %s\n%!" ex.existential_name
-	 *   (match ex_status with
-	 *     | Uninstantiated -> "uninst"
-	 *     | Partially_instantiated -> "partial"
-	 *     | Fully_instantiated -> "fully"
-	 *     | Unknown -> "unkown"
-	 *   );
-         *)
-	Hashtbl.add new_status_hash ex.existential_name ex_status
-      end
-    in
-    Hashtbl.iter (fun _ tl -> collect tl.ext_table_ext) ext_hash;
     Hashtbl.iter 
       (fun _ tl ->
 	(* We don't have to update every line. However, the test is
@@ -236,11 +190,7 @@ object (self)
 	 * would have to through ext_hash, in order to find the last
 	 * status of the dependencies.
 	 *)
-	(* 
-         * if tl.ext_table_current_status <> new_tl_status
-	 * then self#set_ext_line_status tl new_status_hash
-         *)
-	self#set_ext_line_status tl new_status_hash
+	self#set_ext_line_status tl
       )
       ext_hash
 

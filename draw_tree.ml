@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.31 2011/12/08 15:47:12 tews Exp $
+ * $Id: draw_tree.ml,v 1.32 2011/12/09 15:04:24 tews Exp $
  *)
 
 
@@ -95,10 +95,20 @@ open Gtk_ext
     lists of existential variables do not preserve the order.
 *)
 
+
+(** Status of an existential variable *)
+type existential_status =
+  | Uninstantiated			(** open, not instantiated *)
+  | Partially_instantiated		(** instantiated, but the
+					    instantiation uses some
+					    existentials that are still open *)
+  | Fully_instantiated			(** fully instantiated *)
+
+
 (** Representation of existential variables. *)
 type existential_variable = {
   existential_name : string;		(** The name *)
-  mutable instantiated : bool;		(** [true] if instantiated already *)
+  mutable status : existential_status;	(** instantiation status *)
   mutable existential_mark : bool;	(** [true] if this existential should 
 					    be marked in the proof-tree
 					    display *)
@@ -108,10 +118,26 @@ type existential_variable = {
 					    if instantiated *)
 }
 
+
 (** Filter the non-instantiated existentials from the argument. 
 *)
 let filter_uninstantiated exl =
-  list_filter_rev (fun ex -> not ex.instantiated) [] exl
+  list_filter_rev (fun ex -> ex.status = Uninstantiated) [] exl
+
+(** Filter the partially instantiated existentials from the argument *)
+let filter_partially_instantiated exl =
+  list_filter_rev (fun ex -> ex.status = Partially_instantiated) [] exl
+
+
+(** Derive the existential status for drawing a node or a connection
+    line in the proof tree. 
+*)
+let combine_existential_status_for_tree exl =
+  if List.for_all (fun ex -> ex.status = Fully_instantiated) exl
+  then Fully_instantiated
+  else if List.exists (fun ex -> ex.status = Uninstantiated) exl
+  then Uninstantiated
+  else Partially_instantiated
 
 
 (** Convert a set of existential variables into a single string for
@@ -209,10 +235,12 @@ let save_and_set_gc drawable state existentials =
       res
     | Proven -> 
       let res = save_gc drawable in
-      let complete = (filter_uninstantiated existentials) = [] in
-      drawable#set_foreground 
-	(if complete then `COLOR !proved_complete_gdk_color
-	 else `COLOR !proved_incomplete_gdk_color);
+      let color = match combine_existential_status_for_tree existentials with
+	| Fully_instantiated -> !proved_complete_gdk_color
+	| Partially_instantiated -> !proved_partial_gdk_color
+	| Uninstantiated -> !proved_incomplete_gdk_color
+      in
+      drawable#set_foreground (`COLOR color);
       res
     | Cheated -> 
       let res = save_gc drawable in
@@ -855,12 +883,15 @@ object (self)
 
   method displayed_text =
     let uninst_ex = filter_uninstantiated existential_variables in
+    let partial_ex = filter_partially_instantiated existential_variables in
     if uninst_ex = []
     then self#content
     else 
       self#content 
       ^ "\n\nOpen Existentials: " 
       ^ (string_of_existential_list uninst_ex)
+      ^ " Partially instantiated: "
+      ^ (string_of_existential_list partial_ex)
 
   method register_external_window win =
     external_windows <- win :: external_windows

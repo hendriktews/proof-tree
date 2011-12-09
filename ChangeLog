@@ -1,5 +1,11 @@
 2011-12-09  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
+	* put detailed existential status into the existential
+	  record, which is updated lazily before every redraw
+	* proof tree uses color for partial instantiation
+
+2011-12-09  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
 	* using column in evar window
 	* new color for partially instantiated evar's
 	* new config file version 03

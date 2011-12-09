@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.39 2011/12/09 13:27:07 tews Exp $
+ * $Id: proof_window.ml,v 1.40 2011/12/09 15:04:24 tews Exp $
  *)
 
 
@@ -929,7 +929,7 @@ object (self)
 	| Not_found -> 
 	  let deps = List.map copy_existential ex.dependencies in
 	  let nex = { existential_name = ex.existential_name;
-		      instantiated = ex.instantiated;
+		      status = ex.status;
 		      existential_mark = false;
 		      dependencies = deps;
 		    }

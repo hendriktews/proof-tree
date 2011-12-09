@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.30 2011/12/09 13:27:07 tews Exp $
+ * $Id: proof_tree.ml,v 1.31 2011/12/09 15:04:24 tews Exp $
  *)
 
 
@@ -175,7 +175,7 @@ let configuration_updated () =
 *)
 let instantiate_existential ex_hash ex dependency_names =
   assert(ex.dependencies = []);
-  ex.instantiated <- true;
+  ex.status <- Partially_instantiated;
   ex.dependencies <- List.map (Hashtbl.find ex_hash) dependency_names
 
 
@@ -185,7 +185,7 @@ let instantiate_existential ex_hash ex dependency_names =
 let undo_instantiate_existentials exl =
   List.iter
     (fun ex -> 
-      ex.instantiated <- false;
+      ex.status <- Uninstantiated;
       ex.dependencies <- [];
     )
     exl
@@ -196,13 +196,41 @@ let undo_instantiate_existentials exl =
 *)
 let make_new_existential ex_hash ex_name =
   let ex = {existential_name = ex_name; 
-	    instantiated = false; 
+	    status = Uninstantiated; 
 	    existential_mark = false;
 	    dependencies = [];
 	   }
   in
   Hashtbl.add ex_hash ex_name ex;
   ex
+
+
+(** Walk over all existential variables and update their instantiation
+    status. More precisely, for evars that are instantiated (i.e.,
+    have a status of {!Partially_instantiated} or
+    {!Fully_instantiated}) the complete tree of dependencies is
+    scanned and then their status is set appropriately.
+*)
+let update_existential_status ex_hash =
+  let visited_hash = Hashtbl.create 251 in
+  let rec collect ex = 
+    if Hashtbl.mem visited_hash ex.existential_name
+    then ()
+    else begin
+      if ex.status <> Uninstantiated
+      then begin
+	List.iter collect ex.dependencies;
+	ex.status <-
+    	  if (List.for_all (fun dep -> dep.status = Fully_instantiated)
+		ex.dependencies)
+    	  then Fully_instantiated
+    	  else Partially_instantiated
+      end;
+      Hashtbl.add visited_hash ex.existential_name ()
+    end
+  in
+  Hashtbl.iter (fun _ ext -> collect ext) ex_hash
+
 
 
 (** Update the hash of existential variables and the existentials
@@ -244,12 +272,12 @@ let update_existentials ex_hash uninst_ex inst_ex_deps =
     List.fold_left
       (fun res (ex_name, deps) ->
 	let ex = Hashtbl.find ex_hash ex_name in
-	if ex.instantiated 
-	then res
-	else begin
+	if ex.status = Uninstantiated
+	then begin
 	  instantiate_existential ex_hash ex deps;
 	  ex :: res
 	end
+	else res
       )
       [] inst_ex_deps
   in
@@ -285,6 +313,7 @@ let stop_proof_tree pt pa_state =
   pt.window#disconnect_proof;
   pt.window#clear_current_node;
   pt.window#refresh_sequent_area;
+  update_existential_status pt.existential_hash;
   pt.window#refresh_and_position;
   pt.window#update_ext_dialog;
   pt.need_redraw <- false;
@@ -858,6 +887,7 @@ let finish_drawing () = match !current_proof_tree with
     if pt.sequent_area_needs_refresh then
       pt.window#refresh_sequent_area;
     if pt.need_redraw then begin
+      update_existential_status pt.existential_hash;
       pt.window#refresh_and_position;
       pt.window#update_ext_dialog;
     end;
