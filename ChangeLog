@@ -1,5 +1,10 @@
 2011-12-09  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
+	* set proof-tree background to GTK prelight default
+	* adjust default colors
+
+2011-12-09  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
 	* put detailed existential status into the existential
 	  record, which is updated lazily before every redraw
 	* proof tree uses color for partial instantiation

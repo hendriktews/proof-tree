@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.40 2011/12/09 15:04:24 tews Exp $
+ * $Id: proof_window.ml,v 1.41 2011/12/09 15:58:28 tews Exp $
  *)
 
 
@@ -448,10 +448,13 @@ object (self)
   method private erase = 
     (* Printf.fprintf (debugc()) "ERASE\n%!"; *)
     let (x,y) = drawable#size in
-    let fg = drawable#get_foreground in
-    drawable#set_foreground (`NAME("white"));
+    let gc = save_gc drawable in
+    let bg = top_window#misc#style#bg `PRELIGHT in
+    (* let bg = drawable#get_background in *)
+    (* drawable#set_foreground (`NAME("gray85")); *)
+    drawable#set_foreground (`COLOR bg);
     drawable#polygon ~filled:true [(0,0); (x,0); (x,y); (0,y)];
-    drawable#set_foreground (`COLOR fg)
+    restore_gc drawable gc
 
   method private try_adjustment = 
     if position_to_current_node = true then

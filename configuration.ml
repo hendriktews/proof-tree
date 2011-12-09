@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.31 2011/12/09 15:04:24 tews Exp $
+ * $Id: configuration.ml,v 1.32 2011/12/09 15:58:28 tews Exp $
  *)
 
 
@@ -244,9 +244,9 @@ let default_configuration =
       (Gdk.Color.red blue, Gdk.Color.green blue, Gdk.Color.blue blue);
     cheated_color = 
       (Gdk.Color.red red, Gdk.Color.green red, Gdk.Color.blue red);
-    proved_complete_color = (0, 168 * 256, 0);
-    proved_incomplete_color = (0, 255 * 256, 195 * 256);
-    proved_partial_color = (231 * 256, 235 * 256, 0 * 256);
+    proved_complete_color = (19 * 255, 197 * 256, 19 * 255);
+    proved_partial_color = (100 * 256, 114 * 256, 0 * 256);
+    proved_incomplete_color = (26 * 255, 226 * 256, 216 * 256);
     (* mark_subtree_color = (0,0,0); *)
     existential_create_color = (255 * 256, 0xF5 * 256, 0x8F * 256);
     existential_instantiate_color = (255 * 256, 0xB6 * 256, 0x6D * 256);
