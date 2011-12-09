@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.29 2011/12/08 15:47:12 tews Exp $
+ * $Id: configuration.ml,v 1.30 2011/12/09 13:27:07 tews Exp $
  *)
 
 
@@ -54,6 +54,7 @@ let config_file_location =
     other configurable values are accessed through the current
     configuration record, which is stored in {!current_config}.
 *)
+(* IMPORTANT: INCREASE config_file_version BELOW WHEN CHANGING THIS RECORD *)
 type t = {
   turnstile_radius : int;
   (** Radius (in pixel) of the circle around the turnstile symbol for
@@ -126,13 +127,20 @@ type t = {
   *)
 
   proved_complete_color : (int * int * int);
-  (** The color for branches that have been proved and which have no
+  (** The color for branches that have been proved and which depend on no
       non-instantiated existential variables, as 16-bit RGB value.
   *)
 
   proved_incomplete_color : (int * int * int);
   (** The color for branches that have been proved and that have
       non-instantiated existential variables, as 16-bit RGB value.
+  *)
+
+  proved_partial_color : (int * int * int);
+  (** The color for branches that have been proved and whose own 
+      existential variables are all instantiated, but where the 
+      instantiations depend on some not-yet instantiated existential 
+      variables. The value is the 16-bit RGB triple.
   *)
 
   (* 
@@ -237,7 +245,8 @@ let default_configuration =
     cheated_color = 
       (Gdk.Color.red red, Gdk.Color.green red, Gdk.Color.blue red);
     proved_complete_color = (0, 220 * 256, 0);
-    proved_incomplete_color = (0, 255 * 256, 0xC4 * 256);
+    proved_incomplete_color = (0, 255 * 256, 195 * 256);
+    proved_partial_color = (230 * 256, 255 * 256, 102 * 256);
     (* mark_subtree_color = (0,0,0); *)
     existential_create_color = (255 * 256, 0xF5 * 256, 0x8F * 256);
     existential_instantiate_color = (255 * 256, 0xB6 * 256, 0x6D * 256);
@@ -310,12 +319,22 @@ let proved_complete_gdk_color =
 
 
 (** Color for branches that have been proved and that have
-    non-instantiated existential variables, as {!Gdk.color}. Should
+    non-instantiated existential variables as {!Gdk.color}. Should
     always be in sync with the {!proved_incomplete_color} field of
     {!current_config}.
 *)
 let proved_incomplete_gdk_color = 
   ref(GDraw.color (`RGB default_configuration.proved_incomplete_color))
+
+
+(** Color for branches that have been proved and whose own existential
+    variables are all instantiated, but where the instantiations
+    depend on some not-yet instantiated existential variables. The
+    value is given as {!Gdk.color} and should always be in sync with
+    the {!proved_partial_color} field of {!current_config}.
+*)
+let proved_partial_gdk_color =
+  ref(GDraw.color (`RGB default_configuration.proved_partial_color))
 
 
 (* 
@@ -358,6 +377,8 @@ let update_font_and_color () =
     GDraw.color (`RGB !current_config.proved_complete_color);
   proved_incomplete_gdk_color :=
     GDraw.color (`RGB !current_config.proved_incomplete_color);
+  proved_partial_gdk_color :=
+    GDraw.color (`RGB !current_config.proved_partial_color);
   (* 
    * mark_subtree_gdk_color :=
    *   GDraw.color (`RGB !current_config.mark_subtree_color);
@@ -406,7 +427,7 @@ let geometry_string = ref ""
 let config_file_header_start = "Prooftree configuration file version "
 
 (** Version specific header of the current config file version. *)
-let config_file_version = "02"
+let config_file_version = "03"
 
 (** The complete ASCII header of configuration files. *)
 let config_file_header = config_file_header_start ^ config_file_version ^ "\n"
@@ -486,6 +507,7 @@ let config_window = ref None
     - cheated_color_button	{!GButton.color_button} for cheated color
     - proved_complete_color_button   {!GButton.color_button} for complete color
     - proved_incomplete_color_button {!GButton.color_button} for incomplete color
+    - proved_partial_color_button    {!GButton.color_button} for partial color
     - ext_create_color_button     {!GButton.color_button} for create exist.
     - ext_inst_color_button       {!GButton.color_button} for instant. exist.
     - drag_accel_spinner 	  {!GEdit.spin_button} for drac acceleration
@@ -528,6 +550,7 @@ class config_window
   cheated_color_button
   proved_complete_color_button
   proved_incomplete_color_button
+  proved_partial_color_button
   (* mark_subtree_color_button *)
   ext_create_color_button
   ext_inst_color_button
@@ -603,6 +626,8 @@ object (self)
       (GDraw.color (`RGB conf.proved_complete_color));
     proved_incomplete_color_button#set_color
       (GDraw.color (`RGB conf.proved_incomplete_color));
+    proved_partial_color_button#set_color
+      (GDraw.color (`RGB conf.proved_partial_color));
     (* 
      * mark_subtree_color_button#set_color
      *   (GDraw.color (`RGB conf.mark_subtree_color));
@@ -713,6 +738,9 @@ object (self)
 	 (Gdk.Color.red c, Gdk.Color.green c, Gdk.Color.blue c));
       proved_incomplete_color = 
 	(let c = proved_incomplete_color_button#color in
+	 (Gdk.Color.red c, Gdk.Color.green c, Gdk.Color.blue c));
+      proved_partial_color =
+	(let c = proved_partial_color_button#color in
 	 (Gdk.Color.red c, Gdk.Color.green c, Gdk.Color.blue c));
       (* 
        * mark_subtree_color = 
@@ -1109,12 +1137,12 @@ let make_config_window () =
 
   let column = column + 3 in
 
-  (* proved complete color *)
-  let (proved_complete_color_label, proved_complete_color_button) =
-    make_color_conf row column !proved_complete_gdk_color "Proved complete"
-      "Completely Proved Branches Color"
-      "Color for completely proved branches where all existential \
-       variables are instantiated" in
+  (* existential create color *)
+  let (ext_create_color_label, ext_create_color_button) =
+    make_color_conf row column !existential_create_gdk_color
+      "Create existential"
+      "Create Existential Variable Color"
+      "Color for marking the node that introduces some existential variable" in
 
   let row = 2 in
   let column = 0 in
@@ -1128,12 +1156,12 @@ let make_config_window () =
    *      existential variable" in
    *)
 
-  (* existential create color *)
-  let (ext_create_color_label, ext_create_color_button) =
-    make_color_conf row column !existential_create_gdk_color
-      "Create existential"
-      "Create Existential Variable Color"
-      "Color for marking the node that introduces some existential variable" in
+  (* proved complete color *)
+  let (proved_complete_color_label, proved_complete_color_button) =
+    make_color_conf row column !proved_complete_gdk_color "Proved complete"
+      "Completely Proved Branches Color"
+      "Color for completely proved branches where all existential \
+       variables are fully instantiated" in
 
   let column = column + 3 in
 
@@ -1144,6 +1172,19 @@ let make_config_window () =
       "Instantiate Existential Variable Color"
       "Color for marking the node that instantiates some existential variable"
   in
+
+  let row = 3 in
+  let column = 0 in
+
+  (* proved partial color *)
+  let (proved_partial_color_label, proved_partial_color_button) =
+    make_color_conf row column !proved_partial_gdk_color "Proved partial"
+      "Completely Proved Branches Color"
+      "Color for completely proved branches where all existential \
+       variables are instantiated but some of them use not-yet \
+       instantiated existential variables" in
+
+
 
   (****************************************************************************
    *
@@ -1375,6 +1416,7 @@ let make_config_window () =
       cheated_color_button
       proved_complete_color_button
       proved_incomplete_color_button
+      proved_partial_color_button
       (* mark_subtree_color_button *)
       ext_create_color_button
       ext_inst_color_button
@@ -1400,6 +1442,7 @@ let make_config_window () =
 	cheated_color_label#misc; cheated_color_button#misc;
 	proved_complete_color_label#misc; proved_complete_color_button#misc;
 	proved_incomplete_color_label#misc; proved_incomplete_color_button#misc;
+	proved_partial_color_label#misc; proved_partial_color_button#misc;
 	(* mark_subtree_color_label#misc; mark_subtree_color_button#misc; *)
 	ext_create_color_label#misc; ext_create_color_button#misc;
 	ext_inst_color_label#misc; ext_inst_color_button#misc;

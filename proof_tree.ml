@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.29 2011/12/08 15:47:12 tews Exp $
+ * $Id: proof_tree.ml,v 1.30 2011/12/09 13:27:07 tews Exp $
  *)
 
 
@@ -578,7 +578,7 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
 	open_goal_count (if open_goal_count > 1 then "s" else "") (n - 1)
   in
   pt.window#message message;
-  pt.window#ext_dialog_add ex_got_instantiated new_existentials;
+  pt.window#ext_dialog_add new_existentials;
   let undo () =
     pc#delete_non_sticky_external_windows;
     List.iter (fun s -> s#delete_non_sticky_external_windows) all_subgoals;
@@ -599,7 +599,7 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
     end;
     List.iter (fun ex -> Hashtbl.remove pt.existential_hash ex.existential_name)
       new_existentials;
-    pt.window#ext_dialog_undo ex_got_instantiated new_existentials;
+    pt.window#ext_dialog_undo new_existentials;
   in
   add_undo_action pt state undo;
   pt.need_redraw <- true
@@ -641,7 +641,7 @@ let finish_branch pt state proof_command cheated_flag
     end;
     List.iter (fun ex -> Hashtbl.remove pt.existential_hash ex.existential_name)
       new_existentials;
-    pt.window#ext_dialog_undo ex_got_instantiated new_existentials;
+    pt.window#ext_dialog_undo new_existentials;
   in
   add_undo_action pt state undo;
   if cheated_flag then pt.cheated <- true;
@@ -649,7 +649,7 @@ let finish_branch pt state proof_command cheated_flag
     pt.window#update_existentials_display;
     pt.sequent_area_needs_refresh <- true;
   end;
-  pt.window#ext_dialog_add ex_got_instantiated new_existentials;
+  pt.window#ext_dialog_add new_existentials;
   pt.need_redraw <- true
 
 

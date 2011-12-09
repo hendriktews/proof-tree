@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: ext_dialog.ml,v 1.1 2011/10/28 15:07:30 tews Exp $
+ * $Id: ext_dialog.ml,v 1.2 2011/12/09 13:27:07 tews Exp $
  *)
 
 (** The Existential Variable Dialog *)
@@ -28,10 +28,18 @@ open Gtk_ext
 open Configuration
 open Draw_tree
 
+type precise_existential_status =
+  | Unknown
+  | Uninstantiated
+  | Partially_instantiated
+  | Fully_instantiated
 
 type ext_table_line = {
+  ext_table_ext : existential_variable;
+  (* mutable ext_table_current_status : precise_existential_status; *)
   ext_table_row : int;
-  ext_table_status : GMisc.label;
+  ext_table_status_label : GMisc.label;
+  ext_table_using_label : GMisc.label;
   ext_table_button : GButton.toggle_button;
   ext_table_other : GObj.widget array;
 }
@@ -57,39 +65,41 @@ class existential_variable_window
   proof_window
   (top_window : GWindow.window)
   (ext_table : GPack.table)
-  start_row name_col status_col button_col last_col
+  start_row name_col status_col using_col button_col last_col
   =
 object (self)
 
   val uninst_label = "no"
 
-  val inst_label = pango_markup_color "yes" !proved_complete_gdk_color
+  val mutable partially_inst_label = ""
+
+  val mutable fully_inst_label = ""
 
   val mutable next_row = start_row
 
-  val ext_hash = Hashtbl.create 401
+  val ext_hash = Hashtbl.create 251
 
   val mutable to_add = []
 
   val mutable to_delete = []
 
-  val mutable change_status = []
-
   val mutable no_ext_label_widgets = [| |]
 
   val mutable pressed_mark_button = None
 
-  method change_and_add ext_status new_ext =
+  method make_inst_labels =
+    partially_inst_label <- 
+      pango_markup_color "partially" !proved_partial_gdk_color;
+    fully_inst_label <- 
+      pango_markup_color "fully" !proved_complete_gdk_color
+
+  method change_and_add new_ext =
     assert(to_delete = []);
-    if ext_status <> [] then
-      change_status <- ext_status :: change_status;
     if new_ext <> [] then
       to_add <- new_ext :: to_add
 
-  method change_and_delete status_ext remove_ext =
+  method change_and_delete remove_ext =
     assert(to_add = []);
-    if status_ext <> [] then
-      change_status <- status_ext :: change_status;
     if remove_ext <> [] then
       to_delete <- remove_ext :: to_delete
 
@@ -156,8 +166,83 @@ object (self)
       proof_window#invalidate_drawing_area;
     end
 
-  method private set_ext_label_status ext label =
-    label#set_label (if ext.instantiated then inst_label else uninst_label)
+  method private set_ext_line_status tl new_status_hash =
+    let new_tl_status = 
+      Hashtbl.find new_status_hash tl.ext_table_ext.existential_name in
+    (* tl.ext_table_current_status <- new_tl_status; *)
+    tl.ext_table_status_label#set_label
+      (match new_tl_status with
+	| Uninstantiated -> uninst_label
+	| Partially_instantiated -> partially_inst_label
+	| Fully_instantiated -> fully_inst_label
+	| Unknown -> assert false
+      );
+    let color_ex_name ex =
+      match Hashtbl.find new_status_hash ex.existential_name with
+	| Uninstantiated -> ex.existential_name
+	| Partially_instantiated -> 
+	  pango_markup_color ex.existential_name !proved_partial_gdk_color
+	| Fully_instantiated -> 
+	  pango_markup_color ex.existential_name !proved_complete_gdk_color
+	| Unknown -> assert false
+    in
+    let colored_dep_names =
+      String.concat ", " 
+	(List.map color_ex_name tl.ext_table_ext.dependencies) in
+    (* Printf.printf "SELS set using label %s\n%!" colored_dep_names; *)
+    tl.ext_table_using_label#set_label colored_dep_names
+	    
+
+  method private update_existential_status =
+    let new_status_hash = Hashtbl.create 251 in
+    let rec collect ex = 
+      if Hashtbl.mem new_status_hash ex.existential_name
+      then begin
+	(* Printf.printf "UES %s in hash\n%!" ex.existential_name; *)
+	()
+      end
+      else begin
+	List.iter collect ex.dependencies;
+	let ex_status =
+	  if ex.instantiated 
+	  then
+	    if (List.for_all 
+		  (fun dep -> 
+		    Hashtbl.find new_status_hash dep.existential_name = 
+		      Fully_instantiated)
+		  ex.dependencies)
+	    then Fully_instantiated
+	    else Partially_instantiated
+	  else Uninstantiated
+	in
+	(* 
+         * Printf.printf "UES add %s : %s\n%!" ex.existential_name
+	 *   (match ex_status with
+	 *     | Uninstantiated -> "uninst"
+	 *     | Partially_instantiated -> "partial"
+	 *     | Fully_instantiated -> "fully"
+	 *     | Unknown -> "unkown"
+	 *   );
+         *)
+	Hashtbl.add new_status_hash ex.existential_name ex_status
+      end
+    in
+    Hashtbl.iter (fun _ tl -> collect tl.ext_table_ext) ext_hash;
+    Hashtbl.iter 
+      (fun _ tl ->
+	(* We don't have to update every line. However, the test is
+	 * rather complicated, because we have to check whether the
+	 * status of any of the dependencies changes. For that one
+	 * would have to through ext_hash, in order to find the last
+	 * status of the dependencies.
+	 *)
+	(* 
+         * if tl.ext_table_current_status <> new_tl_status
+	 * then self#set_ext_line_status tl new_status_hash
+         *)
+	self#set_ext_line_status tl new_status_hash
+      )
+      ext_hash
 
   method private process_fresh_existentials l =
     (* this method is only called with nonempty l *)
@@ -170,24 +255,31 @@ object (self)
 	~packing:(ext_table#attach ~left:name_col ~top:next_row) () in
       let bar_1 = GMisc.separator `VERTICAL
 	~packing:(ext_table#attach ~left:(name_col + 1) ~top:next_row) () in
-      let status_label = GMisc.label 
+      let status_label = GMisc.label (* ~xpad:7 *)
 	~packing:(ext_table#attach ~left:status_col ~top:next_row) () in
       status_label#set_use_markup true;
       let bar_2 = GMisc.separator `VERTICAL
 	~packing:(ext_table#attach ~left:(status_col + 1) ~top:next_row) () in
+      let using_label = GMisc.label
+	~packing:(ext_table#attach ~left:using_col ~top:next_row) () in
+      using_label#set_use_markup true;
+      let bar_3 = GMisc.separator `VERTICAL
+	~packing:(ext_table#attach ~left:(using_col + 1) ~top:next_row) () in
       let button = GButton.toggle_button
 	~label:"mark"
 	~packing:(ext_table#attach ~fill:`NONE ~left:button_col ~top:next_row)
 	() in
       ignore(button#connect#toggled 
 	       ~callback:(self#mark_button_toggled button ext));
-      self#set_ext_label_status ext status_label;
       Hashtbl.add ext_hash ext.existential_name 
-	{ ext_table_row = next_row;
-	  ext_table_status = status_label;
+	{ ext_table_ext = ext;
+	  ext_table_row = next_row;
+	  ext_table_status_label = status_label;
+	  ext_table_using_label = using_label;
 	  ext_table_button = button;
 	  ext_table_other = 
-	    [| name_label#coerce; bar_1#coerce; bar_2#coerce; hbar#coerce; |]
+	    [| name_label#coerce; bar_1#coerce; bar_2#coerce; bar_3#coerce;
+	       hbar#coerce; |]
 	};
       next_row <- next_row + 1;
       ()
@@ -196,19 +288,10 @@ object (self)
     then self#delete_no_ext_label;
     List.iter doit l
 
-  method private change_status ext =
-    let label =
-      try Some( (Hashtbl.find ext_hash ext.existential_name).ext_table_status )
-      with
-	| Not_found -> None
-    in
-    match label with
-      | None -> ()
-      | Some label -> self#set_ext_label_status ext label
-      
 
   method private destroy_ext_line ext_table_line =
-    ext_table_line.ext_table_status#destroy ();
+    ext_table_line.ext_table_status_label#destroy ();
+    ext_table_line.ext_table_using_label#destroy ();
     ext_table_line.ext_table_button#set_active false;
     ext_table_line.ext_table_button#destroy ();
     Array.iter (fun w -> w#destroy ()) ext_table_line.ext_table_other;
@@ -231,10 +314,7 @@ object (self)
       (fun l -> List.iter (fun e -> self#undo_delete e) l)
       to_delete;
     to_delete <- [];
-    List.iter 
-      (fun l -> List.iter (fun e  -> self#change_status e) l)
-      change_status;
-    change_status <- [];
+    self#update_existential_status;
     if next_row = start_row 
     then self#make_no_ext_label
       
@@ -245,8 +325,13 @@ object (self)
       List.iter iter node#children
     in
     iter node;
+    self#update_existential_status;
     if next_row = start_row
     then self#make_no_ext_label
+
+  method configuration_updated =
+    self#make_inst_labels;
+    self#update_existential_status
 
   method clear_for_reuse =
     if Array.length no_ext_label_widgets = 0 then begin
@@ -264,6 +349,8 @@ object (self)
     proof_window#existential_clear ();
     top_window#destroy();
 
+  initializer
+    self#make_inst_labels
 end
 
 
@@ -296,8 +383,9 @@ let make_ext_dialog proof_window proof_name =
     ~packing:table_frame#add () in
   let name_col = 0 in
   let status_col = 2 in
-  let button_col = 4 in 
-  let last_col = 5 in
+  let using_col = 4 in
+  let button_col = 6 in 
+  let last_col = button_col + 1 in
   let xpadding = 7 in
   let ypadding = 3 in
   let row = 0 in
@@ -311,7 +399,12 @@ let make_ext_dialog proof_window proof_name =
     ~packing:(ext_table#attach ~left:status_col ~top:row) () in
   let _bar = GMisc.separator `VERTICAL
     ~packing:(ext_table#attach ~left:(status_col + 1) ~top:row) () in
-  let _button_heading = GMisc.label ~markup:"<b>Mark Subtree</b>"
+  let _using_heading = GMisc.label ~markup:"<b>Using</b>"
+    ~xpad:xpadding ~ypad:ypadding
+    ~packing:(ext_table#attach ~left:using_col ~top:row) () in
+  let _bar = GMisc.separator `VERTICAL
+    ~packing:(ext_table#attach ~left:(using_col + 1) ~top:row) () in
+  let _button_heading = GMisc.label ~markup:"<b>Mark Nodes</b>"
     ~xpad:xpadding ~ypad:ypadding
     ~packing:(ext_table#attach ~left:button_col ~top:row) () in
 
@@ -331,7 +424,7 @@ let make_ext_dialog proof_window proof_name =
 
   let ext_window = 
     new existential_variable_window proof_window top_window ext_table 
-      row name_col status_col button_col last_col
+      row name_col status_col using_col button_col last_col
   in
 
   top_window#set_title "Existential Variables";

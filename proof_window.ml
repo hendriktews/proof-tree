@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.38 2011/12/08 15:47:12 tews Exp $
+ * $Id: proof_window.ml,v 1.39 2011/12/09 13:27:07 tews Exp $
  *)
 
 
@@ -198,7 +198,8 @@ object (self)
     );
     self#expand_drawing_area;
     ignore(self#position_tree);
-    GtkBase.Widget.queue_draw top_window#as_widget
+    GtkBase.Widget.queue_draw top_window#as_widget;
+    self#configuration_updated_ext_dialog
     
   method clear_for_reuse =
     root <- None;
@@ -396,26 +397,26 @@ object (self)
 	);
 	existential_window <- Some ext
 
-  method destroy_existential_dialog =
+  method private destroy_existential_dialog =
     match existential_window with
       | None -> ()
       | Some w -> 
 	w#destroy ();
 	existential_window <- None
 
-  method clear_existential_dialog_for_reuse =
+  method private clear_existential_dialog_for_reuse =
     match existential_window with
       | None -> ()
       | Some w -> w#clear_for_reuse
 
-  method ext_dialog_add status_ext new_ext =
+  method ext_dialog_add new_ext =
     match existential_window with
-      | Some w -> w#change_and_add status_ext new_ext
+      | Some w -> w#change_and_add new_ext
       | None -> ()
 
-  method ext_dialog_undo status_ext remove_ext =
+  method ext_dialog_undo remove_ext =
     match existential_window with
-      | Some w -> w#change_and_delete status_ext remove_ext
+      | Some w -> w#change_and_delete remove_ext
       | None -> ()
 
   method update_ext_dialog =
@@ -423,6 +424,10 @@ object (self)
       | Some w -> w#update_ext_dialog
       | None -> ()
 
+  method private configuration_updated_ext_dialog =
+    match existential_window with
+      | Some w -> w#configuration_updated
+      | None -> ()
 
   (***************************************************************************
    *
