@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.31 2011/12/09 15:04:24 tews Exp $
+ * $Id: proof_tree.ml,v 1.32 2011/12/20 08:21:18 tews Exp $
  *)
 
 
@@ -869,9 +869,6 @@ let clear_proof_tree_lists proof_name =
   undo_surviver_trees :=
     List.fold_left proof_tree_list_fold_fun [] !undo_surviver_trees
 
-let _ = delete_proof_tree_callback := clear_proof_tree_lists
-
-
 let quit_proof proof_name =
   (match !current_proof_tree with 
     | None -> ()
@@ -880,6 +877,9 @@ let quit_proof proof_name =
       then current_proof_tree := None
   );
   clear_proof_tree_lists proof_name
+
+let _ = delete_proof_tree_callback := quit_proof
+
 
 let finish_drawing () = match !current_proof_tree with
   | None -> ()

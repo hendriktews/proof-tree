@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.41 2011/12/09 15:58:28 tews Exp $
+ * $Id: proof_window.ml,v 1.42 2011/12/20 08:21:18 tews Exp $
  *)
 
 
@@ -38,7 +38,7 @@ open Ext_dialog
 
 (** Callback for higher-level modules when the user deletes a proof
     window. During start-up the reference is changed to
-    {!Proof_tree.clear_proof_tree_lists}.
+    {!Proof_tree.quit_proof}.
 *)
 let delete_proof_tree_callback = ref (fun (_ : string) -> ())
 

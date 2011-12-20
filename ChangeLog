@@ -1,3 +1,43 @@
+2011-12-20  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* fix quit problem (which makes another quit problem more
+	  obvious)
+	* improve evar printing
+
+2011-12-19  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* elisp only:
+	  - proof-tree-configured for protecting menu and entry
+	    function
+	  - send undo when leaving buffer
+	  - fix proof-tree start without a proof shell
+
+	  - simplify/clear unused code
+	  - fix initialization problem
+
+	  - put update-goal into callback
+	  - don't use numbers as flags any more
+
+	  - clear state when proof is finished/quit
+	  - fix bug introduced earlier today
+
+	  - use Show Goal, flush coq-sequent-id-assoc
+	  - prooftree updates now inaccessible sequents!
+
+	  - improve starting prooftree in the middle of a proof
+	  - assert-until-point no longer called inside the
+	    process filter
+
+2011-12-16  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* some elisp-only changes
+	  - call delayed proof-tree handler only conditionally
+	  - simplify proof-tree-current-proof, flush its undo history
+	  - new prover option proof-tree-find-begin-of-unfinished-proof for
+	    finding the starting point of a theorem
+	  - specify proof-tree-get-proof-info as function without arguments
+	  - flush unused cmd argument from proof-tree-urgent-action
+
 2011-12-09  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* set proof-tree background to GTK prelight default

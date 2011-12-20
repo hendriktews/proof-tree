@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.32 2011/12/09 15:04:24 tews Exp $
+ * $Id: draw_tree.ml,v 1.33 2011/12/20 08:21:18 tews Exp $
  *)
 
 
@@ -884,14 +884,22 @@ object (self)
   method displayed_text =
     let uninst_ex = filter_uninstantiated existential_variables in
     let partial_ex = filter_partially_instantiated existential_variables in
-    if uninst_ex = []
+    if uninst_ex = [] && partial_ex = []
     then self#content
     else 
       self#content 
-      ^ "\n\nOpen Existentials: " 
-      ^ (string_of_existential_list uninst_ex)
-      ^ " Partially instantiated: "
-      ^ (string_of_existential_list partial_ex)
+      ^ "\n\n"
+      ^ (if uninst_ex <> [] 
+	then "Open Existentials: " 
+	  ^ (string_of_existential_list uninst_ex)
+	else "")
+      ^ (if uninst_ex <> [] && partial_ex <> []
+	then "; "
+	else "")
+      ^ (if partial_ex <> []
+	then "Partially instantiated: "
+	  ^ (string_of_existential_list partial_ex)
+	else "")
 
   method register_external_window win =
     external_windows <- win :: external_windows
