@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.33 2011/12/20 08:21:18 tews Exp $
+ * $Id: draw_tree.ml,v 1.34 2011/12/20 10:33:37 tews Exp $
  *)
 
 
@@ -122,11 +122,11 @@ type existential_variable = {
 (** Filter the non-instantiated existentials from the argument. 
 *)
 let filter_uninstantiated exl =
-  list_filter_rev (fun ex -> ex.status = Uninstantiated) [] exl
+  list_filter_rev (fun ex -> ex.status = Uninstantiated) exl
 
 (** Filter the partially instantiated existentials from the argument *)
 let filter_partially_instantiated exl =
-  list_filter_rev (fun ex -> ex.status = Partially_instantiated) [] exl
+  list_filter_rev (fun ex -> ex.status = Partially_instantiated) exl
 
 
 (** Derive the existential status for drawing a node or a connection

@@ -1,5 +1,9 @@
 2011-12-20  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
+	* delete other_open_goals field from internal state
+
+2011-12-20  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
 	* fix quit problem (which makes another quit problem more
 	  obvious)
 	* improve evar printing

@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.32 2011/12/20 08:21:18 tews Exp $
+ * $Id: proof_tree.ml,v 1.33 2011/12/20 10:33:37 tews Exp $
  *)
 
 
@@ -85,15 +85,16 @@ type proof_tree = {
   mutable current_sequent : proof_tree_element;
   (** The object of the current sequent. Used for coloring branches. *)
 
+  mutable open_goals_count : int;
+  (** Counter for the total number of open goals, including the
+      current sequent.
+  *)
+
   existential_hash : (string, existential_variable) Hashtbl.t;
   (** Mapping containing all existential variables in the proof tree.
       Needed to establish the dependency links in instantiated
       existentials. 
   *)
-
-  mutable other_open_goals : string list;
-  (** List containing the ID's of all open goals, except for
-      {!current_sequent_id}. *)
 
   mutable need_redraw : bool;
   (** [true] if the tree display needs a redraw. Used to delay redrawing. *)
@@ -120,7 +121,6 @@ type proof_tree = {
     {- Each live state is in precisely one the lists
     {!all_proof_trees_for_undo}, {!undo_surviver_trees} or
     {!Proof_window.cloned_proof_windows}.}
-    {- {!current_sequent_id} is never contained in {!other_open_goals}}
     }
 *)
 
@@ -460,8 +460,8 @@ let create_new_proof_tree proof_name state
     sequent_hash = hash;
     current_sequent_id = current_sequent_id;
     current_sequent = sw;
+    open_goals_count = 1;
     existential_hash = Hashtbl.create 251;
-    other_open_goals = [];
     need_redraw = true;
     sequent_area_needs_refresh = true;
     undo_actions = [];
@@ -493,8 +493,8 @@ let reuse_surviver pt state current_sequent_id current_sequent_text =
     sequent_hash = sequent_hash;
     current_sequent_id = current_sequent_id;
     current_sequent = sw;
+    open_goals_count = 1;
     existential_hash = ex_hash;
-    other_open_goals = [];
     need_redraw = true;
     sequent_area_needs_refresh = true;
     undo_actions = [];
@@ -533,7 +533,7 @@ let start_new_proof state proof_name current_sequent_id current_sequent_text =
     which must contain the ID's of all new subgoals (except for
     [current_sequent_id]). Old, currently unfinished subgoals in
     [additional_ids] are filtered out with the help of
-    [pt.other_open_goals]. Except for the [current_sequent], the newly
+    [pt.sequent_hash]. Except for the [current_sequent], the newly
     created subgoals contain no sequent text yet. This is expected to
     arrive soon with an [update-sequent] command.
 
@@ -557,16 +557,10 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   let sw = pt.window#new_turnstile current_sequent_id current_sequent_text in
   Hashtbl.add pt.sequent_hash current_sequent_id sw;
   let sw = (sw :> proof_tree_element) in
-  (* It is tempting to assert
-   * 
-   *     assert(list_set_subset pt.other_open_goals additional_ids);
-   * 
-   * However, in Coq the Focus command temporarily narrows the display of
-   * the additionally open subgoals.
-   *)
-  let new_goal_ids_rev = list_set_diff_rev additional_ids pt.other_open_goals in
-  assert(List.for_all 
-	   (fun id -> not (Hashtbl.mem pt.sequent_hash id)) new_goal_ids_rev);
+  let new_goal_ids_rev = 
+    list_filter_rev 
+      (fun id -> not (Hashtbl.mem pt.sequent_hash id))
+      additional_ids in
   let new_goals =
     List.fold_left
       (fun res id ->
@@ -581,11 +575,10 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   let unhash_sequent_ids = current_sequent_id :: new_goal_ids_rev in
   let old_current_sequent_id = pt.current_sequent_id in
   let old_current_sequent = pt.current_sequent in
-  let old_other_open_goals = pt.other_open_goals in
+  let old_open_goals_count = pt.open_goals_count in
   pt.current_sequent_id <- current_sequent_id;
   pt.current_sequent <- sw;
-  pt.other_open_goals <- 
-    list_set_union_disjoint new_goal_ids_rev pt.other_open_goals;
+  pt.open_goals_count <- pt.open_goals_count + List.length new_goals;
   sw#mark_current;
   set_current_node_wrapper pt sw;
   (* The uninstantiated existentials are displayed together with the
@@ -596,15 +589,13 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
     pt.window#update_existentials_display;
     pt.sequent_area_needs_refresh <- true;
   end;
-  let open_goal_count = List.length pt.other_open_goals  + 1 in
-  let message = match List.length all_subgoals with
-    | 0 -> assert false
-    | 1 -> 
+  let message = match List.length new_goals with
+    | 0 -> 
       Printf.sprintf "%d open goal%s (no new)" 
-	open_goal_count (if open_goal_count > 1 then "s" else "")
+	pt.open_goals_count (if pt.open_goals_count > 1 then "s" else "")
     | n ->
       Printf.sprintf "%d open goal%s (%d new)"
-	open_goal_count (if open_goal_count > 1 then "s" else "") (n - 1)
+	pt.open_goals_count (if pt.open_goals_count > 1 then "s" else "") n
   in
   pt.window#message message;
   pt.window#ext_dialog_add new_existentials;
@@ -620,7 +611,7 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
     if pc#is_selected then pt.window#set_selected_node None;
     pt.current_sequent_id <- old_current_sequent_id;
     pt.current_sequent <- old_current_sequent;
-    pt.other_open_goals <- old_other_open_goals;
+    pt.open_goals_count <- old_open_goals_count;
     if ex_got_instantiated <> [] then begin
       undo_instantiate_existentials ex_got_instantiated;
       pt.window#update_existentials_display;
@@ -658,10 +649,12 @@ let finish_branch pt state proof_command cheated_flag
   else pc#mark_proved;
   let old_cheated = pt.cheated in
   let old_current_sequent = pt.current_sequent in
+  let old_open_goals_count = pt.open_goals_count in
   let undo () =
     pc#delete_non_sticky_external_windows;
     clear_children old_current_sequent;
     old_current_sequent#unmark_proved_or_cheated;
+    pt.open_goals_count <- old_open_goals_count;
     pt.cheated <- old_cheated;
     if ex_got_instantiated <> [] then begin
       undo_instantiate_existentials ex_got_instantiated;
@@ -674,6 +667,7 @@ let finish_branch pt state proof_command cheated_flag
   in
   add_undo_action pt state undo;
   if cheated_flag then pt.cheated <- true;
+  pt.open_goals_count <- pt.open_goals_count - 1;
   if ex_got_instantiated <> [] then begin
     pt.window#update_existentials_display;
     pt.sequent_area_needs_refresh <- true;
@@ -683,44 +677,24 @@ let finish_branch pt state proof_command cheated_flag
 
 
 (** Switch to [new_current_sequent_id], that is, mark this sequent as
-    the current one. If [old_open_sequent_id] equals [None] the switch
-    occurs because the preceeding current sequent has been solved.
-    Otherwise, there is a real focus switch and [old_open_sequent_id]
-    contains the old current sequent, which is marked as normal open
-    goal now.
+    the current one. 
 *)
-let internal_switch_to pt state old_open_sequent_id new_current_sequent_id =
-  assert(match old_open_sequent_id with 
-    | None -> true
-    | Some id -> not (List.mem id pt.other_open_goals));
-  (* The user might switch to the current sequent *)
-  assert(new_current_sequent_id = pt.current_sequent_id ||
-      List.mem new_current_sequent_id pt.other_open_goals);
+let internal_switch_to pt state new_current_sequent_id =
   let new_current_sequent = 
     Hashtbl.find pt.sequent_hash new_current_sequent_id 
   in
   let new_current_sequent = (new_current_sequent :> proof_tree_element) in
   let old_current_sequent_id = pt.current_sequent_id in
   let old_current_sequent = pt.current_sequent in
-  let old_other_open_goals = pt.other_open_goals in
   let undo () =
     new_current_sequent#unmark_current;
     pt.current_sequent_id <- old_current_sequent_id;
     pt.current_sequent <- old_current_sequent;
-    pt.other_open_goals <- old_other_open_goals;
   in
   new_current_sequent#mark_current;
   set_current_node_wrapper pt new_current_sequent;
   pt.current_sequent_id <- new_current_sequent_id;
   pt.current_sequent <- new_current_sequent;
-  let all_open_goals = 
-    (match old_open_sequent_id with
-      | None -> pt.other_open_goals
-      | Some id -> list_set_add_nonpresent_element id pt.other_open_goals
-    )
-  in
-  pt.other_open_goals <- 
-    list_set_remove_element new_current_sequent_id all_open_goals;
   add_undo_action pt state undo;
   pt.need_redraw <- true
 
@@ -732,11 +706,9 @@ let finish_branch_and_switch_to pt state proof_command cheated_flag
     current_sequent_id additional_ids 
     uninstantiated_existentials instantiated_ex_deps =
   assert(not (List.mem current_sequent_id additional_ids));
-  assert(list_set_subset additional_ids pt.other_open_goals);
   finish_branch pt state proof_command cheated_flag 
     uninstantiated_existentials instantiated_ex_deps;
-  internal_switch_to pt state None current_sequent_id;
-  let open_goal_count = List.length pt.other_open_goals + 1 in
+  internal_switch_to pt state current_sequent_id;
   let message = 
     Printf.sprintf "%s (%d goal%s remaining)" 
       (if cheated_flag
@@ -744,8 +716,8 @@ let finish_branch_and_switch_to pt state proof_command cheated_flag
 	  !cheated_gdk_color
        else Gtk_ext.pango_markup_bold_color "Branch finished" 
 	  !proved_complete_gdk_color)
-      open_goal_count
-      (if open_goal_count > 1 then "s" else "")
+      pt.open_goals_count
+      (if pt.open_goals_count > 1 then "s" else "")
   in
   pt.window#message message
 
@@ -822,13 +794,11 @@ let switch_to state proof_name new_current_sequent_id =
       if pt.proof_name <> proof_name
       then raise (Proof_tree_error "Switch to sequent on other proof");
       pt.current_sequent#unmark_current;
-      internal_switch_to pt state
-	(Some pt.current_sequent_id) new_current_sequent_id;
-      let open_goal_count = List.length pt.other_open_goals + 1 in
+      internal_switch_to pt state new_current_sequent_id;
       let message = 
 	Printf.sprintf "Branch changed (%d goal%s remaining)" 
-	  open_goal_count
-	  (if open_goal_count > 1 then "s" else "")
+	  pt.open_goals_count
+	  (if pt.open_goals_count > 1 then "s" else "")
       in
       pt.window#message message
 

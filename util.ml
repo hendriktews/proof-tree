@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: util.ml,v 1.15 2011/10/28 15:07:30 tews Exp $
+ * $Id: util.ml,v 1.16 2011/12/20 10:33:37 tews Exp $
  *)
 
 
@@ -36,14 +36,17 @@ let rec list_last = function
   | [a] -> a
   | _ :: rest -> list_last rest
 
-(** List {!List.filter} but without the guarantee to preserve the
-    order of the input list. Tail recursive.
-*)
-let rec list_filter_rev p accu = function
+(** Iterator function for {!list_filter_rev}. *)
+let rec list_filter_rev_accu p accu = function
   | [] -> accu
   | x :: l -> 
-    if p x then list_filter_rev p (x :: accu) l 
-    else list_filter_rev p accu l
+    if p x then list_filter_rev_accu p (x :: accu) l 
+    else list_filter_rev_accu p accu l
+
+(** Like {!List.filter} but reverses the order of the filtered
+    elements. Tail recursive.
+*)
+let list_filter_rev p l = list_filter_rev_accu p [] l
 
 
 (** {2 Lists as Sets: Simple Set Operations} *)
