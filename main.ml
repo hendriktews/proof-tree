@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: main.ml,v 1.15 2011/12/08 08:42:56 tews Exp $
+ * $Id: main.ml,v 1.16 2011/12/21 15:26:44 tews Exp $
  *)
 
 
@@ -39,6 +39,7 @@
 module U = Unix
 (**/**)
 open Configuration
+open Help_window
 open Input
 
 let configuration_updated () =
@@ -49,12 +50,16 @@ let _ = configuration_updated_callback := configuration_updated
 
 let start_config_dialog = ref false
 
+let start_help_dialog = ref false
+
 (** Argument list for [Arg.parse] *)
 let arguments = Arg.align [
   ("-config", Arg.Set start_config_dialog,
    " display the configuration dialog on startup");
   ("-geometry", Arg.Set_string Configuration.geometry_string,
    " X geometry");
+  ("-help-dialog", Arg.Set start_help_dialog,
+   " display the help dialog on startup");
   ("-tee", 
    Arg.String (fun s -> 
      current_config := 
@@ -95,6 +100,8 @@ let main () =
     Version.version;
   if !start_config_dialog then
     Configuration.show_config_window ();
+  if !start_help_dialog then
+    show_help_window ();
   GMain.Main.main ()
 
 

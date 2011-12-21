@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: help_window.ml,v 1.8 2011/12/08 08:42:56 tews Exp $
+ * $Id: help_window.ml,v 1.9 2011/12/21 15:26:44 tews Exp $
  *)
 
 
@@ -63,10 +63,14 @@ let help_text =
   in
   [(Default, "The meaning of the colors in the proof tree is as follows: ");
    (Color !proved_complete_gdk_color, 
-    "proved branches without open existential variables (green by default), ");
+    "completely proved branches (green by default), ");
    (Color !proved_incomplete_gdk_color,
     "proved branches with some not (yet) instantiated existential variables \
 (cyan by default), ");
+   (Color !proved_partial_gdk_color,
+    "proved branches with all their own existential variables instantiated \
+that nevertheless depend on some not (yet) instantiated existential variable \
+(dark green by default), ");
    (Color !current_gdk_color, "branch to the current goal (blue by default), ");
    (Default, "currently open branches (default foreground color) and ");
    (Color !cheated_gdk_color, 
@@ -110,9 +114,12 @@ window disappears, unless their ");
 
 ");
    bold_proof_tree;
-   (Default, " keeps track of existential variables and whether they \
-have been instantiated. It uses a different color for proved branches that \
-contain some non-instantiated existential variables. Displays with sequents \
+   (Default, " keeps track of existential variables, whether they \
+have been instantiated and whether they depend on some other, \
+not (yet) instantiated existential. \
+It uses different colors for proved branches that contain non-instantiated \
+existential variables and branches that only depend on some not instantiated \
+existential. Displays with sequents \
 or proof commands (in tool-tips and in additional windows) list those \
 existential variables that are currently not (yet) instantiated.
    
@@ -131,7 +138,8 @@ current proof goal is visible.
 The item ");
    (Italic, "Existentials");
    (Default, " opens the dialog for existential variables, which contains \
-a table with all existential variables that currently appear in the proof. \
+a table with all existential variables of the current proof and their \
+dependencies. \
 For each existential variable, the table contains a ");
    (Italic, "Mark");
    (Default, " button, which marks the proof command that introduced \
@@ -142,12 +150,7 @@ this variable ");
 this variable ");
    (Background !existential_instantiate_gdk_color,
     "(with orange background, by default)");
-   (Default, " in the proof-tree display. Dependencies between different \
-existential variables (i.e., ");
-   (Italic, "X");
-   (Default, " appears in the instantiation of ");
-   (Italic, "Y");
-   (Default, ") cannot be displayed.
+   (Default, " in the proof-tree display.
 
 The ");
    (Italic, "Configuration");
@@ -249,5 +252,6 @@ let show_help_window () =
   ignore(help_win#connect#destroy ~callback:(fun () -> help_win#destroy()));
   ignore(help_win#connect#response ~callback:(fun _ -> help_win#destroy()));
   help_win#set_default_size ~width:400 ~height:300;
+  help_win#set_default_size ~width:1000 ~height:1000;
   help_win#show ()
 

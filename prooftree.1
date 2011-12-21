@@ -4,9 +4,7 @@
 .SH NAME
 prooftree \- visualize proof trees for ProofGeneral
 .SH SYNOPSIS
-.B prooftree [-geometry \fIspec\fB] [\fB-tee \fIfile\fB] [-debug]
-.P
-.B prooftree -help
+.B prooftree \fR[\fIOptions...\fR]
 .SH DESCRIPTION
 .\" ============= paragraph general purpose ===================================
 .B Prooftree
@@ -54,11 +52,19 @@ see
 below.
 .\"
 .\" ==========================================================================
-.\" ================ Static Options ==========================================
+.\" ================ Options =================================================
 .\" ==========================================================================
 .\"
 .SH OPTIONS
-.\" ==========================================================================
+.\" ======================================= -help ============================
+.IP "-help"
+Print synopsis and exit.
+.\" ======================================= -config ==========================
+.IP "-config"
+Open the configuration dialog on startup (if you want to change
+the configuration without starting 
+.B Proof General\fR).
+.\" ======================================= -geometry ========================
 .IP "-geometry \fIspec\fR"
 Sets the X geometry of the main window.
 .I spec
@@ -72,9 +78,10 @@ Write all input to
 .\" ======================================= -debug ===========================
 .IP "-debug"
 Provide more details on errors.
-.\" ======================================= -help ============================
-.IP "-help"
-Print synopsis and exit.
+.\" ======================================= -help-dialog =====================
+.IP "-help-dialog"
+Open the help dialog on startup. Mainly useful for proofreading
+the help text.
 .\"
 .\" ==========================================================================
 .\" ================ Main Window =============================================
@@ -83,21 +90,36 @@ Print synopsis and exit.
 .SH MAIN PROOF DISPLAY
 .B Prooftree
 opens one window for each proof that it is requested to display.
-Below the proof-tree graph this window contains a display for
+This window contains the proof-tree graph and a small display for
 sequents and proof commands. 
 .\" ==========================================================================
 .SS Colors
 The branches in the proof-tree graph are colored
 according to their state. 
 .B Prooftree
-distinguishes between proved branches without non-instantiated
-existential variables (green by default), proved branches with
-some non-instantiated existential variables (cyan by default),
-the branch to the current goal (blue by default), branches
-finished with a cheating command such as
-.I admit
-(red by default) and the currently open branches (in the default
-foreground color). The colors as well as many other
+distinguishes between the following states.
+.IP "current (blue by default)"
+The current branch is the branch from the root of the proof tree
+to the current goal.
+.IP "unproven (default foreground color)"
+A branch is unproven if it contains open proof goals.
+.IP "proved incomplete (cyan by default)"
+An incompletely proved branch has its proof finished, but some of
+the existential variables that have been introduced in this
+branch are not (yet) instantiated.
+.IP "proved partially (dark green by default)"
+In a partially proved branch all existential variables of the
+branch itself are instantiated, but some of those instantiations
+contain existential variables that are not (yet) instantiated.
+.IP "proved complete (green by default)"
+A branch is proved complete if all its existential variables are
+instantiated with terms that themselves do not contain any
+existential variables.
+.IP "cheated (red by default)"
+A cheated branch contains a cheating proof command, such as 
+.I admit\f.
+.P
+The colors as well as many other
 .B Prooftree
 parameters can be changed in the 
 .B Prooftree Configuration Dialog
@@ -144,9 +166,11 @@ button is pressed.
 .\" ==========================================================================
 .SS Existential Variables
 .B Prooftree
-keeps track of existential variables and whether they have
-already been instantiated. It uses different colors to display
-branches with and without non-instantiated existential variables.
+keeps track of existential variables, whether they have been
+instantiated and whether they depend on some other, not (yet)
+instantiated existential. It uses different colors for proved
+branches that contain non-instantiated existential variables and
+branches that only depend on some not instantiated existential.
 The list of currently not (yet) instantiated existential
 variables is appended to proof commands and sequents in tool-tips
 and the other displays.
@@ -154,17 +178,12 @@ and the other displays.
 .P
 The
 .B Existential Variable Dialog
-displays a table with all existential variables that currently
-appear in the proof. Each line of the table contains a button
-that marks the proof command that introduced this variable (with
-yellow background, by default) and, if present, the proof command
-that instantiated this variable (with orange background, by
-default). Dependencies between different existential variables
-(i.e., 
-.I X
-appears in the instantiation of 
-.I Y\fR)
-cannot be displayed.
+displays a table with all existential variables of the current
+proof and their dependencies. Each line of the table contains a
+button that marks the proof command that introduced this variable
+(with yellow background, by default) and, if present, the proof
+command that instantiated this variable (with orange background,
+by default). 
 .\" ==========================================================================
 .SS Main Menu
 A right-click or the 
@@ -240,17 +259,12 @@ followed by the name of the customization group inside
 .\" ==========================================================================
 .\"
 .SH PREREQUISITES
-Currently
 .B Prooftree
-requires a special development version of
-.B ProofGeneral
-(the 
-.I ProofTreeBranch
-of the 
-.B ProofGeneral
-cvs repository) together with a patched version of 
+requires the development versions of 
 .B Coq
-(including the ID patch).
+and 
+.B Proof General
+from the respective repositories from January 2012 or later.
 .\"
 .\" ==========================================================================
 .\" ================ Files ===================================================
