@@ -1,3 +1,7 @@
+2011-12-21  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* handle display quit and prooftree process termination
+
 2011-12-20  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* delete other_open_goals field from internal state
@@ -31,6 +35,8 @@
 	  - improve starting prooftree in the middle of a proof
 	  - assert-until-point no longer called inside the
 	    process filter
+
+	  - improve error handling when prooftree cannot be found
 
 2011-12-16  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 

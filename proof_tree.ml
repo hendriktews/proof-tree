@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.33 2011/12/20 10:33:37 tews Exp $
+ * $Id: proof_tree.ml,v 1.34 2011/12/21 07:38:01 tews Exp $
  *)
 
 
@@ -34,6 +34,7 @@ open Util
 open Configuration
 open Draw_tree
 open Proof_window
+open Emacs_commands
 
 
 (** Internal exception for state mismatches. This exception is raised
@@ -844,7 +845,10 @@ let quit_proof proof_name =
     | None -> ()
     | Some pt ->
       if pt.proof_name = proof_name
-      then current_proof_tree := None
+      then begin
+	current_proof_tree := None;
+	emacs_callback_stop_display ();	  
+      end
   );
   clear_proof_tree_lists proof_name
 
