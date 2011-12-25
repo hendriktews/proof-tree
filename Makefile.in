@@ -19,7 +19,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
 ## 
-## $Id: Makefile.in,v 1.15 2011/12/21 07:38:01 tews Exp $
+## $Id: Makefile.in,v 1.16 2011/12/25 21:10:45 tews Exp $
 ## 
 ## Commentary: Makefile
 ## 
@@ -77,6 +77,7 @@ ML_SOURCES:=\
 	proof_window.ml \
 	emacs_commands.ml \
 	proof_tree.ml \
+	coq.ml \
 	input.ml \
 	main.ml
 
@@ -160,3 +161,7 @@ prooftree.html: prooftree.1
 		    -e 's|/cgi-bin/man/man2html?1.\([^"]*\)|http://www.linuxmanpages.com/man1/\1.1.php|' \
 		    -e 's|HREF="/cgi-bin/man/man2html">man2html|HREF="http://www.nongnu.org/man2html/">man2html|' \
 		> $@
+
+.PHONY: sloc
+sloc:
+	wc $(SOURCES)
