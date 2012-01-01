@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.42 2011/12/20 08:21:18 tews Exp $
+ * $Id: proof_window.ml,v 1.43 2012/01/01 19:25:29 tews Exp $
  *)
 
 
@@ -84,6 +84,17 @@ object (self)
       variables, if present. 
   *)
   val mutable existential_window = None
+
+  (** When we are asked to destroy this proof-tree window (because of
+      an undo or because Proof General sent a quit-proof command) then
+      the destruction of the top-level GTK window will emit a destroy
+      signal that we interpret as a user destroy button click.
+      Further, the deletion of this proof from the various list with
+      proof_tree structures, might cause a second call of the
+      {!delete_proof_window} method. This flag is used to avoid this
+      double or triple killing.
+  *)
+  val mutable destroy_in_progress = false
 
   method set_root r = 
     root <- Some (r : proof_tree_element)
@@ -324,18 +335,23 @@ object (self)
     a#set_value new_val
 
   method delete_proof_window =
-    List.iter (fun w -> w#delete_non_sticky_node_window) node_windows;
-    self#destroy_existential_dialog;
-    let self = (self :> proof_window) in
-    cloned_proof_windows :=
-      List.fold_left 
+    if destroy_in_progress = false then begin
+      destroy_in_progress <- true;
+      List.iter (fun w -> w#delete_non_sticky_node_window) node_windows;
+      self#destroy_existential_dialog;
+      let self = (self :> proof_window) in
+      cloned_proof_windows :=
+	List.fold_left 
         (fun res w -> if w = self then res else w :: res)
         [] !cloned_proof_windows;
-    top_window#destroy()
+      top_window#destroy()
+    end
 
   method user_delete_proof_window () =
-    !delete_proof_tree_callback proof_name;
-    self#delete_proof_window
+    if destroy_in_progress = false then begin
+      !delete_proof_tree_callback proof_name;
+      self#delete_proof_window
+    end
 
   method private delete_proof_window_event _ =
     self#user_delete_proof_window ();
@@ -1094,11 +1110,14 @@ let rec make_proof_window name geometry_string =
    * ignore(drawing_area#event#connect#configure
    * 	   ~callback:proof_window#draw_area_configure_callback);
    *)
+
   ignore(top_window#connect#destroy 
 	   ~callback:proof_window#user_delete_proof_window);
+
   (* the delete event yields a destroy signal if not handled *)
-    (* ignore(top_window#event#connect#delete 
-       ~callback:proof_window#delete_proof_window); *)
+  (* ignore(top_window#event#connect#delete 
+     ~callback:proof_window#delete_proof_window); *)
+
     (* 
      * ignore(drawing_area#misc#set_can_focus true);
      * ignore(drawing_area#event#connect#key_press 
