@@ -10,6 +10,9 @@ timestamp=$(date '+%Y-%m-%d')
 
 dir="prooftree-$timestamp"
 
+export DEBEMAIL="hendrik@askra.de"
+export DEBFULLNAME="Hendrik Tews"
+
 if [ $(hostname) = "blau" ] ; then
     storecvs=/home/tews/Store
 else
@@ -77,6 +80,18 @@ tgzfile="$subdir.tar.gz"
 
 tar -czf $tgzfile $subdir
 
+cp $tgzfile prooftree_$version.orig.tar.gz
+
+cp -a $subdir $subdir-orig
+
+pushd $subdir
+
+./configure --prefix /usr
+
+debuild -i -us -uc -b
+
+popd
+# back in $dir
 
 echo
 echo copy README $tgzfile

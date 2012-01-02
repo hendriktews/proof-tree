@@ -4,7 +4,7 @@ This work was packaged for Debian by:
 
 It was downloaded from:
 
-    <url://askra.de/software>
+    http://askra.de/software/prooftree
 
 Upstream Author(s):
 
@@ -36,13 +36,4 @@ The Debian packaging is:
 
     Copyright (C) 2012 Hendrik Tews <hendrik@askra.de>
 
-# Please chose a license for your packaging work. If the program you package
-# uses a mainstream license, using the same license is the safest choice.
-# Please avoid to pick license terms that are more restrictive than the
-# packaged work, as it may make Debian's contributions unacceptable upstream.
-# If you just want it to be GPL version 3, leave the following line in.
-
 and is licensed under the GPL version 3, see above.
-
-# Please also look if there are files or directories which have a
-# different copyright/license attached and list them here.

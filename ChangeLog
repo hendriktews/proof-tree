@@ -1,5 +1,10 @@
 2012-01-02  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
+	* clean up copyright
+	* packaging in make-release
+
+2012-01-02  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
 	* DESTDIR
 	* copyright 2012
 	* add make-release
