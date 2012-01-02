@@ -56,6 +56,9 @@ EOF
 	< changes.html > $webdir/recent-changes.html
 fi
 
+#######################################################################
+# make source and bin package
+
 version=$(cat version.txt)
 
 subdir="prooftree-$version"
@@ -90,11 +93,15 @@ pushd $subdir
 
 debuild -i -us -uc -b
 
+make prooftree.man.html
+
 popd
 # back in $dir
 
+debfile=$(ls *.dep)
+
 echo
-echo copy README $tgzfile
+echo copy prooftree.man.html $tgzfile $debfile
 echo to $webdir
 echo -n [Y/n]?
 read answer
@@ -103,8 +110,9 @@ if [  ${answer:=y} = n -o $answer = N ] ; then
     exit 0
 fi
 
-cp $subdir/README $webdir/README
+cp $subdir/prooftree.man.html $webdir
 cp $tgzfile $webdir/releases
+cp $debfile $webdir/releases
 
 popd
 # back in /tmp/tews
@@ -118,29 +126,29 @@ echo Fix download links in website ?
 echo -n [Y/n]?
 read answer
 
-if [  ${answer:=y} = n -o $answer = N ] ; then
-    exit 0
-fi
+# if [  ${answer:=y} = n -o $answer = N ] ; then
+#     exit 0
+# fi
 
-oldlink=$(sed -n -e '/LATEST VERSION LINK/ {s/<![^>]*>//
-       	  	   	   	            s/\[prooftree-//
-				            s/.tar.gz\]//
-                                            s/>$/>,/
-                                            p
-				           }' < $webdir/index.shtml)
+# oldlink=$(sed -n -e '/LATEST VERSION LINK/ {s/<![^>]*>//
+#        	  	   	   	            s/\[prooftree-//
+# 				            s/.tar.gz\]//
+#                                             s/>$/>,/
+#                                             p
+# 				           }' < $webdir/index.shtml)
 
 
-newlink="<!-- LATEST VERSION LINK --><A HREF=\"releases/$tgzfile\">[$tgzfile]<\\/A>"
+# newlink="<!-- LATEST VERSION LINK --><A HREF=\"releases/$tgzfile\">[$tgzfile]<\\/A>"
 
-cp $webdir/index.shtml $webdir/index.shtml.$(date +%s)~
+# cp $webdir/index.shtml $webdir/index.shtml.$(date +%s)~
 
-sed -e "/LATEST VERSION LINK/ c$newlink" \
-    -e "/^<P>Previous versions:/ {p
-                             c$oldlink
-                            }" \
-    < $webdir/index.shtml > $webdir/indexnew.shtml
+# sed -e "/LATEST VERSION LINK/ c$newlink" \
+#     -e "/^<P>Previous versions:/ {p
+#                              c$oldlink
+#                             }" \
+#     < $webdir/index.shtml > $webdir/indexnew.shtml
 
-mv $webdir/indexnew.shtml $webdir/index.shtml
+# mv $webdir/indexnew.shtml $webdir/index.shtml
 
 
 echo

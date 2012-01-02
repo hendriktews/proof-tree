@@ -19,7 +19,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
 ## 
-## $Id: Makefile.in,v 1.17 2012/01/02 15:50:49 tews Exp $
+## $Id: Makefile.in,v 1.18 2012/01/02 20:50:26 tews Exp $
 ## 
 ## Commentary: Makefile
 ## 
@@ -151,10 +151,10 @@ clean:
 TAGS: $(SOURCES)
 	otags $(SOURCES)
 
-prooftree.man: prooftree.1
+prooftree.man.txt: prooftree.1
 	nroff -man $< > $@
 
-prooftree.html: prooftree.1
+prooftree.man.html: prooftree.1
 	man2html $< | \
 		tail -n +3 |\
 		sed -e 's|<A HREF=".*Return to Main Contents</A>||' \

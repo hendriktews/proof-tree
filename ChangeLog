@@ -1,5 +1,10 @@
 2012-01-02  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
+	* separate INSTALL
+	* make-release update
+
+2012-01-02  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
 	* update README, changes, man page
 
 2012-01-02  Hendrik Tews  <tews@os.inf.tu-dresden.de>

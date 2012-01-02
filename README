@@ -15,63 +15,6 @@ on the Prooftree website.
 
 
 ============================================================================
-  PREREQUISITES
-============================================================================
-
-Make sure you have a recent (cvs) development version of Proof General and
-Coq 8.4beta or greater. For installation instructions see
-http://proofgeneral.inf.ed.ac.uk/devel and http://coq.inria.fr/coq-84
-
-If you want to install Prooftree from sources you need ocaml with the Gtk
-bindings from the LablGtk2 library installed. The configure script checks
-if
-
-    ocamlopt.opt -I +lablgtk2 lablgtk.cmxa gtkInit.cmx
-
-runs without errors. For Debian, installing the packages ocaml-nox and
-liblablgtk2-ocaml-dev suffice (but the package ocaml-native-compilers is
-strongly recommended for binary compilation).
-
-
-============================================================================
-  INSTALLATION
-============================================================================
-
-1. Configure with
-
-   ./configure
-
-   optionally supply -prefix <dir> or -bindir <dir> to set the installation
-   directories. 
-
-2. Compile with
-
-   make all
-
-3. Acquire the necessary rights and install with
-
-   make install
-
-
-============================================================================
-  EMACS CONFIGURATION
-============================================================================
-
-Before you can enjoy prooftree you have to configure Emacs to find
-prooftree and use the right versions of Proof General and Coq. Of course
-you have to disable any other setting that select a particular Proof
-General or Coq version.
-
-1. Prooftree is controlled by Proof General as a subprocess of Emacs. You
-   therefore have to make sure Emacs loads the right version of Proof
-   General (from the ProofTreeBranch). Put
-
-   (load-file "<pg-dir>/generic/proof-site.el")
-
-   in your .emacs, where <pg-dir> is the installation directory of the
-   ProofTreeBranch version of Proof General.
-
-============================================================================
   USAGE
 ============================================================================
 

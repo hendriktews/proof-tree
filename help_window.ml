@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: help_window.ml,v 1.10 2012/01/02 15:50:50 tews Exp $
+ * $Id: help_window.ml,v 1.11 2012/01/02 20:50:26 tews Exp $
  *)
 
 
@@ -252,6 +252,6 @@ let show_help_window () =
   ignore(help_win#connect#destroy ~callback:(fun () -> help_win#destroy()));
   ignore(help_win#connect#response ~callback:(fun _ -> help_win#destroy()));
   help_win#set_default_size ~width:400 ~height:300;
-  help_win#set_default_size ~width:1000 ~height:1000;
+  (* help_win#set_default_size ~width:1000 ~height:1000; *)
   help_win#show ()
 
