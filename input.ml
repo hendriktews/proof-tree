@@ -19,12 +19,11 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.25 2011/12/31 12:05:34 tews Exp $
+ * $Id: input.ml,v 1.26 2012/01/02 10:11:56 tews Exp $
  *)
 
 
 (** Reading commands from nonblocking stdin *)
-
 
 (*****************************************************************************
  *****************************************************************************)
@@ -69,6 +68,16 @@
     display-command line is ommitted in the following list.
     {ul
 
+    {-  {v configure for "PA" and protocol version NN v}
+
+    Configure Prooftree for proof assistant PA and communication
+    protocol version NN. If proof assistant PA or version NN is not
+    supported, Prooftree displays an error message and exits. The name
+    PA might contain arbitrary characters but no quotation mark ( '"' ).
+
+    There must always be exectly one configure message, which must be
+    the first message. 
+    }
     {-  {v current-goals state %d current-sequent %s \
     {cheated|not-cheated} proof-name-bytes %d command-bytes %d \
     sequent-text-bytes %d additional-id-bytes %d existential-bytes %d\n\
@@ -178,9 +187,16 @@
     }
     }
     }
+*)
+
+(** Version number of the communication protocol described and
+    implemented by this module.
+*)
+let protocol_version = 1
 
 
-    {2 General remarks}
+
+(** {2 General remarks}
 
     This module reads display commands from a pipe. It may therefore happen
     that the input buffer depletes in the middle of a command. In this
@@ -200,6 +216,7 @@
     partially filled buffers and index variables in the closure of
     [current_parser]. 
 *)
+
 (*****************************************************************************
 *****************************************************************************)
 
@@ -226,16 +243,15 @@ module U = Unix
 exception Protocol_error of string * (exn * string) option
 
 
-(* 
- * (\** Check and configure for a specific proof assistant. Currently only
- *     ["Coq"] is supported and no Coq specific configuration is done here.
- * *\)
- * let match_proof_assistant = function
- *   | "Coq" -> ()
- *   | pa -> 
- *     raise (Protocol_error ("unknown proof assistant " ^ pa, None))
- *)
-
+(** Parsing function for the info string of existential variables.
+    This function is proof assistant specific and must therefore be
+    set when the configure message is received in
+    {!configure_prooftree}. The default value here is a valid parser
+    that can be used for proof assistants that have no existential
+    variables.
+*)
+let parse_existential_info =
+  ref(fun _ -> ([], []) : string -> (string list * (string * string list) list))
 
 (** Forward pointer to {!message_start}. Initialized in 
     {!setup_input}. The forward pointer is needed, because various 
@@ -348,6 +364,51 @@ let get_string len continuation_fn =
   get_string_cont s 0 len continuation_fn ()
 
 
+(******************************************************************************
+ ******************************************************************************
+ * configure for "PA" and protocol version NN
+ *)
+
+(** {3 Configure command parser} *)
+
+(** [true] if the configure message has been received. *)
+let configure_message_received = ref false
+
+(** Raise an error if no configure message has been received yet. *)
+let check_if_configured () =
+  if not !configure_message_received then
+    raise (Protocol_error ("Configure message missing", None))
+
+(** Process the configure message. Raise an error if the proof
+    assistant or the communication protocol version is not supported.
+    This function is the place were a new proof assistant must be
+    added.
+*)
+let configure_prooftree proof_assistant pg_protocol_version =
+  if !configure_message_received then
+    raise (Protocol_error ("Received a second configure message", None));
+  (match proof_assistant with
+    | "Coq" -> 
+      parse_existential_info := Coq.coq_parse_existential_info
+    | _ -> 
+      raise (Protocol_error ("Unknown proof assistant " ^ proof_assistant,
+			     None))
+  );
+  if protocol_version <> pg_protocol_version then
+    raise (Protocol_error 
+	     ((Printf.sprintf
+		 ("Communication protocol mismatch.\n"
+		  ^^ "Proof General uses version %02d\n"
+		  ^^ "but this version of Prooftree supports version %02d")
+		 pg_protocol_version protocol_version),
+	      None));
+  configure_message_received := true
+
+
+(** Parse the configure message and process it. *)
+let parse_configure com_buf =
+  Scanf.bscanf com_buf 
+    " for \"%s@\" and protocol version %d" configure_prooftree
 
 (******************************************************************************
  ******************************************************************************
@@ -401,8 +462,7 @@ let parse_current_goals_finish state current_sequent_id cheated_string
   let additional_ids = string_split ' ' additional_ids_string in
   let existentials_string = chop_final_newlines existentials_string in
   let (ex_uninst, ex_inst) = 
-    Coq.coq_parse_existential_info existentials_string in
-  current_parser := !message_start_parser;
+    !parse_existential_info existentials_string in
   Proof_tree.process_current_goals state proof_name proof_command cheated_flag
     current_sequent_id current_sequent_text additional_ids ex_uninst ex_inst
     
@@ -413,6 +473,7 @@ let parse_current_goals_finish state current_sequent_id cheated_string
     {!Input.parse_current_goals_finish} is called.
 *)
 let parse_current_goals com_buf =
+  check_if_configured ();
   Scanf.bscanf com_buf 
     (" state %d current-sequent %s %s proof-name-bytes %d "
      ^^ "command-bytes %d sequent-text-bytes %d "
@@ -458,7 +519,6 @@ let parse_current_goals com_buf =
 let parse_update_sequent_finish state sequent_id proof_name sequent_text =
   let proof_name = chop_final_newlines proof_name in
   let sequent_text = chop_final_newlines sequent_text in
-  current_parser := !message_start_parser;
   Proof_tree.update_sequent state proof_name sequent_id sequent_text
 
 
@@ -468,6 +528,7 @@ let parse_update_sequent_finish state sequent_id proof_name sequent_text =
     {!Input.parse_update_sequent_finish}.
 *)
 let parse_update_sequent com_buf =
+  check_if_configured ();
   Scanf.bscanf com_buf
     " state %d sequent %s proof-name-bytes %d sequent-text-bytes %d"
     (fun state sequent_id proof_name_bytes sequent_text_bytes ->
@@ -497,7 +558,6 @@ let parse_update_sequent com_buf =
 *)
 let parse_switch_goal_finish state new_current_id proof_name =
   let proof_name = chop_final_newlines proof_name in
-  current_parser := !message_start_parser;
   Proof_tree.switch_to state proof_name new_current_id
 
 
@@ -507,6 +567,7 @@ let parse_switch_goal_finish state new_current_id proof_name =
     data section and finally calls {!Input.parse_switch_goal_finish}.
 *)
 let parse_switch_goal com_buf =
+  check_if_configured ();
   Scanf.bscanf com_buf
     " state %d sequent %s proof-name-bytes %d"
     (fun state new_current_id proof_name_bytes ->
@@ -546,7 +607,6 @@ let parse_proof_complete_finish state cheated_string proof_name proof_command =
   in
   let proof_name = chop_final_newlines proof_name in
   let proof_command = chop_final_newlines proof_command in
-  current_parser := !message_start_parser;
   Proof_tree.process_proof_complete state proof_name proof_command cheated_flag
 
 
@@ -556,6 +616,7 @@ let parse_proof_complete_finish state cheated_string proof_name proof_command =
     {!Input.parse_proof_complete_finish}.
 *)
 let parse_proof_complete com_buf =
+  check_if_configured ();
   Scanf.bscanf com_buf " state %d %s proof-name-bytes %d command-bytes %d"
     (fun state cheated_string proof_name_bytes command_bytes ->
       get_string proof_name_bytes 
@@ -577,12 +638,8 @@ let parse_proof_complete com_buf =
 (** Parse an [undo-to] command and call {!Proof_tree.undo} to process it.
 *)
 let do_undo com_buf =
-  Scanf.bscanf com_buf " state %d"
-    (fun state -> 
-      current_parser := !message_start_parser;
-      Proof_tree.undo state
-    )
-
+  check_if_configured ();
+  Scanf.bscanf com_buf " state %d" Proof_tree.undo
 
 
 (*****************************************************************************
@@ -601,7 +658,6 @@ let do_undo com_buf =
 *)
 let parse_quit_proof_finish proof_name =
   let proof_name = chop_final_newlines proof_name in
-  current_parser := !message_start_parser;
   Proof_tree.quit_proof proof_name
 
 
@@ -611,6 +667,7 @@ let parse_quit_proof_finish proof_name =
     {!Input.parse_quit_proof_finish}.
 *)
 let parse_quit_proof com_buf =
+  check_if_configured ();
   Scanf.bscanf com_buf " proof-name-bytes %d"
     (fun proof_name_bytes ->
       get_string proof_name_bytes parse_quit_proof_finish)
@@ -637,6 +694,7 @@ let parse_command command =
   let com_buf = Scanf.Scanning.from_string command in
   Scanf.bscanf com_buf "%s " 
     (function
+      | "configure" -> parse_configure com_buf
       | "current-goals" -> parse_current_goals com_buf
       | "update-sequent" -> parse_update_sequent com_buf
       | "switch-goal" -> parse_switch_goal com_buf
@@ -647,6 +705,7 @@ let parse_command command =
 	raise (Protocol_error ("Parse error on input \"" ^ command ^ "\"",
 			       None))
     );
+  current_parser := !message_start_parser;
   (* Printf.fprintf (debugc()) "PC finished\n%!"; *)
   ()
 
@@ -777,7 +836,7 @@ let parse_input_callback_ex clist =
       let prev_exception = ref None in
       (match e with
 	| Protocol_error(err, prev_e) ->
-	  Printf.bprintf buf "Protocol error %s\nClosing connection." err;
+	  Printf.bprintf buf "Protocol error!\n%s\nClosing connection." err;
 	  prev_exception := prev_e
 	| _ ->
 	  Buffer.add_string buf
