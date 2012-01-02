@@ -1,0 +1,19 @@
+Source: prooftree
+Section: x11
+Priority: optional
+Maintainer: Hendrik Tews <hendrik@askra.de>
+Build-Depends: debhelper (>= 7.0.50~), autotools-dev, ocaml-native-compilers, liblablgtk2-ocaml-dev
+Standards-Version: 3.8.4
+Homepage: http://askra.de/software/prooftree
+#Vcs-Git: git://git.debian.org/collab-maint/prooftree.git
+#Vcs-Browser: http://git.debian.org/?p=collab-maint/prooftree.git;a=summary
+
+Package: prooftree
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: proof-tree display for Proof General
+ Prooftree visualizes proof trees during proof development with Proof
+ General. Currently, it only works for Coq. 
+ .
+ To make use of this package you need Coq version 8.4 and Proof
+ General version 4.2.

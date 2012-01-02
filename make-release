@@ -1,0 +1,196 @@
+#!/bin/bash
+
+#set -x
+set -e
+
+commit_changes="yes"
+commit_changes="no"
+
+timestamp=$(date '+%Y-%m-%d')
+
+dir="prooftree-$timestamp"
+
+if [ $(hostname) = "blau" ] ; then
+    storecvs=/home/tews/Store
+else
+    storecvs=blau:/home/tews/Store
+fi
+
+webdir=/home/tews/www/alfa-www/askra-root/software/prooftree
+
+
+if [ $commit_changes = "yes" ] ; then
+
+    sed -i.$(date +%s)~ -e "s/^<DT>XXXX-XX-XX/<DT>$timestamp/" changes.html
+
+    cvsmessage="* prepare changes.html for release"
+
+    cat - ChangeLog > newchangelog <<EOF
+$(date +%Y-%m-%d)  Hendrik Tews <prooftree@askra.de>
+
+	$cvsmessage
+
+EOF
+
+    mv newchangelog ChangeLog
+
+    cvs update | grep -v '^?' | grep -v '^cvs update: Updating'
+
+    echo
+    echo Commit and copy patched [recent-]changes.html : 
+    echo cvs commit -m "$cvsmessage" . ?
+    echo -n [Y/n]?
+    read answer
+
+    if [  ${answer:=y} = n -o $answer = N ] ; then
+	exit 0
+    fi
+
+    cvs commit -m "$cvsmessage" .
+    cp changes.html $webdir
+
+    sed -n -e '/RECENT CHANGES START/,/RECENT CHANGES END/p' \
+	< changes.html > $webdir/recent-changes.html
+fi
+
+version=$(cat version.txt)
+
+subdir="prooftree-$version"
+
+pushd /tmp/tews
+
+rm -rf prooftree-*
+
+mkdir $dir
+pushd $dir
+
+cvs -d $storecvs export -r HEAD -d $subdir src/proof-tree
+
+pushd $subdir
+
+rm -f make-bundle make-release
+
+popd
+# back in $dir
+
+tgzfile="$subdir.tar.gz"
+
+tar -czf $tgzfile $subdir
+
+
+echo
+echo copy README $tgzfile
+echo to $webdir
+echo -n [Y/n]?
+read answer
+
+if [  ${answer:=y} = n -o $answer = N ] ; then
+    exit 0
+fi
+
+cp $subdir/README $webdir/README
+cp $tgzfile $webdir/releases
+
+popd
+# back in /tmp/tews
+
+popd
+# back to startdir
+
+
+echo
+echo Fix download links in website ?
+echo -n [Y/n]?
+read answer
+
+if [  ${answer:=y} = n -o $answer = N ] ; then
+    exit 0
+fi
+
+oldlink=$(sed -n -e '/LATEST VERSION LINK/ {s/<![^>]*>//
+       	  	   	   	            s/\[prooftree-//
+				            s/.tar.gz\]//
+                                            s/>$/>,/
+                                            p
+				           }' < $webdir/index.shtml)
+
+
+newlink="<!-- LATEST VERSION LINK --><A HREF=\"releases/$tgzfile\">[$tgzfile]<\\/A>"
+
+cp $webdir/index.shtml $webdir/index.shtml.$(date +%s)~
+
+sed -e "/LATEST VERSION LINK/ c$newlink" \
+    -e "/^<P>Previous versions:/ {p
+                             c$oldlink
+                            }" \
+    < $webdir/index.shtml > $webdir/indexnew.shtml
+
+mv $webdir/indexnew.shtml $webdir/index.shtml
+
+
+echo
+echo Upload website?
+echo -n [Y/n]?
+read answer
+
+if [  ${answer:=y} = n -o $answer = N ] ; then
+    exit 0
+fi
+
+/home/tews/www/update-sys
+
+release_tag=prooftree-release-$version
+
+echo
+echo cvs tag $release_tag ?
+echo -n [Y/n]?
+read answer
+
+if [ ${answer:=y} = n -o $answer = N ] ; then
+    exit 0
+fi
+
+cvs tag $release_tag
+
+echo
+echo bump version number?
+echo -n [Y/n]?
+read answer
+
+if [  ${answer:=y} = n -o $answer = N ] ; then
+    exit 0
+fi
+
+pt_old_version=$(sed -e 's/0\.//' < version.txt)
+pt_version=$(($pt_old_version + 1))
+
+
+cp version.txt version.txt.$(date +%s)~
+echo 0.$pt_version > version.txt
+
+releasetime=$(TZ=UTC date '+%Y-%m-%d %H:%M:%S %Z')
+cvsmessage="* release version 0.$pt_old_version on $releasetime"
+
+cat - ChangeLog > newchangelog <<EOF
+$(date +%Y-%m-%d)  Hendrik Tews <prooftree@askra.de>
+
+	$cvsmessage
+
+EOF
+
+mv newchangelog ChangeLog
+
+cvs update | grep -v '^?' | grep -v '^cvs update: Updating'
+
+
+echo
+echo cvs commit -m "$cvsmessage" . ??
+echo -n [Y/n]?
+read answer
+
+if [  ${answer:=y} = n -o $answer = N ] ; then
+    exit 0
+fi
+
+cvs commit -m "$cvsmessage" .
+

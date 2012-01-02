@@ -1,5 +1,12 @@
 2012-01-02  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
+	* DESTDIR
+	* copyright 2012
+	* add make-release
+	* add debian subdir
+
+2012-01-02  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
 	* protocol change: configure message required as first
 	  message
 	* set protocol version to 1
