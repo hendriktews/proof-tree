@@ -2,21 +2,22 @@
 .\"
 .TH PROOFTREE 1 "August 2011" PROOFTREE "User Manuals"
 .SH NAME
-prooftree \- visualize proof trees for ProofGeneral
+prooftree \- proof-tree display for Proof General
 .SH SYNOPSIS
 .B prooftree \fR[\fIOptions...\fR]
 .SH DESCRIPTION
 .\" ============= paragraph general purpose ===================================
 .B Prooftree
-visualizes proof trees during proof development with Proof
-General. Currently it only works for \fBCoq\fR, though adding
+visualizes proof trees during proof development with 
+.B Proof General\fR. 
+Currently it only works for \fBCoq\fR, though adding
 support for other proof assistants should be relatively easy.
 .\" ==========================================================================
 .P
 To start a proof-tree display, hit the 
 .B Prooftree
 icon in the 
-.B ProofGeneral
+.B Proof General
 tool-bar or select the menu entry
 .I Proof-General
 -> 
@@ -27,28 +28,28 @@ or type
 .I proof-tree-external-display-toggle\fR).
 Inside a proof, this will immediately start a proof-tree display
 for the current proof. Outside a proof, 
-.B ProofGeneral
+.B Proof General
 remembers to start the proof-tree display for the next proof.
 .\" ==========================================================================
 .P
 Under normal circumstances
 .B Prooftree
 is started by 
-.B ProofGeneral
+.B Proof General
 as an
 .B Emacs
 subprocess. The user interacts with 
 .B Prooftree
 only through the graphical user interface. A substantial part of
 the proof-tree visualization task is done by
-.B ProofGeneral\fR.
+.B Proof General\fR.
 Therefore not only the 
 .B Prooftree
 command line arguments but also other aspects can only be
 configured inside 
-.B ProofGeneral\fR,
+.B Proof General\fR,
 see 
-.B ProofGeneral Customization
+.B Proof General Customization
 below.
 .\"
 .\" ==========================================================================
@@ -240,7 +241,7 @@ runs. The
 .I Restore
 button loads and applies the saved configuration.
 .\" ==========================================================================
-.SS ProofGeneral Customization
+.SS Proof General Customization
 The location of the 
 .B Prooftree
 executable and the command line arguments are in the
@@ -252,7 +253,7 @@ navigation and cheating commands are in the customization group
 To visit a customization group, type 
 .I M-x customize-group
 followed by the name of the customization group inside 
-.B ProofGeneral\fR.
+.B Proof General\fR.
 .\"
 .\" ==========================================================================
 .\" ================ Prerequisites ===========================================
@@ -260,11 +261,11 @@ followed by the name of the customization group inside
 .\"
 .SH PREREQUISITES
 .B Prooftree
-requires the development versions of 
+requires 
 .B Coq
-and 
+version 8.4beta or greater and a recent (cvs) development version of
 .B Proof General
-from the respective repositories from January 2012 or later.
+(4th January 2012 or later).
 .\"
 .\" ==========================================================================
 .\" ================ Files ===================================================
@@ -272,8 +273,10 @@ from the respective repositories from January 2012 or later.
 .\"
 .SH FILES
 .IP "~/.prooftree"
-Loaded at application start-up for overwriting the built-in
-default configuration. Must contain a marshaled 
+Saved
+.B Prooftree
+configuration. Is loaded at application start-up for overwriting
+the built-in default configuration. Must contain a marshaled
 .B Ocaml
 configuration record.
 .\"
@@ -284,6 +287,13 @@ configuration record.
 .SH SEE ALSO
 .TP
 The \fBProoftree\fR web page, \fIhttp://askra.de/software/prooftree/\fR
+
+.TP
+The \fBProof General Adapting Manual\fR
+contains information about adapting 
+.B Prooftree
+for a new proof assistant (see
+.I http://proofgeneral.inf.ed.ac.uk/adaptingman-latest.html\fR).
 .\"
 .\" ==========================================================================
 .\" ================ Credits =================================================

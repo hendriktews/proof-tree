@@ -8,24 +8,29 @@ proof development in a theorem prover. It is currently being developed for
 Coq and Proof General. See http://askra.de/software/prooftree/ for more
 information.
 
-Currently prooftree only works with a special development version of Proof
-General (cvs version branch ProofTreeBranch) and a patched version of 
-Coq 8.3pl2. It is therefore strongly suggested that you download a
-consistent bundle of Proof General and prooftree together with a suitable
-patch for Coq from the prooftree website. 
+Prooftree requires the (cvs) development version of Proof General
+and Coq version >= 8.4beta. These versions of Proof General and Coq must be
+installed separately. A binary package for Debian Squeeze i386 is available
+on the Prooftree website.
 
 
 ============================================================================
   PREREQUISITES
 ============================================================================
 
-You need ocaml with the Gtk bindings from the LablGtk2 library installed.
-The configure script checks if 
+Make sure you have a recent (cvs) development version of Proof General and
+Coq 8.4beta or greater. For installation instructions see
+http://proofgeneral.inf.ed.ac.uk/devel and http://coq.inria.fr/coq-84
+
+If you want to install Prooftree from sources you need ocaml with the Gtk
+bindings from the LablGtk2 library installed. The configure script checks
+if
 
     ocamlopt.opt -I +lablgtk2 lablgtk.cmxa gtkInit.cmx
 
-runs without errors. For Debian installing the packages ocaml-nox and
-liblablgtk2-ocaml-dev suffice.
+runs without errors. For Debian, installing the packages ocaml-nox and
+liblablgtk2-ocaml-dev suffice (but the package ocaml-native-compilers is
+strongly recommended for binary compilation).
 
 
 ============================================================================
@@ -66,29 +71,6 @@ General or Coq version.
    in your .emacs, where <pg-dir> is the installation directory of the
    ProofTreeBranch version of Proof General.
 
-2. Further, you have to ensure that Proof General launches the Coq version
-   with the ID patches. 
-
-   Either globally set coq-prog-name by inserting
-
-   (setq coq-prog-name "<coq-id-dir>/bin/coqtop")
-
-   into your .emacs or extend Emacs' exec-path by inserting
-
-   (setq exec-path (cons "<coq-id-dir>/bin" exec-path))
-
-   into your .emacs. In both cases <coq-id-dir> stands for the installation
-   directory of Coq containing the ID patches.
-
-3. If you installed prooftree in a non-standard location, you have to set
-   proof-tree-program: Put
-
-   (setq proof-tree-program "<pt-dir>/bin/prooftree")
-
-   where <pt-dir> is the prooftree installation directory. (Alternatively
-   you can extend exec-path, see point 2 above.)
-
-
 ============================================================================
   USAGE
 ============================================================================
@@ -98,7 +80,8 @@ initially disabled. To enable it, hit the prooftree tool-bar icon, select
 menu Proof-General -> Start/Stop Prooftree or type C-c C-d. If you are
 inside a proof any of these actions will launch a proof-tree display for
 the current proof. Otherwise prooftree will be launched as soon as you
-start the next proof.
+start the next proof. Comprehensive usage information is provided by the
+help menu item inside Prooftree and by the Prooftree man page.
 
 
 ============================================================================
@@ -112,6 +95,9 @@ approach.
 
 Please send bug reports, comments, patches, donations to 
 Hendrik Tews <prooftree@askra.de>
+
+Instructions about adding support for a new proof assistant is contained in
+the Proof General Adapting manual.
 
 Prooftree is distributed under GPL version 3.
 Copyright (C) 2011, 2012 Hendrik Tews
