@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: about_window.ml,v 1.3 2012/01/02 15:50:49 tews Exp $
+ * $Id: about_window.ml,v 1.4 2012/01/03 09:40:43 tews Exp $
  *)
 
 
@@ -43,7 +43,7 @@ let about_button = function
 
 let about_comment =
   "Prooftree displays proof trees for Coq under control of \
-   the ProofGeneral user interface. Prooftree has been developed by \
+   the Proof General user interface. Prooftree has been developed by \
    Hendrik Tews and is published under GPL version 3. For more information \
    visit http://askra.de/software/prooftree/."
 

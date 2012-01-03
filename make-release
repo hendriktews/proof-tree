@@ -4,7 +4,7 @@
 set -e
 
 commit_changes="yes"
-commit_changes="no"
+#commit_changes="no"
 
 timestamp=$(date '+%Y-%m-%d')
 
@@ -98,7 +98,7 @@ make prooftree.man.html
 popd
 # back in $dir
 
-debfile=$(ls *.dep)
+debfile=$(ls *.deb)
 
 echo
 echo copy prooftree.man.html $tgzfile $debfile
@@ -121,10 +121,10 @@ popd
 # back to startdir
 
 
-echo
-echo Fix download links in website ?
-echo -n [Y/n]?
-read answer
+# echo
+# echo Fix download links in website ?
+# echo -n [Y/n]?
+# read answer
 
 # if [  ${answer:=y} = n -o $answer = N ] ; then
 #     exit 0
