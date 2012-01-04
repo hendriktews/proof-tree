@@ -121,34 +121,34 @@ popd
 # back to startdir
 
 
-# echo
-# echo Fix download links in website ?
-# echo -n [Y/n]?
-# read answer
+echo
+echo Fix source download links in website ?
+echo -n [Y/n]?
+read answer
 
-# if [  ${answer:=y} = n -o $answer = N ] ; then
-#     exit 0
-# fi
+if [  ${answer:=y} = n -o $answer = N ] ; then
+    exit 0
+fi
 
-# oldlink=$(sed -n -e '/LATEST VERSION LINK/ {s/<![^>]*>//
-#        	  	   	   	            s/\[prooftree-//
-# 				            s/.tar.gz\]//
-#                                             s/>$/>,/
-#                                             p
-# 				           }' < $webdir/index.shtml)
+oldlink=$(sed -n -e '/LATEST VERSION LINK/ {s/<![^>]*>//
+       	  	   	   	            s/\[prooftree-//
+				            s/.tar.gz\]//
+                                            s/>$/>,/
+                                            p
+				           }' < $webdir/index.shtml)
 
 
-# newlink="<!-- LATEST VERSION LINK --><A HREF=\"releases/$tgzfile\">[$tgzfile]<\\/A>"
+newlink="<!-- LATEST VERSION LINK --><A HREF=\"releases/$tgzfile\">[$tgzfile]<\\/A>"
 
-# cp $webdir/index.shtml $webdir/index.shtml.$(date +%s)~
+cp $webdir/index.shtml $webdir/index.shtml.$(date +%s)~
 
-# sed -e "/LATEST VERSION LINK/ c$newlink" \
-#     -e "/^<P>Previous versions:/ {p
-#                              c$oldlink
-#                             }" \
-#     < $webdir/index.shtml > $webdir/indexnew.shtml
+sed -e "/LATEST VERSION LINK/ c$newlink" \
+    -e "/^<P>Previous versions:/ {p
+                             c$oldlink
+                            }" \
+    < $webdir/index.shtml > $webdir/indexnew.shtml
 
-# mv $webdir/indexnew.shtml $webdir/index.shtml
+mv $webdir/indexnew.shtml $webdir/index.shtml
 
 
 echo

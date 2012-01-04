@@ -1,3 +1,9 @@
+prooftree (0.9-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Hendrik Tews <tews@os.inf.tu-dresden.de>  Wed, 04 Jan 2012 16:57:35 +0100
+
 prooftree (0.8-1) unstable; urgency=low
 
   * Initial release

@@ -1,5 +1,9 @@
 2012-01-04  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
+	* fix debian/changelog
+
+2012-01-04  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
 	* fix case where some existential is instantiated with
 	  the last proof command
 	* protocol change
