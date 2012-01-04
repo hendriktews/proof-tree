@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.mli,v 1.12 2012/01/02 15:50:51 tews Exp $
+ * $Id: proof_tree.mli,v 1.13 2012/01/04 15:12:38 tews Exp $
  *)
 
 
@@ -91,14 +91,27 @@ val update_sequent : int -> string -> string -> string -> unit
 val switch_to : int -> string -> string -> unit
 
 
-(** Finish the current proof.
+(** Finish the current proof but keep it current in case some
+    existential gets instantiated or some sequent updated.
 
     @param state state for undo
     @param proof_name name of the proof
     @param proof_command last command
     @param cheated_flag is true if the command is a cheating one
+    @param uninstantiated existential variables
+    @param inst_deps instantiated existential variables with dependencies
 *)
-val process_proof_complete : int -> string -> string -> bool -> unit
+val process_proof_finished : int -> string -> string -> bool -> 
+  string list -> (string * string list) list -> unit
+
+
+(** Display a "Complete" message and retire the current proof.
+
+    @param state state for undo
+    @param proof_name name of the completed proof
+ *)
+val process_proof_complete : int -> string -> unit
+
 
 (** Undo all changes to reach state [state]. That is, all changes with
     a strictly greater state number are undone. Proof trees started

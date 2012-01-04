@@ -1,3 +1,12 @@
+2012-01-04  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* fix case where some existential is instantiated with
+	  the last proof command
+	* protocol change
+	  - rename proof-complete into proof-finished and add
+	    existential info
+	  - add proof-complete message
+
 2012-01-03  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* release version 0.8 on 2012-01-03 10:11:10 UTC

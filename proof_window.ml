@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.44 2012/01/02 15:50:51 tews Exp $
+ * $Id: proof_window.ml,v 1.45 2012/01/04 15:12:38 tews Exp $
  *)
 
 
@@ -769,6 +769,12 @@ object (self)
       | Some node -> node#selected true);
     self#invalidate_drawing_area;
     self#refresh_sequent_area
+
+  (** Make the root node the selected node or clear the selected node
+      if there is no root node
+  *)
+  method select_root_node =
+    self#set_selected_node root
 
   method private save_selected_node_state =
     old_old_selected_node <- old_selected_node;

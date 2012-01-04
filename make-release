@@ -91,7 +91,7 @@ pushd $subdir
 
 ./configure --prefix /usr
 
-debuild -i -us -uc -b
+debuild -i -us -uc
 
 make prooftree.man.html
 
@@ -162,7 +162,7 @@ fi
 
 /home/tews/www/update-sys
 
-release_tag=prooftree-release-$version
+release_tag=prooftree-release-$(echo $version | tr '.' '-')
 
 echo
 echo cvs tag $release_tag ?

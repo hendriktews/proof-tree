@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.35 2012/01/02 15:50:50 tews Exp $
+ * $Id: proof_tree.ml,v 1.36 2012/01/04 15:12:38 tews Exp $
  *)
 
 
@@ -303,7 +303,7 @@ let set_current_node_wrapper pt sequent =
 let current_proof_tree = ref None
 
 
-(** Finishes proof tree [pt] by leaving the current branch open.
+(** Closes the proof tree [pt] by leaving the current branch open.
     Additionally clear {!current_proof_tree}.
 *)
 let stop_proof_tree pt pa_state = 
@@ -329,7 +329,7 @@ let stop_proof_tree_last_selected pt pa_state =
   (match pt.window#get_selected_node with
     | None -> 
       add_undo_action pt pa_state (fun () -> pt.window#set_selected_node None);
-      pt.window#set_selected_node (Some pt.current_sequent);
+      pt.window#select_root_node
     | Some _ -> ());
   stop_proof_tree pt pa_state
 
@@ -804,19 +804,41 @@ let switch_to state proof_name new_current_sequent_id =
       pt.window#message message
 
 
-let process_proof_complete state proof_name proof_command cheated_flag =
+(* See mli for doc *)
+let process_proof_finished state proof_name proof_command cheated_flag
+    uninstatiated_existentials instantiated_ex_deps =
   match !current_proof_tree with
-    | None -> raise (Proof_tree_error "Finish proof without current proof tree")
+    | None -> 
+      raise (Proof_tree_error "proof-finished without current proof tree")
     | Some pt -> 
       if pt.proof_name <> proof_name
       then raise (Proof_tree_error "Finish other non-current proof");
-      finish_branch pt state proof_command cheated_flag [] [];
+      finish_branch pt state proof_command cheated_flag
+	uninstatiated_existentials instantiated_ex_deps;
       let message = 
 	if pt.cheated 
 	then Gtk_ext.pango_markup_bold_color "False proof finished" 
 	  !cheated_gdk_color
 	else Gtk_ext.pango_markup_bold_color "Proof finished" 
 	  !proved_complete_gdk_color
+      in
+      pt.window#message message
+
+
+(* See mli for doc *)
+let process_proof_complete state proof_name =
+  match !current_proof_tree with
+    | None -> 
+      raise (Proof_tree_error "proof-complete without current proof tree")
+    | Some pt ->
+      if pt.proof_name <> proof_name
+      then raise (Proof_tree_error "Completed other non-current proof");
+      let message =
+	if pt.cheated
+	then Gtk_ext.pango_markup_bold_color "False proof completed"
+	  !cheated_gdk_color
+	else Gtk_ext.pango_markup_bold_color "Proof completed"
+	!proved_complete_gdk_color
       in
       pt.window#message message;
       stop_proof_tree_last_selected pt state
