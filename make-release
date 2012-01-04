@@ -4,27 +4,21 @@
 set -e
 
 commit_changes="yes"
-commit_changes="no"
+#commit_changes="no"
 
 timestamp=$(date '+%Y-%m-%d')
 
 dir="prooftree-$timestamp"
 
-export DEBEMAIL="hendrik@askra.de"
-export DEBFULLNAME="Hendrik Tews"
-
-if [ $(hostname) = "blau" ] ; then
-    storecvs=/home/tews/Store
-else
-    storecvs=blau:/home/tews/Store
-fi
-
 webdir=/home/tews/www/alfa-www/askra-root/software/prooftree
 
+version=$(cat version.txt)
 
 if [ $commit_changes = "yes" ] ; then
 
-    sed -i.$(date +%s)~ -e "s/^<DT>XXXX-XX-XX/<DT>$timestamp/" changes.html
+    sed -i.$(date +%s)~ \
+	-e "s/^<DT>XXXX-XX-XX/<DT>$timestamp: Prooftree $version released/" \
+	changes.html
 
     cvsmessage="* prepare changes.html for release"
 
@@ -59,49 +53,25 @@ fi
 #######################################################################
 # make source and bin package
 
-version=$(cat version.txt)
-
 subdir="prooftree-$version"
 
-pushd /tmp/tews
+echo start make-dep-package
 
-rm -rf prooftree-*
+./make-deb-package
 
-mkdir $dir
-pushd $dir
-
-cvs -d $storecvs export -r HEAD -d $subdir src/proof-tree
+pushd /tmp/tews/$dir
 
 pushd $subdir
-
-rm -f make-bundle make-release
-
-popd
-# back in $dir
-
-tgzfile="$subdir.tar.gz"
-
-tar -czf $tgzfile $subdir
-
-cp $tgzfile prooftree_$version.orig.tar.gz
-
-cp -a $subdir $subdir-orig
-
-pushd $subdir
-
-./configure --prefix /usr
-
-debuild -i -us -uc
 
 make prooftree.man.html
 
 popd
 # back in $dir
 
-debfile=$(ls *.deb)
+tgzfile=$(ls prooftree-*.tar.gz)
 
 echo
-echo copy prooftree.man.html $tgzfile $debfile
+echo copy prooftree.man.html $tgzfile
 echo to $webdir
 echo -n [Y/n]?
 read answer
@@ -112,14 +82,9 @@ fi
 
 cp $subdir/prooftree.man.html $webdir
 cp $tgzfile $webdir/releases
-cp $debfile $webdir/releases
-
-popd
-# back in /tmp/tews
 
 popd
 # back to startdir
-
 
 echo
 echo Fix source download links in website ?
@@ -146,7 +111,12 @@ sed -e "/LATEST VERSION LINK/ c$newlink" \
     -e "/^<P>Previous versions:/ {p
                              c$oldlink
                             }" \
+    -e "/UPDATE VERSION/ s/prooftree_[^_]*_/prooftree_$version-1_/" \
     < $webdir/index.shtml > $webdir/indexnew.shtml
+
+
+#diff -u $webdir/index.shtml $webdir/indexnew.shtml
+#exit 0
 
 mv $webdir/indexnew.shtml $webdir/index.shtml
 

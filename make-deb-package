@@ -1,0 +1,72 @@
+#!/bin/bash
+
+#set -x
+set -e
+
+export DEBEMAIL="hendrik@askra.de"
+export DEBFULLNAME="Hendrik Tews"
+
+timestamp=$(date '+%Y-%m-%d')
+
+dir="prooftree-$timestamp"
+webdir=/home/tews/www/alfa-www/askra-root/software/prooftree
+
+if [ $(hostname) = "blau" ] ; then
+    storecvs=/home/tews/Store
+else
+    storecvs=blau:/home/tews/Store
+fi
+
+
+#######################################################################
+# make source and bin package
+
+version=$(cat version.txt)
+
+subdir="prooftree-$version"
+
+tgzfile="$subdir.tar.gz"
+
+pushd /tmp/tews
+
+rm -rf prooftree-*
+
+mkdir $dir
+pushd $dir
+
+cvs -d $storecvs export -r HEAD -d $subdir src/proof-tree
+
+pushd $subdir
+
+rm -f make-bundle make-release
+
+popd
+# back in $dir
+
+tar -czf $tgzfile $subdir
+
+cp $tgzfile prooftree_$version.orig.tar.gz
+
+cp -a $subdir $subdir-orig
+
+pushd $subdir
+
+./configure --prefix /usr
+
+debuild -i -us -uc
+
+popd
+# back in $dir
+
+debfile=$(ls *.deb)
+
+echo
+echo copy $debfile to $webdir
+echo -n [Y/n]?
+read answer
+
+if [  ${answer:=y} = n -o $answer = N ] ; then
+    exit 0
+fi
+
+cp $debfile $webdir/releases
