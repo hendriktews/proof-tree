@@ -4,7 +4,7 @@
 set -e
 
 commit_changes="yes"
-#commit_changes="no"
+commit_changes="no"
 
 timestamp=$(date '+%Y-%m-%d')
 
@@ -130,7 +130,7 @@ if [  ${answer:=y} = n -o $answer = N ] ; then
     exit 0
 fi
 
-/home/tews/www/update-sys
+/home/tews/www/update-sys -web
 
 release_tag=prooftree-release-$(echo $version | tr '.' '-')
 
