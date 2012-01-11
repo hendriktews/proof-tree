@@ -1,5 +1,11 @@
 2012-01-11  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
+	* try lintian possible-documentation,
+	  Debian-watch-file-is-missing,
+	  out-of-date-standards-version
+
+2012-01-11  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
 	* prepare debian/changelog for next release
 
 2012-01-04  Hendrik Tews <prooftree@askra.de>

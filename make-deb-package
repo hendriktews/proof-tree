@@ -51,7 +51,7 @@ cp -a $subdir $subdir-orig
 
 pushd $subdir
 
-./configure --prefix /usr
+#./configure --prefix /usr
 
 debuild -i -us -uc
 
