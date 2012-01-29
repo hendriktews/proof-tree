@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: help_window.ml,v 1.11 2012/01/02 20:50:26 tews Exp $
+ * $Id: help_window.ml,v 1.12 2012/01/29 10:48:21 tews Exp $
  *)
 
 
@@ -78,8 +78,8 @@ that nevertheless depend on some not (yet) instantiated existential variable \
    (Default, ". Colors as well as many ");
    bold_proof_tree;
    (Default, " parameters \
-can be changed in the configuration dialog.
-
+can be changed in the configuration dialog.\
+\
 In addition to scroll bars and the usual keys one can move the proof \
 tree by dragging with mouse button 1 pressed. By default, dragging \
 moves the viewport (i.e., the proof tree underneath moves in the \
@@ -87,31 +87,31 @@ opposite direction). After setting a negative value for ");
    (Italic, "Drag acceleration");
    (Default, " in the Configuration dialog, dragging will move \
 the proof tree instead (i.e, the proof tree moves in the same \
-direction as the mouse).
-
+direction as the mouse).\
+\
 The sequent display below the proof tree \
 normally shows the ancestor sequent of the current \
 goal. With a single left mouse click one can display any goal or proof command \
 in the sequent display. A single click outside the proof tree will switch \
 back to default behavior. The initial size of the sequent display can \
-be set in the configuration dialog. A value of 0 hides the sequent display.
-
+be set in the configuration dialog. A value of 0 hides the sequent display.\
+\
 If turnstile tool tips are switched on, the complete sequent text is \
 displayed as toop tip when the mouse stays above a sequent symbol in the \
-proof tree display.
-
+proof tree display.\
+\
 Long proof commands are truncated with \226\128\166 in the display. The \
 length at which truncation happens can be set in the configuration dialog. \
 Any truncated proof command is displayed in full length as tool tip if the \
-mouse stays long enough above it (and if command tool tips are enabled).
-
+mouse stays long enough above it (and if command tool tips are enabled).\
+\
 A double click or a shift-click displays any goal or proof command \
 in an additional \
 window. These additional windows are deleted when the main proof-tree \
 window disappears, unless their ");
    (Italic, "Sticky");
-   (Default, " button is pressed.
-
+   (Default, " button is pressed.\
+\
 ");
    bold_proof_tree;
    (Default, " keeps track of existential variables, whether they \
@@ -121,20 +121,20 @@ It uses different colors for proved branches that contain non-instantiated \
 existential variables and branches that only depend on some not instantiated \
 existential. Displays with sequents \
 or proof commands (in tool-tips and in additional windows) list those \
-existential variables that are currently not (yet) instantiated.
-   
+existential variables that are currently not (yet) instantiated.\
+\
 A right click or a click on the menu button opens the main menu. The ");
 
    (Italic, "Clone");
    (Default, " menu item clones the current proof tree in a separate \
 proof tree window. This cloned proof tree is not connected with Proof \
-General and won't be updated when the proof is changed.
-
+General and won't be updated when the proof is changed.\
+\
 The ");
    (Italic, "Show current");
    (Default, " menu item repositions the proof tree such that the \
-current proof goal is visible.
-
+current proof goal is visible.\
+\
 The item ");
    (Italic, "Existentials");
    (Default, " opens the dialog for existential variables, which contains \
@@ -150,8 +150,8 @@ this variable ");
 this variable ");
    (Background !existential_instantiate_gdk_color,
     "(with orange background, by default)");
-   (Default, " in the proof-tree display.
-
+   (Default, " in the proof-tree display.\
+\
 The ");
    (Italic, "Configuration");
    (Default, " item displays the configuration dialog. Changing values \
@@ -165,8 +165,8 @@ there does only take effect after the ");
               in the file ");
    (Italic, config_file_location);
    (Default, ", which overwrites the build-in default configuration \
-at start up.
-
+at start up.\
+\
 The ");
    (Italic, "Exit");
    (Default, " item terminates ");
@@ -175,8 +175,8 @@ The ");
    (Italic, "not");
    (Default, " terminate ");
    bold_proof_tree;
-   (Default, ".)
-
+   (Default, ".)\
+\
 A major part of the proof visualization task is done by ");
    (Bold, "Proof General");
    (Default, ". Therefore, certain aspects can only be configured \

@@ -1,3 +1,7 @@
+2012-01-29  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* unescaped string end-of-line warning
+
 2012-01-11  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* structured copyright

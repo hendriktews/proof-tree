@@ -11,11 +11,8 @@ timestamp=$(date '+%Y-%m-%d')
 dir="prooftree-$timestamp"
 webdir=/home/tews/www/alfa-www/askra-root/software/prooftree
 
-if [ $(hostname) = "blau" ] ; then
-    storecvs=/home/tews/Store
-else
-    storecvs=blau:/home/tews/Store
-fi
+export CVSROOT=$(cat CVS/Root)
+echo using CVSROOT $CVSROOT
 
 
 #######################################################################
