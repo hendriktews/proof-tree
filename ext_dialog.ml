@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: ext_dialog.ml,v 1.4 2012/01/02 15:50:50 tews Exp $
+ * $Id: ext_dialog.ml,v 1.5 2012/03/06 14:57:45 tews Exp $
  *)
 
 (** The Existential Variable Dialog *)
@@ -45,7 +45,7 @@ type ext_table_line = {
     callbacks must be set up by the function that creates objects.
 
     Arguments are
-    - proof_window      {!Proof_window.proof_window} to which this 
+    - proof_window      {!class: Proof_window.proof_window} to which this 
 			window is associated to
     - top_window	{!GWindow.window} of the top-level widget
     - ext_table		{!GPack.table} of the main table

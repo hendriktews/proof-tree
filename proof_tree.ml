@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.36 2012/01/04 15:12:38 tews Exp $
+ * $Id: proof_tree.ml,v 1.37 2012/03/06 14:57:45 tews Exp $
  *)
 
 
@@ -115,10 +115,6 @@ type proof_tree = {
 (** State record for displayed proof trees. The code maintains the
     following invariants.
     {ul 
-    {- The field {!uninstantiated_existentials} contains precisely
-    those existential variables that are reachable from the root of
-    this proof tree and not instantiated (i.e., whose second
-    projection is [false].)}
     {- Each live state is in precisely one the lists
     {!all_proof_trees_for_undo}, {!undo_surviver_trees} or
     {!Proof_window.cloned_proof_windows}.}
@@ -208,8 +204,8 @@ let make_new_existential ex_hash ex_name =
 
 (** Walk over all existential variables and update their instantiation
     status. More precisely, for evars that are instantiated (i.e.,
-    have a status of {!Partially_instantiated} or
-    {!Fully_instantiated}) the complete tree of dependencies is
+    have a status of [Partially_instantiated] or [Fully_instantiated],
+    see {!Draw_tree.existential_status}) the complete tree of dependencies is
     scanned and then their status is set appropriately.
 *)
 let update_existential_status ex_hash =

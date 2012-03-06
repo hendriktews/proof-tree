@@ -1,3 +1,10 @@
+2012-03-06  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* ignore overridden methods warning as long as we support 3.11
+	* check-doc makefile goal
+	* add minimal support for HOL Light
+	* add and fix some doc comments
+
 2012-01-29  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* unescaped string end-of-line warning

@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.35 2012/01/02 15:50:50 tews Exp $
+ * $Id: draw_tree.ml,v 1.36 2012/03/06 14:57:45 tews Exp $
  *)
 
 
@@ -50,8 +50,8 @@
     running time is independent of the size of the complete tree. When
     a new node is inserted into the tree, only its direct and indirect
     parent nodes need to recompute their layout data. No sibling node
-    must be visited. The achieve this the nodes do not store absolut
-    positions. Instead nodes only store the width and height of
+    must be visited. To achieve this the nodes do not store absolut
+    positions. Instead, nodes only store the width and height of
     themselves and of their subtrees. 
 
     Adjusting the tree layout when new elements are inserted works
@@ -305,8 +305,8 @@ end
 
 (** [set_children parent children] correctly insert [children] into
     the doubly linked tree as children of node [parent]. After the
-    change {!children_changed} is called on [parent]. Asserts that the
-    children list of [parent] is empty.
+    change {!doubly_linked_tree.children_changed} is called on
+    [parent]. Asserts that the children list of [parent] is empty.
 *)
 let set_children parent children =
   assert(parent#children = []);
@@ -316,8 +316,8 @@ let set_children parent children =
 
 
 (** [clear_children parent] removes all children from [parent] from
-    the doubly linked tree. After the change {!children_changed} is
-    called on [parent].
+    the doubly linked tree. After the change
+    {!doubly_linked_tree.children_changed} is called on [parent].
 *)
 let clear_children parent =
   List.iter (fun c -> c#clear_parent) parent#children;
@@ -348,11 +348,36 @@ let clear_children parent =
 (*****************************************************************************)
 (*****************************************************************************)
 
+(** Abstract class type for external {!class: Node_window.node_window}'s
+    containing just those methods that are needed here. This class
+    type is used to break the circular dependency between {!Draw_tree}
+    and {!Node_window}. All {!proof_tree_element}'s keep a list of
+    their external windows to update them. External node windows have
+    a pointer to proof-tree elements to deregister themselves when
+    they get deleted or orphaned. Before external node windows are
+    passed to functions in this module, they must be cast to this
+    class type.
+*)
 class type external_node_window =
 object
+  (** Number of this node window. Used to correlate node windows with
+      the proof-tree display.
+  *)
   method window_number : string
+
+  (** Set the content in the text buffer of this node window *)
   method update_content : string -> unit
+
+  (** Reconfigure and redraw the node window. Needs to be called when
+      the configuration has been changed. Actually only the font of
+      the buffer text is changed.
+  *)
   method configuration_updated : unit
+
+  (** Delete this node window if it is not sticky. Needs to be called
+      when the corresponding element in the proof-tree display is
+      deleted.
+  *)
   method delete_non_sticky_node_window : unit
 end
 
@@ -363,7 +388,11 @@ end
 (*****************************************************************************)
 (*****************************************************************************)
 
-(** Abstract base class for turnstiles and proof commands.
+
+(** Abstract base class for turnstiles and proof commands. Contains
+    the code for (relativ) layout, (absolute) coordinates, locating
+    mouse button clicks, marking branches and the general drawing
+    functions.
 *)
 class virtual proof_tree_element drawable
     debug_name inst_existentials fresh_existentials = 
@@ -376,15 +405,23 @@ object (self)
   (***************************************************************************)
   (***************************************************************************)
 
-  val debug_name = (debug_name : string)
-  method debug_name = debug_name
+  (** ID for debugging purposes *)
+  method debug_name = (debug_name : string)
 
+  (** The kind of this element. *)
   method virtual node_kind : node_kind
 
+  (** The existentials created for this element. Only non-nil when
+      this is a proof command.
+  *)
   method fresh_existentials = fresh_existentials
 
+  (** The existentials instantiated by this element. Only non-nil when
+      this is a proof command. 
+  *)
   method inst_existentials : existential_variable list = inst_existentials
 
+  (** The {!Gtk_ext.better_drawable} into which this element draws itself. *)
   val drawable = drawable
 
   (** The width of this node alone in pixels. Set in the initializer
@@ -406,7 +443,7 @@ object (self)
       the subtree which has the first child as root. Always
       non-negative. Zero if this node has no children. Usually zero,
       non-zero only in unusual cases, for instance if the {!width} of
-      this node is larger than the total width of all children
+      this node is larger than the total width of all children.
   *)
   val mutable first_child_offset = 0
 
@@ -416,13 +453,23 @@ object (self)
   *)
   val mutable x_offset = 0
 
-  (** The height of this nodes subtree. *)
+  (** The height of this nodes subtree, counted in tree levels. At
+      least 1, because this element occupies already some level. 
+  *)
   val mutable subtree_levels = 0
 
+  (** The proof state of this node. *)
   val mutable branch_state = Unproven
+
+  (** [true] if this node is selected and displayed in the sequent
+      area of the proof-tree window.
+  *)
   val mutable selected = false
+
+  (** The list of external node windows. *)
   val mutable external_windows : external_node_window list = []
 
+  (** The set of all existentials for this node. *)
   val mutable existential_variables = fresh_existentials
 
   (***************************************************************************)
@@ -431,23 +478,55 @@ object (self)
   (***************************************************************************)
   (***************************************************************************)
 
+  (** Accessor method of {!attribute: width}. *)
   method width = width
+
+  (** Accessor method of {!attribute: height}. *)
   method height = height
+
+  (** Accessor method of {!attribute: subtree_width}. *)
   method subtree_width = subtree_width
+
+  (** Accessor method of {!attribute: subtree_levels}. *)
   method subtree_levels = subtree_levels
+
+  (** Accessor method of {!attribute: x_offset}. *)
   method x_offset = x_offset
+
+  (** Accessor method of {!attribute: branch_state}. *)
   method branch_state = branch_state
+
+  (** Modification method of {!attribute: branch_state}. *)
   method set_branch_state s = branch_state <- s
+
+  (** Accessor method of {!attribute: selected}. *)
   method is_selected = selected
+
+  (** Modification method of {!attribute: selected}. *)
   method selected b = selected <- b
 
+
+  (** Accessor method of {!attribute: existential_variables}. *)
   method existential_variables = existential_variables
 
+  (** [inherit_existentials exl] sets this nodes {!attribute:
+      existential_variables} as union of {!fresh_existentials} and
+      [exl].
+  *)
   method inherit_existentials existentials =
     existential_variables <- List.rev_append fresh_existentials existentials
 
+  (** The original text content associated with this element. For
+      turnstiles this is the sequent text and for proof commands this is the
+      complete proof command.
+  *)
   method virtual content : string
+
+  (** [true] if the proof command is abbreviated in the display.
+      Always [false] for turnstiles.
+  *)
   method virtual content_shortened : bool
+
   method virtual id : string
 
 
@@ -717,7 +796,7 @@ object (self)
     (* 
      * Printf.fprintf (debugc())
      * "DST %s parent %s childs %s width %d tree_width %d\n%!"
-     *   debug_name
+     *   self#debug_name
      *   (match parent with
      * 	| None -> "None"
      * 	| Some p -> p#debug_name)
@@ -1029,7 +1108,7 @@ object (self)
     let x = self#get_x_coordinate left in
     (* 
      * Printf.fprintf (debugc()) "DRAW TURN %s l %d t %d x %d y %d\n%!" 
-     *   debug_name left top x y;
+     *   self#debug_name left top x y;
      *)
     self#draw_turnstile x y
 
@@ -1154,7 +1233,7 @@ object (self)
     let x = self#get_x_coordinate left in
     (* 
      * Printf.fprintf (debugc()) "DRAW TURN %s l %d t %d x %d y %d\n%!" 
-     *   debug_name left top x y;
+     *   self#debug_name left top x y;
      *)
     let crea = List.exists (fun e -> e.existential_mark) fresh_existentials in
     let inst = List.exists (fun e -> e.existential_mark) inst_existentials in

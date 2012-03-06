@@ -19,7 +19,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
 ## 
-## $Id: Makefile.in,v 1.18 2012/01/02 20:50:26 tews Exp $
+## $Id: Makefile.in,v 1.19 2012/03/06 14:57:45 tews Exp $
 ## 
 ## Commentary: Makefile
 ## 
@@ -61,6 +61,9 @@ OCAMLDOC:=@OCAMLDOC@
 ##
 #############################################################################
 
+ODOC_CHECK:=/home/tews/src/ocaml/odoc_check/odoc_check_error.cmxs
+
+
 .PHONY: all
 all: prooftree
 
@@ -97,7 +100,7 @@ Makefile.deps : $(SOURCES)
 
 include Makefile.deps
 
-OCAMLFLAGS:=-w Ae -g -I +lablgtk2
+OCAMLFLAGS:=-w Aem -g -I +lablgtk2
 
 %.cmx: %.ml
 	$(OCAMLC) -c $(OCAMLFLAGS) $<
@@ -134,15 +137,25 @@ install:
 	mkdir -p $(DESTDIR)$(MANDIR)/man1
 	cp prooftree.1 $(DESTDIR)$(MANDIR)/man1
 
+
+dump.odoc-dump: $(SOURCES)
+	$(OCAMLDOC) -I `ocamlc -where`/lablgtk2 -d doc \
+		-inv-merge-ml-mli -m A -dump $@ $(SOURCES)
+
 .PHONY: doc
-doc: $(SOURCES)
+doc: dump.odoc-dump
 	rm -rf doc
 	mkdir doc
 	$(OCAMLDOC) -I `ocamlc -where`/lablgtk2 -html -d doc \
-		-inv-merge-ml-mli -m A $(SOURCES)
-	$(OCAMLDOC) -I `ocamlc -where`/lablgtk2 -dot -o doc/dependencies.dot \
-		-inv-merge-ml-mli -m A $(SOURCES)
-	dot -Tps < doc/dependencies.dot > doc/dependencies.ps
+		-inv-merge-ml-mli -m A -load dump.odoc-dump
+	$(OCAMLDOC) -I `ocamlc -where`/lablgtk2 -dot -dot-reduce \
+		-o doc/dependencies.dot -load dump.odoc-dump
+	dot -Tps doc/dependencies.dot > doc/dependencies.ps
+
+.PHONY: check-doc
+check-doc: dump.odoc-dump
+	$(OCAMLDOC) -g $(ODOC_CHECK) -load dump.odoc-dump \
+		-check-val d -check-cl d -check-mod d -check-ex d -check-ty fcd
 
 clean:
 	rm -f $(TOCLEAN)

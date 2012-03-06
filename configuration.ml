@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.33 2012/01/02 15:50:49 tews Exp $
+ * $Id: configuration.ml,v 1.34 2012/03/06 14:57:45 tews Exp $
  *)
 
 
@@ -118,7 +118,7 @@ type t = {
       text in the sequent display and in the additional node windows.
   *)
 
-  current_color : (int * int * int);	(* (red, green, blue; all 16 bit) *)
+  current_color : (int * int * int);
   (** The color for the current branch, as 16-bit RGB value. *)
 
   cheated_color : (int * int * int);
@@ -193,16 +193,17 @@ type t = {
   (** Print more exception backtraces for internal errors, if true. *)
 
   copy_input : bool;
-  (** Write all read input into the file {!copy_input_file}, if true. *)
+  (** Write all read input into the file [copy_input_file], if true. *)
 
   copy_input_file : string;
-  (** File to write read input to, if {!copy_input} is true. *)
+  (** File to write read input to, if [copy_input] is true. *)
 }
 
-(** Set {!turnstile_left_bar_x_offset}, {!turnstile_left_bar_y_offset}
-    and {!turnstile_horiz_bar_x_offset} as function of
-    {!turnstile_radius}. Set {!turnstile_number_x_offset} as function
-    of {!turnstile_line_width}.
+(** Set the fields [turnstile_left_bar_x_offset],
+    [turnstile_left_bar_y_offset] and [turnstile_horiz_bar_x_offset]
+    as function of the field [turnstile_radius]. Set
+    [turnstile_number_x_offset] as function of [turnstile_line_width]
+    (see {!t}).
 *)
 let update_sizes config =
   let radius = config.turnstile_radius in
@@ -213,7 +214,6 @@ let update_sizes config =
       int_of_float(0.65 *. (float_of_int radius) +. 0.5);
     turnstile_horiz_bar_x_offset =
       int_of_float(0.7 *. (float_of_int radius) +. 0.5);
-    
     turnstile_number_x_offset = -(config.turnstile_line_width + 1);
   }
 
@@ -279,7 +279,7 @@ let current_config = ref default_configuration
 
 (** Font description for the text inside the proof-tree display, as
     value of {!GPango.font_description} type. Should always be in sync
-    with the {!proof_tree_font} field of {!current_config}.
+    with the [proof_tree_font] field of {!current_config}.
 *)
 let proof_tree_font_desc = 
   ref(GPango.font_description default_configuration.proof_tree_font)
@@ -287,7 +287,7 @@ let proof_tree_font_desc =
 
 (** Font description for the text in the sequent display and in the
     additional node windows, as value of {!GPango.font_description}
-    type. Should always be in sync with the {!sequent_font} field
+    type. Should always be in sync with the [sequent_font] field
     of {!current_config}.
 *)
 let sequent_font_desc = 
@@ -295,7 +295,7 @@ let sequent_font_desc =
 
 
 (** Color for the current branch, as {!Gdk.color}. Should always be in
-    sync with the {!current_color} field of {!current_config}.
+    sync with the [current_color] field of {!current_config}.
 *)
 let current_gdk_color =
   ref(GDraw.color (`RGB default_configuration.current_color))
@@ -303,7 +303,7 @@ let current_gdk_color =
 
 (** Color for branches that have been finished with a cheating
     command, as {!Gdk.color}. Should always be in sync with the
-    {!cheated_color} field of {!current_config}.
+    [cheated_color] field of {!current_config}.
 *)
 let cheated_gdk_color =
   ref(GDraw.color (`RGB default_configuration.cheated_color))
@@ -311,7 +311,7 @@ let cheated_gdk_color =
 
 (** Color for branches that have been proved and which have no
     non-instantiated esistential variables, as {!Gdk.color}. Should
-    always be in sync with the {!proved_complete_color} field of
+    always be in sync with the [proved_complete_color] field of
     {!current_config}.
 *)
 let proved_complete_gdk_color = 
@@ -320,7 +320,7 @@ let proved_complete_gdk_color =
 
 (** Color for branches that have been proved and that have
     non-instantiated existential variables as {!Gdk.color}. Should
-    always be in sync with the {!proved_incomplete_color} field of
+    always be in sync with the [proved_incomplete_color] field of
     {!current_config}.
 *)
 let proved_incomplete_gdk_color = 
@@ -331,7 +331,7 @@ let proved_incomplete_gdk_color =
     variables are all instantiated, but where the instantiations
     depend on some not-yet instantiated existential variables. The
     value is given as {!Gdk.color} and should always be in sync with
-    the {!proved_partial_color} field of {!current_config}.
+    the [proved_partial_color] field of {!current_config}.
 *)
 let proved_partial_gdk_color =
   ref(GDraw.color (`RGB default_configuration.proved_partial_color))
@@ -348,14 +348,14 @@ let proved_partial_gdk_color =
 
 (** Color for marking nodes that introduce a given existential
     variable, as {!Gdk.color}. Should always be in sync with the
-    {!existential_create_color} field of {!current_config}.
+    [existential_create_color] field of {!current_config}.
 *)
 let existential_create_gdk_color =
   ref(GDraw.color (`RGB default_configuration.existential_create_color))
 
 (** Color for marking nodes that instantiate a given existential
     variable, as {!Gdk.color}. Should always be in sync with the
-    {!existential_instantiate_color} field of {!current_config}.
+    [existential_instantiate_color] field of {!current_config}.
 *)
 let existential_instantiate_gdk_color =
   ref(GDraw.color (`RGB default_configuration.existential_instantiate_color))

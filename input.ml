@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.28 2012/01/04 15:12:38 tews Exp $
+ * $Id: input.ml,v 1.29 2012/03/06 14:57:45 tews Exp $
  *)
 
 
@@ -178,7 +178,7 @@
     [proof-complete] tells Prooftree that the current proof has been
     completed and will further not be updated. The only data section is:
     {ol
-    { - Full name of the proof}
+    {- Full name of the proof}
     }
     }
     {- {v undo-to state %d\n v}
@@ -401,6 +401,7 @@ let configure_prooftree proof_assistant pg_protocol_version =
   (match proof_assistant with
     | "Coq" -> 
       parse_existential_info := Coq.coq_parse_existential_info
+    | "HOL Light" -> ()
     | _ -> 
       raise (Protocol_error ("Unknown proof assistant " ^ proof_assistant,
 			     None))
@@ -863,9 +864,10 @@ let error_counter = ref 0
     {!Input.parse_input_callback}. In case of an escaping exception a
     popup message is displayed and the same message is printed on
     [stderr]. For {!Input.Protocol_error} and [End_of_input] the
-    message only contains a backtrace if {!Configuration.debug} is
-    true. For other exceptions the message does always contain the
-    backtrace.
+    message only contains a backtrace if [debug_mode] in the current
+    configuration (see {!Configuration.t} and
+    {!Configuration.current_config}) is true. For other exceptions the
+    message does always contain the backtrace.
 *)
 let parse_input_callback_ex clist =
   try

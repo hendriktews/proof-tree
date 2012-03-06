@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: node_window.ml,v 1.11 2012/01/02 15:50:50 tews Exp $
+ * $Id: node_window.ml,v 1.12 2012/03/06 14:57:45 tews Exp $
  *)
 
 
@@ -39,8 +39,12 @@ object (self)
   val mutable proof_window = Some proof_window
   val mutable node = Some node
 
+  (** Number of this node window. Used to correlate node windows with
+      the proof-tree display.
+  *)
   method window_number = window_number
 
+  (** Set the content in the text buffer of this node window *)
   method update_content new_content =
     text_window#buffer#set_text new_content
 
@@ -81,7 +85,10 @@ object (self)
     self#delete_node_window ();
     true
 
-  (** Delete this window if it is not sticky *)
+  (** Delete this node window if it is not sticky. Needs to be called
+      when the corresponding element in the proof-tree display is
+      deleted.
+  *)
   method delete_non_sticky_node_window =
     if not sticky_button#active 
     then self#delete_node_window ()
@@ -94,6 +101,10 @@ object (self)
 
       | _ -> false
 
+  (** Reconfigure and redraw the node window. Needs to be called when
+      the configuration has been changed. Actually only the font of
+      the buffer text is changed.
+  *)
   method configuration_updated =
     text_window#misc#modify_font !sequent_font_desc;
     GtkBase.Widget.queue_draw top_window#as_widget

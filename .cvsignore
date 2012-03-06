@@ -3,7 +3,8 @@
 *.cmx
 Makefile
 Makefile.deps
+dump.odoc-dump
 prooftree
-prooftree.man.txt
 prooftree.man.html
+prooftree.man.txt
 version.ml
