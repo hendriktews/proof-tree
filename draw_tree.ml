@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.36 2012/03/06 14:57:45 tews Exp $
+ * $Id: draw_tree.ml,v 1.37 2012/03/07 13:43:31 tews Exp $
  *)
 
 
@@ -523,10 +523,14 @@ object (self)
   method virtual content : string
 
   (** [true] if the proof command is abbreviated in the display.
-      Always [false] for turnstiles.
+      Always [false] for turnstiles. Used to decide whether to display
+      tooltips for proof commands.
   *)
   method virtual content_shortened : bool
 
+  (** Return the sequent ID for turnstiles and the empty string for
+      proof commands. For turnstiles the sequent ID is used as
+      {!debug_name}. *)
   method virtual id : string
 
 
@@ -574,16 +578,22 @@ object (self)
   (***************************************************************************)
   (***************************************************************************)
 
+  (** Compute the height of the subtree of this element in pixels. *)
   method subtree_height = 
     (subtree_levels - 1) * !current_config.level_distance + 
       2 * !current_config.turnstile_radius +
       2 * !current_config.turnstile_line_width
 
-  (** Sets the {!width} and {!height} fields. Called in the 
-      initializer of the heirs.
+  (** Sets the {!width} and {!height} fields. Called in the
+      initializer of the heirs and when the configuration has been
+      updated.
   *)
   method private virtual set_node_size : unit
 
+  (** (Re-)compute all (relative) layout information for this node.
+      Computes and sets {!attribute: subtree_levels}, {!attribute:
+      subtree_width}, {!attribute: x_offset} and
+      {!first_child_offset}. *)
   method private update_subtree_size =
     let (children_width, max_levels, last_child) = 
       List.fold_left 
@@ -670,6 +680,9 @@ object (self)
      *   subtree_levels;
      *)
 	
+  (** Do {!update_subtree_size} in this element and all parent
+      elements up to the root of the tree.
+  *)
   method update_sizes_in_branch =
     (* 
      * let old_subtree_width = subtree_width in
@@ -751,20 +764,27 @@ object (self)
   (***************************************************************************)
   (***************************************************************************)
 
-  (** Draw just this node (without connecting lines) at the indicated
-      position. First argument [left] is the left border, second
-      argument [y] is the y-coordinate.
+  (** Draw just this element (without connecting lines) at the
+      indicated position. First argument [left] is the left border,
+      second argument [y] is the y-coordinate. 
   *)
   method private virtual draw : int -> int -> unit
 
-  (* line_offset inverse_slope => (x_off, y_off) *)
+  (** [line_offset inverse_slope] computes the start offset (as
+      [(x_off, y_off)]) for drawing a line that start or ends in this
+      node with inverse slope [inverse_slope]. These offsets are
+      needed to avoid overdrawing elements with connecting lines. The
+      parameter is the inverse slope, because it is always defined,
+      because we never draw horizontal lines. Vertical lines do
+      appear, for them the real slope is infinite. 
+  *)
   method virtual line_offset : float -> (int * int)
 
 
   (** Draw the lines from this node to all its children. 
 
       @param left x-coordinate of the left side of the bounding box of
-                  this node's subtree
+      this node's subtree
       @param y y-coordinate of this node
   *)
   method private draw_lines left y =
@@ -784,7 +804,7 @@ object (self)
 	restore_gc drawable gc_opt)
 
 
-  (** Draw this node's subtree given the left side of the bounding box
+  (** Draw this element's subtree given the left side of the bounding box
       and the y-coordinate of this node. This is the internal draw method 
       that iterates through the tree.
 
@@ -884,12 +904,20 @@ object (self)
   (***************************************************************************)
   (***************************************************************************)
 
+  (** Apply (the marking function) [f] on this node and all parent
+      nodes until [f] returns [false] or the root is reached. 
+  *)
   method mark_branch (f : proof_tree_element -> bool) =
     if f (self :> proof_tree_element) then
       match parent with
 	| Some p -> p#mark_branch f
 	| None -> ()
 
+  (** Mark this element as [CurrentNode] and all the parent nodes as
+      [Current] branch, see {!branch_state_type}. Relies on the
+      invariant that the parent of a [Current] element is also marked
+      [Current].
+  *)
   method mark_current =
     self#mark_branch 
       (fun (self : proof_tree_element) -> 
@@ -899,6 +927,10 @@ object (self)
 	  (self#set_branch_state Current; true));
     branch_state <- CurrentNode
 
+  (** Mark this element as [Proven] and mark all parents [Proven]
+      until one parent has an unproven child, see
+      {!branch_state_type}.
+  *)
   method mark_proved =
     self#mark_branch
       (fun (self : proof_tree_element) ->
@@ -912,6 +944,10 @@ object (self)
 	else false
       )
 
+  (** Mark this node as [Cheated] and mark all parents that have only
+      [Cheated] children as [Cheated] as well, see
+      {!branch_state_type}.
+  *)
   method mark_cheated =
     self#mark_branch
       (fun (self : proof_tree_element) ->
@@ -920,6 +956,10 @@ object (self)
 	else false
       )
 
+  (** Remove the [Current] and [CurrentNode] marking for the current
+      branch up to the root and set the marking of these nodes to
+      [Unproven], see {!branch_state_type}.
+  *)
   method unmark_current =
     self#mark_branch
       (fun (self : proof_tree_element) ->
@@ -932,6 +972,10 @@ object (self)
 	  | Cheated -> assert false
       )
 
+  (** Remove the [Proved] or [Cheated] mark of this element and all
+      parent elements until an [Unproven] or [Current] element is met,
+      see {!branch_state_type}. 
+  *)
   method unmark_proved_or_cheated =
     self#mark_branch
       (fun (self : proof_tree_element) ->
@@ -943,6 +987,11 @@ object (self)
 	  | Current -> false
       )
 
+  (** Set all [Current] and [CurrentNode] markings in the subtree of
+      this element to [Unproven], see {!branch_state_type}. Used when
+      the proof-tree window gets disconnected from the current
+      proof.
+  *)
   method disconnect_proof =
     (match branch_state with
       | Current
@@ -960,6 +1009,10 @@ object (self)
   (***************************************************************************)
   (***************************************************************************)
 
+  (** Return the displayed sequent text for turnstile elements, which
+      contains additional information about uninstantiated and
+      partially instantiated existentials.
+  *)
   method displayed_text =
     let uninst_ex = filter_uninstantiated existential_variables in
     let partial_ex = filter_partially_instantiated existential_variables in
@@ -980,9 +1033,13 @@ object (self)
 	  ^ (string_of_existential_list partial_ex)
 	else "")
 
+  (** Register an external window for this element. *)
   method register_external_window win =
     external_windows <- win :: external_windows
 
+  (** Delete an external window from the list of registered external
+      windows.
+  *)
   method delete_external_window win =
     external_windows <- List.filter (fun w -> w <> win) external_windows
 
@@ -991,14 +1048,27 @@ object (self)
   method delete_non_sticky_external_windows =
     List.iter (fun w -> w#delete_non_sticky_node_window) external_windows
 
+  (** Propagate this nodes existentials to all its children. This
+      method is not recursive. It is used during normal operation,
+      where newly added children have themselves no children.
+  *)
   method private set_children_existentials =
     List.iter (fun c -> c#inherit_existentials existential_variables)
       children
 
+  (** Propagate existentials recursively down to all children in the
+      complete subtree of this element. Necessary after proof-tree
+      cloning, because cloning works bottom-up.
+  *)
   method propagate_existentials =
     self#set_children_existentials;
     List.iter (fun c -> c#propagate_existentials) children
 
+  (** Update the list of existential variables in displayed sequent
+      text in the whole subtree of this element. This needs to be
+      called when some existential got instantiated or when an undo
+      uninstantiates some existential.
+  *)
   method update_existentials_display =
     (if external_windows <> [] && existential_variables <> [] 
      then
@@ -1007,12 +1077,20 @@ object (self)
     );
     List.iter (fun c -> c#update_existentials_display) children	
 
+  (** Hook to be called when the list of children has been changed.
+      Adjusts the relative layout information of this element and all its
+      parents and (non-recursively) propagates the existentials to all
+      children.
+  *)
   method children_changed =
     (* prerr_endline("CHILDS at  " ^ self#debug_name ^ " CHANGED"); *)
     self#update_sizes_in_branch;
     self#set_children_existentials
     (* prerr_endline "END CHILD CHANGED" *)
 
+  (** Adjust layout and size information after the configuration has
+      been changed. 
+  *)
   method configuration_updated =
     List.iter (fun ex -> ex#configuration_updated) external_windows;
     self#set_node_size;
@@ -1028,20 +1106,39 @@ end
 (*****************************************************************************)
 (*****************************************************************************)
 
+(** Specific element class for sequents, which draw themselves as
+    turnstile symbols. This class specializes the abstract
+    {!proof_tree_element} class for sequent nodes in the proof tree.
+*)
 class turnstile (drawable : better_drawable) sequent_id sequent_text =
 object (self)
   inherit proof_tree_element drawable sequent_id [] [] as super
 
-  val mutable sequent_id = sequent_id
+  (** The pure sequent text. *)
   val mutable sequent_text = (sequent_text : string)
+
+  (** Pango layout for rendering text. Only created if there an ID for
+      an external window must be put into the display.
+  *)
   val mutable layout = None
 
+  (** This is a [Turnstile] node. *)
   method node_kind = Turnstile
 
+  (** Return the pure sequent text as content. *)
   method content = sequent_text
+
+  (** This method is not relevant for sequent elements. Return always
+      false.
+  *)
   method content_shortened = false
 
+  (** Make the sequent ID accessible, which is used as debugging name
+      for sequent elements.
+  *)
   method id = sequent_id
+
+  (** Update the sequent text. *)
   method update_sequent new_text = 
     sequent_text <- new_text;
     let new_text = self#displayed_text in
@@ -1049,6 +1146,9 @@ object (self)
       (fun ew -> ew#update_content new_text)
       external_windows
 
+  (** Return the pango layout object of {!layout}. Create one if there
+      is none.
+  *)
   method private get_layout =
     match layout with
       | None -> 
@@ -1059,10 +1159,16 @@ object (self)
 	l
       | Some l -> l
 
+  (** Update fonts, sizes and layout after the configuration has been
+      changed.
+  *)
   method configuration_updated =
     layout <- None;
     super#configuration_updated
 
+  (** Draw the turnstile symbol for this sequent at the indicated
+      coordinates.
+  *)
   method private draw_turnstile x y =
     let radius = !current_config.turnstile_radius in
     if branch_state = CurrentNode
@@ -1101,7 +1207,7 @@ object (self)
   (** Draw this turnstile node.
 
       @param left x-coordinate of the left side of the bounding box of
-                  this node's subtree
+      this node's subtree
       @param y y-coordinate of this node
   *)
   method private draw left y =
@@ -1112,6 +1218,9 @@ object (self)
      *)
     self#draw_turnstile x y
 
+  (** Compute the line offsets for sequent nodes, see
+      {!proof_tree_element.line_offset}
+  *)
   method line_offset slope =
     let radius = !current_config.turnstile_radius + !current_config.line_sep in
     let d_y = sqrt(float_of_int(radius * radius) /. (slope *. slope +. 1.0)) in
@@ -1119,6 +1228,7 @@ object (self)
     (int_of_float(d_x +. 0.5), int_of_float(d_y +. 0.5))
 
       
+  (** Set width and height of this node. *)
   method private set_node_size =
     width <- 
       2 * !current_config.turnstile_radius +
@@ -1156,6 +1266,10 @@ let make_layout context =
   context#set_font_description !proof_tree_font_desc;
   context#create_layout
 
+(** Specific element class for proof commands. This class specializes
+    the generic and abstract {!proof_tree_element} for proof-command
+    nodes.
+*)
 class proof_command (drawable_arg : better_drawable) 
   command debug_name inst_existentials fresh_existentials =
 object (self)
@@ -1163,25 +1277,55 @@ object (self)
     inst_existentials fresh_existentials 
     as super
 
+  (** The part of the proof command that is displayed inside the tree.
+      Maybe shorter than {!command}.
+  *)
   val mutable displayed_command = ""
+
+  (** The original proof command. If it exceeds the length specified
+      in field [proof_command_length] (see {!Configuration.t} and
+      {!current_config}) then only a part of it is displayed in the tree
+      display.
+  *)
   val command = command
+
+  (** Flag to indicate that only a part of the proof command is
+      displayed inside the proof-tree display. Used to decide whether to
+      display tool-tips for this proof command.
+  *)
   val mutable content_shortened = false
 
   (* XXX Pango.Layout.set_font_description is missing in debian
    * squeeze. Have to use Pango.Context.set_font_description and
    * create new layout objects on every font change.
    *)
+  (** The pango layout for rendering the proof command text. *)
   val mutable layout = make_layout drawable_arg#pango_context
+
+  (** Width (in pixels) of the rendered proof command text. *)
   val mutable layout_width = 0
+
+  (** Height (in pixels) of the rendered proof command text. *)
   val mutable layout_height = 0
 
+  (** This is a [Proof_command] element, see {!node_kind}. *)
   method node_kind = Proof_command
 
+  (** Return the original complete proof command as content. *)
   method content = command
+
+  (** Return whether the proof command has been shortend in the
+      display. Used to decide whether to display tool-tips for this
+      proof command.
+  *)
   method content_shortened = content_shortened
 
+  (** This method is not relevant for proof commands. Return the empty
+      string.
+  *)
   method id = ""
 
+  (** Render the proof command in the pango layout. *)
   method private render_proof_command =
     let layout_text = 
       match external_windows with
@@ -1193,6 +1337,9 @@ object (self)
     layout_width <- w;
     layout_height <- h
 
+  (** Set {!displayed_command}. Called from the initializer and when
+      the configuration has been changed.
+  *)
   method private set_displayed_command =
     if Util.utf8_string_length command <= !current_config.proof_command_length
     then begin
@@ -1202,28 +1349,42 @@ object (self)
       content_shortened <- true;
       displayed_command <-
 	(Util.utf8_string_sub command (!current_config.proof_command_length - 1))
-        ^ "\226\128\166" 			(* append horizontal ellipsis *)
+      ^ "\226\128\166" 			(* append horizontal ellipsis *)
     end
 
+  (** Set {!proof_tree_element.width} and {!proof_tree_element.heigth}
+      after rendering the proof command.
+  *)
   method private set_node_size =
     self#render_proof_command;
     width <- layout_width + !current_config.subtree_sep;
     height <- layout_height
 
+  (** Update fonts, the displayed command, the size and layout
+      information after the configuration has been updated.
+  *)
   method configuration_updated =
     self#set_displayed_command;
     layout <- make_layout drawable_arg#pango_context;
     super#configuration_updated
 
+  (** Override {!proof_tree_element.register_external_window} because
+      the displayed proof command must be rerendered when an external
+      window is registered.
+  *)
   method register_external_window win =
     super#register_external_window win;
     self#render_proof_command
 
+  (** Override {!proof_tree_element.delete_external_window} because
+      the displayed proof command must be rerendered when an external
+      window is deleted.
+  *)
   method delete_external_window win =
     super#delete_external_window win;
     self#render_proof_command
 
-  (** Draw this command node.
+  (** Draw just this command node.
 
       @param left x-coordinate of the left side of the bounding box of
       this node's subtree
@@ -1257,6 +1418,9 @@ object (self)
       drawable#rectangle 
 	~x:(x - w/2) ~y:(y - h/2) ~width:w ~height:h ();
 
+  (** Compute the line offsets for proof-command nodes, see
+      {!proof_tree_element.line_offset}
+  *)
   method line_offset slope = 
     let sign = if slope >= 0.0 then 1 else -1 in
     let line_sep = !current_config.line_sep in

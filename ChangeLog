@@ -1,3 +1,7 @@
+2012-03-07  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* lots of internal documentation
+
 2012-03-06  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* ignore overridden methods warning as long as we support 3.11

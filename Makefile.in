@@ -19,7 +19,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
 ## 
-## $Id: Makefile.in,v 1.19 2012/03/06 14:57:45 tews Exp $
+## $Id: Makefile.in,v 1.20 2012/03/07 13:43:31 tews Exp $
 ## 
 ## Commentary: Makefile
 ## 
@@ -154,8 +154,7 @@ doc: dump.odoc-dump
 
 .PHONY: check-doc
 check-doc: dump.odoc-dump
-	$(OCAMLDOC) -g $(ODOC_CHECK) -load dump.odoc-dump \
-		-check-val d -check-cl d -check-mod d -check-ex d -check-ty fcd
+	$(OCAMLDOC) -g $(ODOC_CHECK) -load dump.odoc-dump -check-all fcd
 
 clean:
 	rm -f $(TOCLEAN)

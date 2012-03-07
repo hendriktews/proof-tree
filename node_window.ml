@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: node_window.ml,v 1.12 2012/03/06 14:57:45 tews Exp $
+ * $Id: node_window.ml,v 1.13 2012/03/07 13:43:31 tews Exp $
  *)
 
 
@@ -31,12 +31,32 @@ open Gtk_ext
 open Draw_tree
 
 
+(** State class for external node windows. Objects of this class
+    represent external windows for proof commands and sequents
+    internally. They contain all the necessary state and methods for
+    these windows. The creation of the window and the object as well
+    signal connection happens outside in {!make_node_window}.
+*)
 class node_window proof_window node top_window text_window 
   sticky_button window_number proof_name =
 object (self)
 
+  (** Flag whether this window is orphaned. An orphaned window has no
+      connection to the proof tree anymore.
+  *)
   val mutable orphaned = false
+
+  (** Link to the proof window. Used to keep
+      {!Proof_window.proof_window.node_windows} up to date and to
+      redraw the tree when a node window is deleted. This link gets
+      deleted when this node window becomes orphaned.
+  *)
   val mutable proof_window = Some proof_window
+
+  (** Link to the proof-tree element. Used to keep
+      {!Draw_tree.proof_tree_element.external_windows} up to date.
+      This link is deleted when this node becomes orphaned.
+  *)
   val mutable node = Some node
 
   (** Number of this node window. Used to correlate node windows with
@@ -77,10 +97,14 @@ object (self)
     end
     
 
+  (** Delete and destroy this node window. *)
   method delete_node_window () =
     self#orphan_node_window;
     top_window#destroy()
 
+  (** Key event callback for deleting and destroying this node window.
+      Returns [true] to indicate that the key has been processed.
+  *)
   method private delete_node_window_event _ =
     self#delete_node_window ();
     true
@@ -94,6 +118,7 @@ object (self)
     then self#delete_node_window ()
     else self#orphan_node_window
 
+  (** Callback for key events. Deals only with 'Q' and 'q'. *)
   method key_pressed_callback ev =
     match GdkEvent.Key.keyval ev with 
       | ks when (ks = GdkKeysyms._Q or ks = GdkKeysyms._q)  -> 
@@ -112,6 +137,10 @@ object (self)
 end
 
 
+(** Create and initialize a new external node window. Composes the GTK
+    window, fills the initial content, creates the contolling object and
+    connects hooks and signals.
+*)
 let make_node_window proof_window proof_name node window_number =
   let top_window = GWindow.window () in
   let top_v_box = GPack.vbox ~packing:top_window#add () in

@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: main.ml,v 1.17 2012/01/02 15:50:50 tews Exp $
+ * $Id: main.ml,v 1.18 2012/03/07 13:43:31 tews Exp $
  *)
 
 
@@ -42,14 +42,22 @@ open Configuration
 open Help_window
 open Input
 
+
+(** Master hook to be called when the configuration has been updated.
+    Reconfigures the complete program to reflect the changes in the
+    current configuration. This function is stored into
+    {!Configuration.configuration_updated_callback}.
+*)
 let configuration_updated () =
   Proof_tree.configuration_updated ();
   Input.configuration_updated ()
 
 let _ = configuration_updated_callback := configuration_updated
 
+(** Flag for option [-config]. *)
 let start_config_dialog = ref false
 
+(** Flag for option [-help]. *)
 let start_help_dialog = ref false
 
 (** Argument list for [Arg.parse] *)

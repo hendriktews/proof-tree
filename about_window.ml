@@ -19,15 +19,19 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: about_window.ml,v 1.4 2012/01/03 09:40:43 tews Exp $
+ * $Id: about_window.ml,v 1.5 2012/03/07 13:43:31 tews Exp $
  *)
 
 
 (** Creation and display of the about window *)
 
 
+(** Reference for the about window to ensure there is maximal one
+    about window.
+*)
 let about_window = ref None
 
+(** Delete and destroy the about window. *)
 let delete_about () =
   match !about_window with
     | None -> ()
@@ -35,18 +39,25 @@ let delete_about () =
       about#destroy ();
       about_window := None
 
-
+(** Hook for the response signal, which gets emitted when the "Close"
+    button is hit. The "Close" button actually delivers a [`CANCEL],
+    resulting in the about dialog being destroyed.
+*)
 let about_button = function
   | `CANCEL -> delete_about ()
   | _ -> ()
 
 
+(** Text for the about dialog. *)
 let about_comment =
-  "Prooftree displays proof trees for Coq under control of \
+  "Prooftree displays proof trees for Coq and HOL Light under control of \
    the Proof General user interface. Prooftree has been developed by \
    Hendrik Tews and is published under GPL version 3. For more information \
    visit http://askra.de/software/prooftree/."
 
+(** Show the about window. If necessary, create one and connect all
+    the signals. This is the hook for the "About" main menu entry. 
+*)
 let show_about_window () =
   match !about_window with
     | Some about -> about#present ()

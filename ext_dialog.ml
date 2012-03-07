@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: ext_dialog.ml,v 1.5 2012/03/06 14:57:45 tews Exp $
+ * $Id: ext_dialog.ml,v 1.6 2012/03/07 13:43:31 tews Exp $
  *)
 
 (** The Existential Variable Dialog *)
@@ -29,13 +29,24 @@ open Configuration
 open Draw_tree
 
 
+(** Record for one line in the table of existential variables. This
+    record links the {!Draw_tree.existential_variable} record and the
+    necessary GTK widgets in order to update the table line when the
+    status of the existential changes. For memory management is makes
+    also sense to destroy all widgets when a line gets deleted.
+
+    For easy access, these table line records are stored in the
+    {!existential_variable_window.ext_hash} hash table with the name
+    of the existential as key.
+*)
 type ext_table_line = {
-  ext_table_ext : existential_variable;
-  ext_table_row : int;
-  ext_table_status_label : GMisc.label;
-  ext_table_using_label : GMisc.label;
-  ext_table_button : GButton.toggle_button;
-  ext_table_other : GObj.widget array;
+  ext_table_ext : existential_variable;     (** The existential record
+						with all status information *)
+  ext_table_row : int;                      (** The row number in the table *)
+  ext_table_status_label : GMisc.label;     (** Label for the status *)
+  ext_table_using_label : GMisc.label;      (** Label for using column *)
+  ext_table_button : GButton.toggle_button; (** display toggle button *)
+  ext_table_other : GObj.widget array;      (** all other widgets in the line *)
 }
 
 
@@ -44,9 +55,17 @@ type ext_table_line = {
     the necessary state and methods to handle all callbacks. The
     callbacks must be set up by the function that creates objects.
 
+    The existential dialog supports lazy update as the proof-tree
+    window. This means that the table is only updated when Prooftree
+    is idle because there are currently no commands to process.
+    Requests for adding or deleting existentials are accumulated in
+    {!to_add} and {!to_delete} until {!update_ext_dialog} is called.
+    Actually, the display must be updated add and delete requests
+    (which is currently not ensured).
+
     Arguments are
     - proof_window      {!class: Proof_window.proof_window} to which this 
-			window is associated to
+    window is associated to
     - top_window	{!GWindow.window} of the top-level widget
     - ext_table		{!GPack.table} of the main table
     - start_row		first row in the table
@@ -63,40 +82,80 @@ class existential_variable_window
   =
 object (self)
 
+  (** "no" label text for the instantiated column. *)
   val uninst_label = "no"
 
+  (** "partially" label text for the instantiated column. Contains
+      pango markup for the color.
+  *)
   val mutable partially_inst_label = ""
 
+  (** "fully" label text for the instantiated column. Contains pango
+      markup for the color.
+  *)
   val mutable fully_inst_label = ""
 
+  (** The next free row in the table. Managed by all methods that add
+      or delete rows in the table.
+  *)
   val mutable next_row = start_row
 
+  (** Hash mapping existential names to {!ext_table_line} records. The
+      hash is used when updating the status and when deleting selected
+      existentials from the table.
+  *)
   val ext_hash = Hashtbl.create 251
 
+  (** Existentials queued for addition. This is a list of lists to
+      avoid list concatenation. If this is non-nil then {!to_delete}
+      must be nil. *)
   val mutable to_add = []
 
+  (** Existentials queued for deletion. This is a list of lists to
+      avoid list concatenation. If this is non-nil then {!to_add} must
+      be nil. *)
   val mutable to_delete = []
 
+  (** This array is non-empty precisely when the "no existential
+      variables" line is displayed in the array. Contains the widgets
+      of that line if non-empty. 
+  *)
   val mutable no_ext_label_widgets = [| |]
 
+  (** Stores the currently pressed "mark" button if there is one. Used
+      to ensure that maximal one mark button can be pressed.
+  *)
   val mutable pressed_mark_button = None
 
+  (** Create the pango markup text for the "partially" and "fully"
+      labels. Called in the initializer and when the configuration has
+      been updated.
+  *)
   method make_inst_labels =
     partially_inst_label <- 
       pango_markup_color "partially" !proved_partial_gdk_color;
     fully_inst_label <- 
       pango_markup_color "fully" !proved_complete_gdk_color
 
+  (** Schedule the existentials in the argument list to be added to
+      the table.
+  *)
   method change_and_add new_ext =
     assert(to_delete = []);
     if new_ext <> [] then
       to_add <- new_ext :: to_add
 
+  (** Schedule the existentials in the argument list to be removed
+      from the table.
+  *)
   method change_and_delete remove_ext =
     assert(to_add = []);
     if remove_ext <> [] then
       to_delete <- remove_ext :: to_delete
 
+  (** Put a "no existential variables" line into the table and store
+      its widgets in {!no_ext_label_widgets}.
+  *)
   method private make_no_ext_label =
     let hbar = GMisc.separator `HORIZONTAL 
       ~packing:(ext_table#attach ~left:0 ~right:last_col ~top:next_row) () in
@@ -108,11 +167,13 @@ object (self)
     next_row <- next_row + 1;
     no_ext_label_widgets <- [| hbar#coerce; no_ext_label#coerce |]
 
+  (** Delete the "no existential variables" line from the table. *)
   method private delete_no_ext_label =
     Array.iter (fun w -> w#destroy ()) no_ext_label_widgets;
     no_ext_label_widgets <- [| |];
     next_row <- start_row
 
+  (** Release the currently pressed "mark" button, if there is one. *)
   method release_pressed_button =
     (match pressed_mark_button with
       | None -> ()
@@ -121,6 +182,10 @@ object (self)
 	pressed_mark_button <- None
     );
 
+  (** Return the pair of proof-tree nodes that create and instantiate
+      the given existential. If the existential is not instantiated
+      then the second component is [None].
+  *)
   method private get_ext_nodes existential =
     let crea_node = 
       match 
@@ -140,6 +205,11 @@ object (self)
     else
       (crea_node, None)
 
+  (** Callback function for toggling some "mark" button. Marks or
+      unmarks the existential, keeps {!pressed_mark_button} up to date,
+      schedules the proof tree for redisplay and tries to show the marked
+      nodes.
+  *)
   method mark_button_toggled button existential () =
     if button#active
     then begin
@@ -160,6 +230,7 @@ object (self)
       proof_window#invalidate_drawing_area;
     end
 
+  (** Update the information in the argument table line. *)
   method private set_ext_line_status tl =
     tl.ext_table_status_label#set_label
       (match tl.ext_table_ext.status with
@@ -179,8 +250,9 @@ object (self)
       String.concat ", " 
 	(List.map color_ex_name tl.ext_table_ext.dependencies) in
     tl.ext_table_using_label#set_label colored_dep_names
-	    
+      
 
+  (** Update the status of the complete table. *)
   method private update_existential_status =
     Hashtbl.iter 
       (fun _ tl ->
@@ -194,8 +266,12 @@ object (self)
       )
       ext_hash
 
+  (** Add the existentials in the argument list to the table. Creates
+      the necessary widgets and stores them in {!ext_hash}. This method
+      must not be called with an empty argument list.
+  *)
   method private process_fresh_existentials l =
-    (* this method is only called with nonempty l *)
+    assert(l <> []);
     let doit ext =
       assert(Hashtbl.mem ext_hash ext.existential_name = false);
       let hbar = GMisc.separator `HORIZONTAL 
@@ -239,6 +315,9 @@ object (self)
     List.iter doit l
 
 
+  (** Destroy all widgets in a table line. Takes care of releasing the
+      "mark" button if necessary.
+  *)
   method private destroy_ext_line ext_table_line =
     ext_table_line.ext_table_status_label#destroy ();
     ext_table_line.ext_table_using_label#destroy ();
@@ -247,6 +326,9 @@ object (self)
     Array.iter (fun w -> w#destroy ()) ext_table_line.ext_table_other;
 
 
+  (** Delete an existential from the table. Destroys the widgets,
+      releases the "mark" button if necessary and updates {!ext_hash}.
+  *)
   method private undo_delete ext =
     let tl = Hashtbl.find ext_hash ext.existential_name in
     self#destroy_ext_line tl;
@@ -256,6 +338,10 @@ object (self)
     then next_row <- tl.ext_table_row - 1
 
 
+  (** Process pending addition or deletion requests and make the whole
+      table up-to-date. Only one of {!to_add} and {!to_delete} can be
+      non-nil.
+  *)
   method update_ext_dialog =
     assert(to_add = [] || to_delete = []);
     List.iter (fun l -> self#process_fresh_existentials l) (List.rev to_add);
@@ -269,6 +355,9 @@ object (self)
     then self#make_no_ext_label
       
 
+  (** Initially fill the table by processing all existentials in the
+      subtree of the argument node.
+  *)
   method fill_table (node : proof_tree_element) =
     let rec iter node =
       self#process_fresh_existentials node#fresh_existentials;
@@ -279,10 +368,12 @@ object (self)
     if next_row = start_row
     then self#make_no_ext_label
 
+  (** Update colors after the configuration has been updated. *)
   method configuration_updated =
     self#make_inst_labels;
     self#update_existential_status
 
+  (** Clear the table for reuse. *)
   method clear_for_reuse =
     if Array.length no_ext_label_widgets = 0 then begin
       Hashtbl.iter (fun _ tl -> self#destroy_ext_line tl) ext_hash;
@@ -307,12 +398,12 @@ end
 
 (** Create a new dialog for existential variables. Creates the widget
     hierarchy, initializes the management object and registers all
-    callbacks.
+    callbacks. The initial table fill must be initiated by the caller.
 *)
 let make_ext_dialog proof_window proof_name =
   let top_window = GWindow.window () in
   let top_v_box = GPack.vbox ~packing:top_window#add () in
-  let _config_title_1 = GMisc.label
+  let _ext_title = GMisc.label
     ~line_wrap:true
     ~justify:`CENTER
     ~markup:("<big><b>Existential Variables: " ^ proof_name ^ "</b></big>")
