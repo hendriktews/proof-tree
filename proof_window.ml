@@ -19,11 +19,11 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.45 2012/01/04 15:12:38 tews Exp $
+ * $Id: proof_window.ml,v 1.46 2012/03/08 15:43:30 tews Exp $
  *)
 
 
-(** Creation, display and drawing of the proof tree window *)
+(** Creation, display and drawing of the main proof-tree window *)
 
 
 open Util
@@ -49,6 +49,28 @@ let delete_proof_tree_callback = ref (fun (_ : string) -> ())
 *)
 let cloned_proof_windows = ref []
 
+(** Class for managing the main proof-tree window. Contains methods
+    for all callbacks and the necessary state. The widget tree the
+    binding to singals must be done outside.
+
+    Arguments are
+    - top_window              {!GWindow.window} of the top-level widget
+    - drawing_h_adjustment    {!GData.adjustment} of the horizontal scroll bar
+                              of the drawing area
+    - drawing_v_adjustment    {!GData.adjustment} of the vertical scroll bar
+                              of the drawing area
+    - drawing_area            {!GMisc.drawing_area} for the proof tree
+    - drawable                {!Gtk_ext.better_drawable} for the actual 
+                              drawing operations
+    - labeled_sequent_frame   {!GBin.frame} labelled frame of the 
+                              sequent area
+    - sequent_window          {!GText.view} of the sequent area
+    - sequent_v_adjustment    {!GData.adjustment} of the vertical scroll bar
+                              of the sequent area
+    - message_label           {!GMisc.label} for messages in the bottom line
+    - menu                    {!GMenu.menu} of main menu
+    - proof_name              the name of the proof this display is showing
+*)
 class proof_window (top_window : GWindow.window)
   drawing_h_adjustment drawing_v_adjustment (drawing_area : GMisc.drawing_area)
   (drawable : better_drawable)
@@ -62,17 +84,46 @@ object (self)
    * Internal state and setters/accessors
    *
    ***************************************************************************)
+
+  (** x-offset of the bounding box of the complete proof tree. This is
+      only non-zero when the width of the complete proof tree is smaller
+      than the width of the drawing area.
+  *)
   val mutable top_left = 0
+
+  (** y-offset of the bounding box of the root node of the proof tree.
+      Constantly 0 because the root node stays at the top.
+  *)
   val top_top = 0
 
+  (** [true] if the sequent area should always show the last line.
+      This is set to [true] when a sequent is shown and to false when
+      a proof command is shown. *)
   val mutable sequent_window_scroll_to_bottom = false
 
+  (** The root node of the proof-tree, if it exists. *)
   val mutable root = None
 
+  (** The current node of the proof tree, if there is one *)
   val mutable current_node = None
+
+  (** Cache holding the relative bounding box of the current node. If
+      not [None], it holds the tuple [(x_low, x_high, y_low, y_high)]
+      relative to the top-left corner (i.e., ({!top_left},
+      {!top_top})) of the bounding box of the complete proof tree.
+  *)
   val mutable current_node_offset_cache = None
+
+  (** Set to [true] when we still have to reposition the drawing area
+      to make the current node visible. This is needed because of the
+      asynchronous nature of GTK, which does not immediately resize
+      the drawing area when I request it. Therefore the positioning
+      code has to wait until the drawing area has changed its size and
+      all needed scrollbars have been added.
+  *)
   val mutable position_to_current_node = true
 
+  (** Holds the selected node, if there is one. *)
   val mutable selected_node = None
 
   (** List of all external non-orphaned node windows that belong to nodes 
@@ -96,14 +147,17 @@ object (self)
   *)
   val mutable destroy_in_progress = false
 
+  (** Set the root node of the proof tree. *)
   method set_root r = 
     root <- Some (r : proof_tree_element)
 
+  (** Clear the root node of the proof tree. *)
   method clear_root = root <- None
 
   (** Return the selected node or [None] if there is none. *)
   method get_selected_node = selected_node
 
+  (** Delete the external node window from {!node_windows}. *)
   method delete_node_window win =
     node_windows <- List.filter (fun owin -> owin <> win) node_windows
 
@@ -114,6 +168,7 @@ object (self)
    *
    ***************************************************************************)
 
+  (** Display text in the message label. *)
   method message text = message_label#set_label text
 
   (***************************************************************************
@@ -122,21 +177,38 @@ object (self)
    *
    ***************************************************************************)
 
+  (** Make the last line visible in the sequent area, if
+      {!sequent_window_scroll_to_bottom} is [true].
+
+      This is the callback for the changed signal of the vertical
+      adjustment of the scrollbar of the sequent area (emitted when
+      the sequent area changes its size but not when the scrollbar is
+      moved).
+  *)
   method sequent_area_changed () =
     if sequent_window_scroll_to_bottom then
       let a = sequent_v_adjustment in
       a#set_value (max a#lower (a#upper -. a#page_size))
 
+  (** [update_sequent_area label content scroll_to_bottom] updates the
+      sequent area to show [content] with label [label] on the frame.
+      It further sets {!sequent_window_scroll_to_bottom} to
+      [scroll_to_bottom].
+  *)
   method private update_sequent_area label content scroll_to_bottom =
     labeled_sequent_frame#set_label (Some label);
     sequent_window#buffer#set_text content;
     sequent_window_scroll_to_bottom <- scroll_to_bottom
 
+  (** Clear the sequent area. *)
   method private clear_sequent_area =
-    labeled_sequent_frame#set_label (Some "no sequent");
-    sequent_window#buffer#set_text "";
-    sequent_window_scroll_to_bottom <- false;
+    self#update_sequent_area "no sequent" "" false
 
+  (** Refresh the sequent area. If there is a selected node, show it.
+      Otherwise, if there is a current sequent node that has a parent
+      sequent, then show the parent sequent. Otherwise clear the sequent
+      area.
+  *)
   method refresh_sequent_area =
     match selected_node with
       | Some node ->
@@ -170,10 +242,12 @@ object (self)
    *
    ***************************************************************************)
 
+  (** Set the current node. *)
   method set_current_node n =
     current_node_offset_cache <- None;
     current_node <- Some (n : proof_tree_element)
 
+  (** Clear the current node. *)
   method clear_current_node =
     current_node_offset_cache <- None;
     current_node <- None;
@@ -185,16 +259,25 @@ object (self)
    *
    ***************************************************************************)
 
+  (** Tell whether this proof-tree window should stay alive when the
+      user retracted to a point before the start of the proof. If the
+      window shows more than just the root sequent, it will stay
+      alive.
+  *)
   method survive_undo_before_start =
     match root with
       | None -> false
       | Some root -> root#children <> []
 
+  (** Disconnect the proof tree. Clears all current node and current
+      branch indications.
+  *)
   method disconnect_proof =
     match root with
       | None -> ()
       | Some root -> root#disconnect_proof
 
+  (** Reflect changes in the current configuration. *)
   method configuration_updated =
     let rec update_tree_sizes node =
       List.iter update_tree_sizes node#children;
@@ -211,7 +294,11 @@ object (self)
     ignore(self#position_tree);
     GtkBase.Widget.queue_draw top_window#as_widget;
     self#configuration_updated_ext_dialog
-    
+      
+  (** Clear this window and the existential variable dialog, if there
+      is one, for reuse when the proof it displays is started again.
+      Deletes and destroys all non-sticky external node windows.
+  *)
   method clear_for_reuse =
     root <- None;
     current_node <- None;
@@ -222,11 +309,15 @@ object (self)
     assert(node_windows = []);
     self#clear_existential_dialog_for_reuse
 
+  (** Update the existential dialog, if there is one. *)
   method update_existentials_display =
     match root with
       | None -> ()
       | Some root -> root#update_existentials_display
 
+  (** Find the first node in the proof tree satisfying the predicate
+      using depth-first search.
+  *)
   method find_node p =
     let res = ref None in
     let rec iter node =
@@ -252,12 +343,14 @@ object (self)
    *
    ***************************************************************************)
 
+  (** Make node visible. *)
   method private clamp_to_node node =
     let (x_l, x_u, y_l, y_u) = node#bounding_box top_left top_top in
     drawing_h_adjustment#clamp_page ~lower:x_l ~upper:x_u;
     drawing_v_adjustment#clamp_page ~lower:y_l ~upper:y_u
 
 
+  (** Move the drawing area to show point [(x,y)] as centre point. *)
   method private centre_point x y =
     let x_size = drawing_h_adjustment#page_size in
     let adj_x_l = drawing_h_adjustment#lower in
@@ -272,10 +365,12 @@ object (self)
     let y = if y +. y_size > adj_y_u then adj_y_u -. y_size else y in
     drawing_v_adjustment#set_value (max adj_y_l y)
 
+  (** Show the given node in the centre of the drawing area. *)
   method private centre_node node =
     let (x_l, x_u, y_l, y_u) = node#bounding_box top_left top_top in
     self#centre_point ((x_l +. x_u) /. 2.0) ((y_l +. y_u) /. 2.0)
 
+  (** Test if the given node is (partially) visible. *)
   method private is_partially_visible node =
     let (node_x_l, node_x_u, node_y_l, node_y_u) = 
       node#bounding_box top_left top_top in
@@ -285,11 +380,16 @@ object (self)
     ((in_x node_x_l) || (in_x node_x_u))
     && ((in_y node_y_l) || (in_y node_y_u))
 
+  (** Make the given node visible in a user friendly way. *)
   method show_node node =
     if self#is_partially_visible node 
     then self#clamp_to_node node
     else self#centre_node node
 
+  (** Make the two given nodes visible in a user friendly way. If both
+      nodes do not fit together in the drawing area, then only the second
+      node is shown.
+  *)
   method show_both_nodes n1 n2 =
     let (x1_l, x1_u, y1_l, y1_u) = n1#bounding_box top_left top_top in
     let (x2_l, x2_u, y2_l, y2_u) = n2#bounding_box top_left top_top in
@@ -326,6 +426,10 @@ object (self)
    *
    ***************************************************************************)
 
+  (** Scroll the given adjustment [direction] number of pages into the
+      direction idicated by the sign of [direction]. This method is
+      used for scrolling with keys.
+  *)
   method private scroll (adjustment : GData.adjustment) direction =
     let a = adjustment in
     let new_val = a#value +. float_of_int(direction) *. a#step_increment in
@@ -334,6 +438,15 @@ object (self)
     let new_val = if new_val > max then max else new_val in
     a#set_value new_val
 
+  (** Delete and destroy this proof-tree window, including all its
+      non-sticky external node windows and the existential variable
+      dialog. Delete this window from {!cloned_proof_windows}. Other
+      data structures in higher-level modules are not touched.
+
+      The destruction process might cause destroy signals which will
+      cause this method to be called again. The flag
+      {!destroy_in_progress} is used to protect against such cases.
+  *)
   method delete_proof_window =
     if destroy_in_progress = false then begin
       destroy_in_progress <- true;
@@ -347,16 +460,21 @@ object (self)
       top_window#destroy()
     end
 
+  (** Callback for the "Dismiss" button and the destroy signal
+      (emitted, for instance, when the window manager kills this
+      window). Delete and destroy this window as for
+      {!delete_proof_window} and delete it from all data structures in
+      the module {!Proof_tree}.
+  *)
   method user_delete_proof_window () =
     if destroy_in_progress = false then begin
       !delete_proof_tree_callback proof_name;
       self#delete_proof_window
     end
 
-  method private delete_proof_window_event _ =
-    self#user_delete_proof_window ();
-    true
-
+  (** Callback for key events. Call the appropriate action for each
+      key.
+  *)
   method key_pressed_callback ev =
     match GdkEvent.Key.keyval ev with 
       | ks when 
@@ -365,7 +483,7 @@ object (self)
 	  -> 
 	exit 0
       | ks when (ks = GdkKeysyms._Q or ks = GdkKeysyms._q)  -> 
-	self#delete_proof_window_event ev
+	self#user_delete_proof_window (); true
       | ks when ks = GdkKeysyms._Left -> 
 	self#scroll drawing_h_adjustment (-1); true
       | ks when ks = GdkKeysyms._Right -> 
@@ -394,11 +512,12 @@ object (self)
    *
    ***************************************************************************)
 
+  (** Clear {!existential_window}. *)
   method existential_clear () = 
     existential_window <- None
 
   (** Show a dialog for existential variables. If there is currently
-      none, a new one is created.
+      none, a new one is created and initialized.
   *)
   method show_existential_window () =
     match existential_window with
@@ -413,6 +532,7 @@ object (self)
 	);
 	existential_window <- Some ext
 
+  (** Destroy the existential variables dialog, if one is present. *)
   method private destroy_existential_dialog =
     match existential_window with
       | None -> ()
@@ -420,26 +540,41 @@ object (self)
 	w#destroy ();
 	existential_window <- None
 
+  (** Prepare the existential variable dialog for reuse, if there is
+      one.
+  *)
   method private clear_existential_dialog_for_reuse =
     match existential_window with
       | None -> ()
       | Some w -> w#clear_for_reuse
 
+  (** Schedule some existentials to be added to the existential
+      variable dialog, if there is one.
+  *)
   method ext_dialog_add new_ext =
     match existential_window with
       | Some w -> w#change_and_add new_ext
       | None -> ()
 
+  (** Schedule some existentials to be removed from the existential
+      variable dialog, if there is one.
+  *)
   method ext_dialog_undo remove_ext =
     match existential_window with
       | Some w -> w#change_and_delete remove_ext
       | None -> ()
 
+  (** Process all pending requests for the existential variable
+      dialog, if there is one.
+  *)
   method update_ext_dialog =
     match existential_window with
       | Some w -> w#update_ext_dialog
       | None -> ()
 
+  (** Ask the existential variable dialog to reflect changes in the
+      current configuration.
+  *)
   method private configuration_updated_ext_dialog =
     match existential_window with
       | Some w -> w#configuration_updated
@@ -451,6 +586,10 @@ object (self)
    *
    ***************************************************************************)
 
+  (** Return the relative bounding box of the current node, see
+      {!current_node_offset_cache}. If there nothing in the cache, try
+      to fill it. Return [None] if there is no current node.
+  *)
   method private get_current_offset =
     match current_node_offset_cache with
       | Some _ as res -> res
@@ -461,6 +600,7 @@ object (self)
 	    current_node_offset_cache <- res;
 	    res
 
+  (** Erase the complete drawing area. *)
   method private erase = 
     (* Printf.fprintf (debugc()) "ERASE\n%!"; *)
     let (x,y) = drawable#size in
@@ -472,6 +612,14 @@ object (self)
     drawable#polygon ~filled:true [(0,0); (x,0); (x,y); (0,y)];
     restore_gc drawable gc
 
+  (** Try to change the scrollbars of the drawing area such that the
+      current node becomes visible in the bottom part. Do nothing if
+      {!position_to_current_node} is [false]. Making the current node
+      visible might be impossible, because the resize request for the
+      drawing area might not have been processed yet. In this case
+      {!position_to_current_node} stays true and this method is called
+      again at some later stage.
+  *)
   method private try_adjustment = 
     if position_to_current_node = true then
       match self#get_current_offset with
@@ -509,8 +657,8 @@ object (self)
 	    if (float_of_int req_width) > drawing_h_adjustment#upper ||
 	       (float_of_int req_height) > drawing_v_adjustment#upper
 	    then begin
-	      (* The resize request for the drawing are has not 
-	       * been processed. It might happen that this resize
+	      (* The resize request for the drawing area has not 
+	       * been processed yet. It might happen that this resize
 	       * request causes the addition of some scrollbars. In
 	       * this case the viewport gets smaller and the 
 	       * current node would possible (partially) hidden.
@@ -570,6 +718,9 @@ object (self)
            *)
 	  ()
 
+  (** Request the drawing are to change its size to the size of the
+      current proof tree.
+  *)
   method private expand_drawing_area =
     match root with
       | None -> ()
@@ -602,6 +753,9 @@ object (self)
 	top_left <- max 0 ((width - root#subtree_width) / 2);
 	top_left <> old_top_left
 
+  (** Handle expose events. Try to move to the current node, erase and
+      redraw the complete drawing area.
+  *)
   method private redraw =
     (* 
      * (let a = drawing_v_adjustment in
@@ -620,13 +774,16 @@ object (self)
 	(* Printf.fprintf (debugc()) "REDRAW\n%!"; *)
 	ignore(root#draw_tree_root top_left top_top)
 
+  (** Schedule an expose event for the drawing area, thereby causing
+      it to get redrawn.
+  *)
   method invalidate_drawing_area =
     (* Printf.fprintf (debugc()) "INVALIDATE\n%!"; *)
     GtkBase.Widget.queue_draw drawing_area#as_widget
 
   (** Method for updating the display after the proof tree has changed.
       Adjusts the tree position in the drawing area, schedules a 
-      complete redraw and makes the current node (if any) visible.
+      complete redraw and make the current node (if any) visible.
   *)
   method refresh_and_position =
     (* Printf.fprintf (debugc()) "REFRESH & POSITION\n%!"; *)
@@ -638,12 +795,14 @@ object (self)
     (* Printf.fprintf (debugc()) "REFRESH & POSITION END\n%!"; *)
     ()
 
-  (** Make the current node visible.
+  (** Position the current node in the bottom part of the drawing
+      area.
   *)
   method reposition_current_node () =
     position_to_current_node <- true;
     self#try_adjustment
 
+  (** Make the current node visible in a user friendly way. *)
   method show_current_node () =
     match current_node with
       | None -> ()
@@ -652,6 +811,10 @@ object (self)
 	then self#show_node current
 	else self#reposition_current_node ()
 
+  (** Callback for the size_allocate signal of the drawing area.
+      Position the proof tree in the viewport of the drawing area and
+      redraw.
+  *)
   method draw_scroll_size_allocate_callback (_size : Gtk.rectangle) =
     (* 
      * Printf.fprintf (debugc()) "SCROLLING SIZE ALLOC SIGNAL size %d x %d\n%!"
@@ -689,6 +852,7 @@ object (self)
    *   false
    *)
 
+  (** Callback for exposure events. Redraw the complete tree. *)
   method expose_callback (_ev : GdkEvent.Expose.t) =
     (* 
      * let r = GdkEvent.Expose.area ev in
@@ -725,8 +889,10 @@ object (self)
    *
    ***************************************************************************)
 
+  (** Counter for external node windows. *)
   val mutable last_node_number = 0
 
+  (** Return the number for the next external node window. *)
   method private next_node_number =
     last_node_number <- last_node_number + 1;
     last_node_number
@@ -738,11 +904,33 @@ object (self)
    *
    ***************************************************************************)
 
+  (** The dragging feature has the problem that it changes the
+      viewport to the drawing area, which itself generates pointer
+      motion events for the drawing area. The approach is therefore to
+      remember the mouse position at the start of the dragging (i.e.,
+      the button press) in coordinates relative to the complete X
+      window.
+
+      X position of the mouse at the last button press relative to
+      [top_window]. 
+  *)
   val mutable last_button_press_top_x = 0
+
+  (** Y position of the mouse at the last button press relative to
+      [top_window]. *)
   val mutable last_button_press_top_y = 0
+
+  (** Value of the vertical scrollbar at the last button press. *)
   val mutable last_button_press_v_adjustment_value = 0.0
+
+  (** Value of the horizontal scrollbar at the last button press. *)
   val mutable last_button_press_h_adjustment_value = 0.0
 
+  (** Fill {!last_button_press_top_x}, {!last_button_press_top_y},
+      {!last_button_press_v_adjustment_value} and
+      {!last_button_press_h_adjustment_value} in case dragging
+      follows.
+  *)
   method private remember_for_dragging =
     let (x, y) = Gdk.Window.get_pointer_location top_window#misc#window in
     (* 
@@ -755,10 +943,31 @@ object (self)
     last_button_press_h_adjustment_value <- drawing_h_adjustment#value;
 
 
+  (** We have different and incompatible actions for single and double
+      clicks and for dragging. Because single click events do always occur
+      before double clicks and dragging events, we have to undo the
+      changes that were done for the single click. A double click is of
+      course always preceeded by two single clicks. 
+
+      Remember the selected node state before the last but one
+      mouse press. This state needs to get reestablished when we
+      detect a double click.
+  *)
   val mutable old_old_selected_node = None
+
+  (** Remember the selected node state before the last mouse press.
+      This state needs to get reestablished on dragging events.
+  *)
   val mutable old_selected_node = None
+
+  (** Remember if we have already restored the selected node state
+      since the last button press.
+  *)
   val mutable restored_selected_node = false
 
+  (** Reset the selected node state to state [node_opt] and update
+      drawing and sequent area.
+  *)
   method set_selected_node node_opt =
     (match selected_node with
       | None -> ()
@@ -776,19 +985,32 @@ object (self)
   method select_root_node =
     self#set_selected_node root
 
+  (** Save the selected node state on a button press and clear
+      {!restored_selected_node}. 
+  *)
   method private save_selected_node_state =
     old_old_selected_node <- old_selected_node;
     old_selected_node <- selected_node;
     restored_selected_node <- false
 
+  (** Restore the selected node state when we detect mouse dragging
+      for the first time. Sets {!restored_selected_node}.
+  *)
   method private single_restore_selected_node =
     self#set_selected_node old_selected_node;
     restored_selected_node <- true
 
+  (** Restore the selected node state after we detected a double
+      click.
+  *)
   method private double_restore_selected_node =
     self#set_selected_node old_old_selected_node;
     restored_selected_node <- true
 
+  (** [locate_button_node x y found notfound] tries to locate a proof
+      tree element on position [(x, y)]. If there is one [found] is called
+      with this element. If there is nothing [notfound] is called.
+  *)
   method private locate_button_node : 
     'a . int -> int -> (#proof_tree_element -> 'a) -> (unit -> 'a) -> 'a =
     fun x y node_click_fun outside_click_fun ->
@@ -801,6 +1023,7 @@ object (self)
 	| None -> outside_click_fun ()
 	| Some node -> node_click_fun node
 
+  (** Display an external node window for the argument node. *)
   method private external_node_window (node : proof_tree_element) =
     let n = string_of_int(self#next_node_number) in
     let win = 
@@ -809,6 +1032,10 @@ object (self)
     node_windows <- win :: node_windows;
     self#invalidate_drawing_area
 
+  (** Method to handle button one press events. Receives as arguments
+      the coordinates, a flag for the shift modifier and a flag to
+      indicate a double click.
+  *)
   method private button_1_press x y shifted double =
     self#remember_for_dragging;
     if (not double) && (not shifted)
@@ -824,6 +1051,7 @@ object (self)
 
   (* val mutable last_button_press_time = 0l *)
 
+  (** Generic call back for all button press events. *)
   method button_press ev =
     let x = int_of_float(GdkEvent.Button.x ev +. 0.5) in
     let y = int_of_float(GdkEvent.Button.y ev +. 0.5) in
@@ -869,17 +1097,21 @@ object (self)
    *
    ***************************************************************************)
 
+  (** Action for a pointer motion event that is part of dragging.
+      Moves the viewport to the drawing area relative to the mouse position
+      when dragging started.
+  *)
   method pointer_motion (_ev : GdkEvent.Motion.t) =
     let (x, y) = Gdk.Window.get_pointer_location top_window#misc#window in
     let new_h_value = 
       last_button_press_h_adjustment_value +.
     	!current_config.button_1_drag_acceleration *.
-	   (float_of_int (x - last_button_press_top_x))
+	(float_of_int (x - last_button_press_top_x))
     in
     let new_v_value = 
       last_button_press_v_adjustment_value +.
     	!current_config.button_1_drag_acceleration *. 
-	   (float_of_int (y - last_button_press_top_y))
+	(float_of_int (y - last_button_press_top_y))
     in
     (* 
      * let hint = GdkEvent.Motion.is_hint _ev in
@@ -900,6 +1132,7 @@ object (self)
      *)
     true
 
+  (** General callback for all pointer motion events.  *)
   method pointer_general_motion (ev : GdkEvent.Motion.t) =
     if Gdk.Convert.test_modifier `BUTTON1 (GdkEvent.Motion.state ev)
     then self#pointer_motion ev
@@ -912,6 +1145,9 @@ object (self)
    *
    ***************************************************************************)
       
+  (** Callback for the query tooltip event. Display a tool-tip if
+      there is a sequent node or an abbreviated proof command node.
+  *)
   method drawable_tooltip ~x ~y ~kbd:(_kbd : bool) (tooltip : Gtk.tooltip) =
     (* Printf.fprintf (debugc()) "TTS x %d y %d\n%!" x y; *)
     self#locate_button_node x y 
@@ -941,6 +1177,9 @@ object (self)
    *
    ***************************************************************************)
 
+  (** Callback for the clone menu item. Creates and displays a clone
+      window.
+  *)
   method clone (owin : proof_window) =
     let become_selected = match current_node with
       | Some _ -> current_node
@@ -1003,9 +1242,11 @@ object (self)
    *
    ***************************************************************************)
 
+  (** Create a new turnstile node for sequents. *)
   method new_turnstile sequent_id sequent_text =
     new turnstile drawable sequent_id sequent_text
 
+  (** Create a new proof command node. *)
   method new_proof_command command inst_existentials new_existentials =
     new proof_command drawable command command 
       (inst_existentials : existential_variable list)
@@ -1020,12 +1261,16 @@ end
  *
  *****************************************************************************)
 
+(** Create a new proof tree window. Creates the widget hierarchy, the
+    menu, initializes the management object and registers all
+    callbacks.
+*)
 let rec make_proof_window name geometry_string =
   let top_window = GWindow.window () in
   top_window#set_default_size 
     ~width:!current_config.default_width_proof_tree_window
     ~height:!current_config.default_height_proof_tree_window;
-      (* top_v_box for the pane and the button hbox *)
+  (* top_v_box for the pane and the button hbox *)
   let top_v_box = GPack.vbox ~packing:top_window#add () in
       (* top_paned for the drawing area and the sequent *)
   let top_paned = GPack.paned `VERTICAL 
