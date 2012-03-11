@@ -1,3 +1,7 @@
+2012-03-11  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* fix assertion in callback
+
 2012-03-08  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* internal documentation complete

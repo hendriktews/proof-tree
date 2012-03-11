@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: ext_dialog.ml,v 1.6 2012/03/07 13:43:31 tews Exp $
+ * $Id: ext_dialog.ml,v 1.7 2012/03/11 20:09:40 tews Exp $
  *)
 
 (** The Existential Variable Dialog *)
@@ -360,7 +360,8 @@ object (self)
   *)
   method fill_table (node : proof_tree_element) =
     let rec iter node =
-      self#process_fresh_existentials node#fresh_existentials;
+      if node#fresh_existentials <> [] then
+	self#process_fresh_existentials node#fresh_existentials;
       List.iter iter node#children
     in
     iter node;
