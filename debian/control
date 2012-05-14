@@ -2,16 +2,26 @@ Source: prooftree
 Section: x11
 Priority: optional
 Maintainer: Hendrik Tews <hendrik@askra.de>
-Build-Depends: debhelper (>= 7.0.50~), autotools-dev, ocaml-native-compilers, liblablgtk2-ocaml-dev
-Standards-Version: 3.9.2
+Build-Depends:
+ debhelper (>= 9.0.0),
+ dh-ocaml (>= 0.9~),
+ ocaml-native-compilers,
+ liblablgtk2-ocaml-dev
+Standards-Version: 3.9.3
 Homepage: http://askra.de/software/prooftree
 
 Package: prooftree
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: proof-tree display for Proof General
- Prooftree visualizes proof trees during proof development with Proof
- General. Currently, it only works for Coq. 
+Depends:
+ proofgeneral,
+ ${shlibs:Depends},
+ ${misc:Depends}
+Suggests:
+ coq
+Description: proof-tree visualization for Proof General
+ Prooftree draws proof trees during interactive proof development
+ with Proof General. One can inspect goals and proof commands
+ and check where existential variables were introduced and
+ instantiated. Currently, Prooftree does only work for Coq.
  .
- To make use of this package you need Coq version 8.4 and Proof
- General version 4.2.
+ To make use of this package you need Coq version 8.4beta or better.

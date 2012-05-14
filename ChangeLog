@@ -1,5 +1,10 @@
 2012-05-14  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
+	* prepare release
+	* adjust debian stuff
+
+2012-05-14  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
 	* use odoc_xref tags for doc links into other libraries
 
 2012-03-11  Hendrik Tews  <tews@os.inf.tu-dresden.de>
