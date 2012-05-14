@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.37 2012/03/06 14:57:45 tews Exp $
+ * $Id: proof_tree.ml,v 1.38 2012/05/14 14:03:37 tews Exp $
  *)
 
 
@@ -31,6 +31,7 @@
 *)
 
 open Util
+open Gtk_ext
 open Configuration
 open Draw_tree
 open Proof_window
@@ -709,9 +710,9 @@ let finish_branch_and_switch_to pt state proof_command cheated_flag
   let message = 
     Printf.sprintf "%s (%d goal%s remaining)" 
       (if cheated_flag
-       then Gtk_ext.pango_markup_bold_color "Branch aborted" 
+       then pango_markup_bold_color "Branch aborted" 
 	  !cheated_gdk_color
-       else Gtk_ext.pango_markup_bold_color "Branch finished" 
+       else pango_markup_bold_color "Branch finished" 
 	  !proved_complete_gdk_color)
       pt.open_goals_count
       (if pt.open_goals_count > 1 then "s" else "")
@@ -813,9 +814,9 @@ let process_proof_finished state proof_name proof_command cheated_flag
 	uninstatiated_existentials instantiated_ex_deps;
       let message = 
 	if pt.cheated 
-	then Gtk_ext.pango_markup_bold_color "False proof finished" 
+	then pango_markup_bold_color "False proof finished" 
 	  !cheated_gdk_color
-	else Gtk_ext.pango_markup_bold_color "Proof finished" 
+	else pango_markup_bold_color "Proof finished" 
 	  !proved_complete_gdk_color
       in
       pt.window#message message
@@ -831,9 +832,9 @@ let process_proof_complete state proof_name =
       then raise (Proof_tree_error "Completed other non-current proof");
       let message =
 	if pt.cheated
-	then Gtk_ext.pango_markup_bold_color "False proof completed"
+	then pango_markup_bold_color "False proof completed"
 	  !cheated_gdk_color
-	else Gtk_ext.pango_markup_bold_color "Proof completed"
+	else pango_markup_bold_color "Proof completed"
 	!proved_complete_gdk_color
       in
       pt.window#message message;

@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.34 2012/03/06 14:57:45 tews Exp $
+ * $Id: configuration.ml,v 1.35 2012/05/14 14:03:36 tews Exp $
  *)
 
 
@@ -109,13 +109,15 @@ type t = {
   *)
 
   proof_tree_font : string;
-  (** Font description (as for {!GPango.font_description}) for the
-      text inside the proof-tree display.
+  (** Font description (as for {xref lablgtk class
+      GPango.font_description}) for the text inside the proof-tree
+      display. 
   *)
 
   sequent_font : string;
-  (** Font description (as for {!GPango.font_description}) for the
-      text in the sequent display and in the additional node windows.
+  (** Font description (as for {xref lablgtk class
+      GPango.font_description}) for the text in the sequent display
+      and in the additional node windows. 
   *)
 
   current_color : (int * int * int);
@@ -278,50 +280,52 @@ let current_config = ref default_configuration
 
 
 (** Font description for the text inside the proof-tree display, as
-    value of {!GPango.font_description} type. Should always be in sync
-    with the [proof_tree_font] field of {!current_config}.
+    value of {xref lablgtk class GPango.font_description} type. Should
+    always be in sync with the [proof_tree_font] field of
+    {!current_config}.
 *)
 let proof_tree_font_desc = 
   ref(GPango.font_description default_configuration.proof_tree_font)
 
 
 (** Font description for the text in the sequent display and in the
-    additional node windows, as value of {!GPango.font_description}
-    type. Should always be in sync with the [sequent_font] field
-    of {!current_config}.
+    additional node windows, as value of {xref lablgtk class
+    GPango.font_description} type. Should always be in sync with the
+    [sequent_font] field of {!current_config}.
 *)
 let sequent_font_desc = 
   ref(GPango.font_description default_configuration.sequent_font)
 
 
-(** Color for the current branch, as {!Gdk.color}. Should always be in
-    sync with the [current_color] field of {!current_config}.
+(** Color for the current branch, as {xref lablgtk type Gdk.color}.
+    Should always be in sync with the [current_color] field of
+    {!current_config}.
 *)
 let current_gdk_color =
   ref(GDraw.color (`RGB default_configuration.current_color))
 
 
 (** Color for branches that have been finished with a cheating
-    command, as {!Gdk.color}. Should always be in sync with the
-    [cheated_color] field of {!current_config}.
+    command, as {xref lablgtk type Gdk.color}. Should always be in
+    sync with the [cheated_color] field of {!current_config}.
 *)
 let cheated_gdk_color =
   ref(GDraw.color (`RGB default_configuration.cheated_color))
 
 
 (** Color for branches that have been proved and which have no
-    non-instantiated esistential variables, as {!Gdk.color}. Should
-    always be in sync with the [proved_complete_color] field of
-    {!current_config}.
+    non-instantiated esistential variables, as {xref lablgtk type
+    Gdk.color}. Should always be in sync with the
+    [proved_complete_color] field of {!current_config}.
 *)
 let proved_complete_gdk_color = 
   ref(GDraw.color (`RGB default_configuration.proved_complete_color))
 
 
 (** Color for branches that have been proved and that have
-    non-instantiated existential variables as {!Gdk.color}. Should
-    always be in sync with the [proved_incomplete_color] field of
-    {!current_config}.
+    non-instantiated existential variables as {xref lablgtk type
+    Gdk.color}. Should always be in sync with the
+    [proved_incomplete_color] field of {!current_config}.
 *)
 let proved_incomplete_gdk_color = 
   ref(GDraw.color (`RGB default_configuration.proved_incomplete_color))
@@ -330,16 +334,18 @@ let proved_incomplete_gdk_color =
 (** Color for branches that have been proved and whose own existential
     variables are all instantiated, but where the instantiations
     depend on some not-yet instantiated existential variables. The
-    value is given as {!Gdk.color} and should always be in sync with
-    the [proved_partial_color] field of {!current_config}.
+    value is given as {xref lablgtk type Gdk.color} and should always
+    be in sync with the [proved_partial_color] field of
+    {!current_config}.
 *)
 let proved_partial_gdk_color =
   ref(GDraw.color (`RGB default_configuration.proved_partial_color))
 
 
 (* 
- * (\** Color for marked subtrees, as {!Gdk.color}. Should always be in
- *     sync with the {!mark_subtree_color} field of {!current_config}.
+ * (\** Color for marked subtrees, as {xref lablgtk type Gdk.color}.
+ *     Should always be in sync with the {!mark_subtree_color} field of
+ *     {!current_config}.
  * *\)
  * let mark_subtree_gdk_color =
  *   ref(GDraw.color (`RGB default_configuration.mark_subtree_color))
@@ -347,15 +353,17 @@ let proved_partial_gdk_color =
 
 
 (** Color for marking nodes that introduce a given existential
-    variable, as {!Gdk.color}. Should always be in sync with the
-    [existential_create_color] field of {!current_config}.
+    variable, as {xref lablgtk type Gdk.color}. Should always be in
+    sync with the [existential_create_color] field of
+    {!current_config}.
 *)
 let existential_create_gdk_color =
   ref(GDraw.color (`RGB default_configuration.existential_create_color))
 
 (** Color for marking nodes that instantiate a given existential
-    variable, as {!Gdk.color}. Should always be in sync with the
-    [existential_instantiate_color] field of {!current_config}.
+    variable, as {xref lablgtk type Gdk.color}. Should always be in
+    sync with the [existential_instantiate_color] field of
+    {!current_config}.
 *)
 let existential_instantiate_gdk_color =
   ref(GDraw.color (`RGB default_configuration.existential_instantiate_color))
@@ -494,47 +502,68 @@ let config_window = ref None
     set up by the function that creates objects. 
 
     Arguments are
-    - top_window		{!GWindow.window} of the top-level widget
-    - line_width_spinner 	{!GEdit.spin_button} for line width
-    - turnstile_size_spinner 	{!GEdit.spin_button} for turnstile size
-    - line_sep_spinner 		{!GEdit.spin_button} for line gap
-    - subtree_sep_spinner 	{!GEdit.spin_button} for node padding
-    - command_length_spinner 	{!GEdit.spin_button} for command length
-    - level_dist_spinner 	{!GEdit.spin_button} for vertical distance
-    - tree_font_button		{!GButton.font_button} for proof tree font
-    - sequent_font_button	{!GButton.font_button} for sequent window font
-    - current_color_button	{!GButton.color_button} for current color
-    - cheated_color_button	{!GButton.color_button} for cheated color
-    - proved_complete_color_button   {!GButton.color_button} for complete color
-    - proved_incomplete_color_button {!GButton.color_button} for incomplete color
-    - proved_partial_color_button    {!GButton.color_button} for partial color
-    - ext_create_color_button     {!GButton.color_button} for create exist.
-    - ext_inst_color_button       {!GButton.color_button} for instant. exist.
-    - drag_accel_spinner 	  {!GEdit.spin_button} for drac acceleration
-    - doc_tooltip_check_box	  {!GButton.toggle_button} for the help 
-                                  tool-tips check bock
-    - turnstile_tooltip_check_box {!GButton.toggle_button} for the turnstile
-                                  tool-tips check bock
-    - command_tooltip_check_box	  {!GButton.toggle_button} for the command
-                                  tool-tips check bock
-    - default_size_width_spinner  {!GEdit.spin_button} for default window 
-                                  size width
-    - default_size_height_spinner {!GEdit.spin_button} for default window 
-                                  size height
-    - internal_seq_lines_spinner  {!GEdit.spin_button} for lines in the 
-                                  internal sequent window
-    - external_node_lines_spinner {!GEdit.spin_button} for lines in external 
-                                  node windows
-    - debug_check_box		{!GButton.toggle_button} for the 
-                                more-debug-info check box
-    - tee_file_box_check_box 	{!GButton.toggle_button} for log-input check box
-    - tee_file_name_label	{!GMisc.label} of the log-file label
-    - tee_file_name_entry	{!GEdit.entry} of the log-file text entry
-    - tee_file_name_button	{!GButton.button} of the log-file button that 
+    - top_window		{xref lablgtk class GWindow.window} 
+                                of the top-level widget
+    - line_width_spinner 	{xref lablgtk class GEdit.spin_button} 
+                                for line width
+    - turnstile_size_spinner 	{xref lablgtk class GEdit.spin_button} 
+                                for turnstile size
+    - line_sep_spinner 		{xref lablgtk class GEdit.spin_button} 
+                                for line gap
+    - subtree_sep_spinner 	{xref lablgtk class GEdit.spin_button} 
+                                for node padding
+    - command_length_spinner 	{xref lablgtk class GEdit.spin_button} 
+                                for command length
+    - level_dist_spinner 	{xref lablgtk class GEdit.spin_button} 
+                                for vertical distance
+    - tree_font_button		{xref lablgtk class GButton.font_button} 
+                                for proof tree font
+    - sequent_font_button	{xref lablgtk class GButton.font_button} 
+                                for sequent window font
+    - current_color_button	{xref lablgtk class GButton.color_button} 
+                                for current color
+    - cheated_color_button	{xref lablgtk class GButton.color_button} 
+                                for cheated color
+    - proved_complete_color_button   {xref lablgtk class GButton.color_button} 
+                                     for complete color
+    - proved_incomplete_color_button {xref lablgtk class GButton.color_button} 
+                                     for incomplete color
+    - proved_partial_color_button    {xref lablgtk class GButton.color_button} 
+                                     for partial color
+    - ext_create_color_button     {xref lablgtk class GButton.color_button} 
+                                  for create exist.
+    - ext_inst_color_button       {xref lablgtk class GButton.color_button} 
+                                  for instant. exist.
+    - drag_accel_spinner 	  {xref lablgtk class GEdit.spin_button} 
+                                  for drac acceleration
+    - doc_tooltip_check_box	  {xref lablgtk class GButton.toggle_button} 
+                                  for the help tool-tips check bock
+    - turnstile_tooltip_check_box {xref lablgtk class GButton.toggle_button} 
+                                  for the turnstile tool-tips check bock
+    - command_tooltip_check_box	  {xref lablgtk class GButton.toggle_button} 
+                                  for the command tool-tips check bock
+    - default_size_width_spinner  {xref lablgtk class GEdit.spin_button} 
+                                  for default window size width
+    - default_size_height_spinner {xref lablgtk class GEdit.spin_button} 
+                                  for default window size height
+    - internal_seq_lines_spinner  {xref lablgtk class GEdit.spin_button}
+                                  for lines in the internal sequent window
+    - external_node_lines_spinner {xref lablgtk class GEdit.spin_button}
+                                  for lines in external node windows
+    - debug_check_box		{xref lablgtk class GButton.toggle_button}
+                                for the more-debug-info check box
+    - tee_file_box_check_box 	{xref lablgtk class GButton.toggle_button}
+                                for log-input check box
+    - tee_file_name_label	{xref lablgtk class GMisc.label}
+                                of the log-file label
+    - tee_file_name_entry	{xref lablgtk class GEdit.entry}
+                                of the log-file text entry
+    - tee_file_name_button	{xref lablgtk class GButton.button}
+                                of the log-file button that 
                                 starts the file selection dialog
-    - tooltip_misc_objects	list of {!GObj.misc_ops} of config dialog
-                                elements that have a tool-tip to switch on and
-                                off
+    - tooltip_misc_objects	list of {xref lablgtk class GObj.misc_ops} 
+                                of config dialog elements that have a tool-tip
+                                to switch on and off
 *)
 class config_window 
   top_window
@@ -568,40 +597,54 @@ class config_window
   =
 object (self)
 
-  (** {!GData.adjustment} of the line-width spin button. *)
+  (** {xref lablgtk class GData.adjustment} of the line-width spin button. *)
   val line_width_adjustment = line_width_spinner#adjustment
 
-  (** {!GData.adjustment} of the turnstile-size spin button. *)
+  (** {xref lablgtk class GData.adjustment} of the turnstile-size spin
+      button.
+  *)
   val turnstile_size_adjustment = turnstile_size_spinner#adjustment
 
-  (** {!GData.adjustment} of the line-gap spin button. *)
+  (** {xref lablgtk class GData.adjustment} of the line-gap spin button. *)
   val line_sep_adjustment = line_sep_spinner#adjustment
 
-  (** {!GData.adjustment} of the node-padding spin button. *)
+  (** {xref lablgtk class GData.adjustment} of the node-padding spin
+      button.
+  *)
   val subtree_sep_adjustment = subtree_sep_spinner#adjustment
 
-  (** {!GData.adjustment} of the command-length spin button. *)
+  (** {xref lablgtk class GData.adjustment} of the command-length spin
+      button.
+  *)
   val command_length_adjustment = command_length_spinner#adjustment
 
-  (** {!GData.adjustment} of the vertical-distance spin button. *)
+  (** {xref lablgtk class GData.adjustment} of the vertical-distance
+      spin button. 
+  *)
   val level_dist_adjustment = level_dist_spinner#adjustment
 
-  (** {!GData.adjustment} of the drag-acceleration spin button. *)
+  (** {xref lablgtk class GData.adjustment} of the drag-acceleration
+      spin button.
+  *)
   val drag_accel_adjustment = drag_accel_spinner#adjustment
 
-  (** {!GData.adjustment} of the default-window-size-width spin button. *)
+  (** {xref lablgtk class GData.adjustment} of the
+      default-window-size-width spin button.
+  *)
   val default_size_width_adjustment = default_size_width_spinner#adjustment
 
-  (** {!GData.adjustment} of the default-window-size-height spin button. *)
+  (** {xref lablgtk class GData.adjustment} of the
+      default-window-size-height spin button. 
+  *)
   val default_size_height_adjustment = default_size_height_spinner#adjustment
 
-  (** {!GData.adjustment} of the spin button for the number of lines
-      in the internal sequent window. 
+  (** {xref lablgtk class GData.adjustment} of the spin button for the
+      number of lines in the internal sequent window. 
   *)
   val internal_seq_lines_adjustment = internal_seq_lines_spinner#adjustment
 
-  (** {!GData.adjustment} of the spin button for the number of lines
-      in external node windows. 
+  (** {xref lablgtk class GData.adjustment} of the spin button for the
+      number of lines in external node windows. 
   *)
   val external_node_lines_adjustment = external_node_lines_spinner#adjustment
 

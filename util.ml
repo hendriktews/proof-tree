@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: util.ml,v 1.17 2012/01/02 15:50:51 tews Exp $
+ * $Id: util.ml,v 1.18 2012/05/14 14:03:37 tews Exp $
  *)
 
 
@@ -43,8 +43,8 @@ let rec list_filter_rev_accu p accu = function
     if p x then list_filter_rev_accu p (x :: accu) l 
     else list_filter_rev_accu p accu l
 
-(** Like {!List.filter} but reverses the order of the filtered
-    elements. Tail recursive.
+(** Like {xref stdlib val List.filter} but reverses the order of the
+    filtered elements. Tail recursive.
 *)
 let list_filter_rev p l = list_filter_rev_accu p [] l
 
@@ -106,9 +106,9 @@ let list_set_remove_element e s =
 
 (** [search_char buf start stop c] searches for character [c] in the
     substring of [buf] starting at [start] and ending before [stop].
-    Similar to {!String.index_from} but stop searching before [stop]
-    and wrap the result in an [option] instead of raising an
-    exception.
+    Similar to {xref stdlib val String.index_from} but stop searching
+    before [stop] and wrap the result in an [option] instead of
+    raising an exception.
 *)
 let rec search_char buf start stop c =
   if start < stop then

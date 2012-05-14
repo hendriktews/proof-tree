@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.46 2012/03/08 15:43:30 tews Exp $
+ * $Id: proof_window.ml,v 1.47 2012/05/14 14:03:37 tews Exp $
  *)
 
 
@@ -27,8 +27,8 @@
 
 
 open Util
-open Configuration
 open Gtk_ext
+open Configuration
 open Draw_tree
 open Node_window
 open Help_window
@@ -54,21 +54,27 @@ let cloned_proof_windows = ref []
     binding to singals must be done outside.
 
     Arguments are
-    - top_window              {!GWindow.window} of the top-level widget
-    - drawing_h_adjustment    {!GData.adjustment} of the horizontal scroll bar
+    - top_window              {xref lablgtk class GWindow.window} 
+                              of the top-level widget
+    - drawing_h_adjustment    {xref lablgtk class GData.adjustment}
+                              of the horizontal scroll bar
                               of the drawing area
-    - drawing_v_adjustment    {!GData.adjustment} of the vertical scroll bar
+    - drawing_v_adjustment    {xref lablgtk class GData.adjustment}
+                              of the vertical scroll bar
                               of the drawing area
-    - drawing_area            {!GMisc.drawing_area} for the proof tree
+    - drawing_area            {xref lablgtk class GMisc.drawing_area}
+                              for the proof tree
     - drawable                {!Gtk_ext.better_drawable} for the actual 
                               drawing operations
-    - labeled_sequent_frame   {!GBin.frame} labelled frame of the 
-                              sequent area
-    - sequent_window          {!GText.view} of the sequent area
-    - sequent_v_adjustment    {!GData.adjustment} of the vertical scroll bar
+    - labeled_sequent_frame   {xref lablgtk class GBin.frame}
+                              labelled frame of the sequent area
+    - sequent_window          {xref lablgtk class GText.view}
                               of the sequent area
-    - message_label           {!GMisc.label} for messages in the bottom line
-    - menu                    {!GMenu.menu} of main menu
+    - sequent_v_adjustment    {xref lablgtk class GData.adjustment}
+                              of the vertical scroll bar of the sequent area
+    - message_label           {xref lablgtk class GMisc.label}
+                              for messages in the bottom line
+    - menu                    {xref lablgtk class GMenu.menu} of main menu
     - proof_name              the name of the proof this display is showing
 *)
 class proof_window (top_window : GWindow.window)

@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.29 2012/03/06 14:57:45 tews Exp $
+ * $Id: input.ml,v 1.30 2012/05/14 14:03:37 tews Exp $
  *)
 
 
@@ -310,19 +310,20 @@ let setup_input_backup_channel () =
     
 
 
-(** Input function for reading from the input channel. To make the input
-    backup feature work (see option [-tee]) input must always be read with 
-    this function. Arguments are the same as for {!Pervasives.input}, 
-    [local_input buf start len] 
-    reads at most [len] bytes from [stdin] into buffer [buf], 
-    starting at position [start]. Any material read is immediately written 
-    to {!Input.input_backup_oc}. Before calling this function,
-    {!Input.current_parser} must be set to the parsing continuation function.
-    This will be used in case parsing is interrupted now, because no more 
-    input is currently available, and control is given back to the GTK main 
-    loop. When more input becomes available the GTK main loop calls this 
-    module again and the main parsing loop in {!Input.parse_input} continues
-    parsing with the function stored in [current_parser].
+(** Input function for reading from the input channel. To make the
+    input backup feature work (see option [-tee]) input must always be
+    read with this function. Arguments are the same as for {xref
+    stdlib val Pervasives.input}, [local_input buf start len] reads at
+    most [len] bytes from [stdin] into buffer [buf], starting at
+    position [start]. Any material read is immediately written to
+    {!Input.input_backup_oc}. Before calling this function,
+    {!Input.current_parser} must be set to the parsing continuation
+    function. This will be used in case parsing is interrupted now,
+    because no more input is currently available, and control is given
+    back to the GTK main loop. When more input becomes available the
+    GTK main loop calls this module again and the main parsing loop in
+    {!Input.parse_input} continues parsing with the function stored in
+    [current_parser].
 
     @raise Sys_blocked_io when no more input is available currently
 *)

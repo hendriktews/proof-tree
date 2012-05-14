@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: help_window.ml,v 1.12 2012/01/29 10:48:21 tews Exp $
+ * $Id: help_window.ml,v 1.13 2012/05/14 14:03:36 tews Exp $
  *)
 
 
@@ -38,7 +38,8 @@
     of a style-tag and a string. The string is the help text and the
     style-tag (of type {!tags_symbols} determines the markup. To
     create the help text, one iterates over the list, translates the
-    style-tags into appropriate {!GText.tag}'s and inserts the text.
+    style-tags into appropriate {xref lablgtk class GText.tag}'s and
+    inserts the text.
 *)
 
 
@@ -198,9 +199,9 @@ To visit a customization group, type ");
 
 
 (** Format {!help_text} and insert it into the given buffer. The
-    style-tags are translated into appropriate {!GText.tag_property},
-    which are used to create {!GText.tag}'s, which in turn are used to
-    insert the help text.
+    style-tags are translated into appropriate {xref lablgtk type
+    GText.tag_property}, which are used to create {xref lablgtk class
+    GText.tag}'s, which in turn are used to insert the help text.
 *)
 let fill_help_buffer (buffer : GText.buffer) =
   let i_tag = buffer#create_tag [`FONT "italic"] in
@@ -218,8 +219,8 @@ let fill_help_buffer (buffer : GText.buffer) =
 
 
 (** Create and display a new help window. This function creates a new
-    {!GWindow.dialog} that contains the formatted help text inside a
-    {GText.view}.
+    {xref lablgtk class GWindow.dialog} that contains the formatted
+    help text inside a {xref lablgtk class GText.view}.
 *)
 let show_help_window () =
   let help_win = 

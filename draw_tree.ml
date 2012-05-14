@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.37 2012/03/07 13:43:31 tews Exp $
+ * $Id: draw_tree.ml,v 1.38 2012/05/14 14:03:36 tews Exp $
  *)
 
 
@@ -1284,9 +1284,8 @@ object (self)
 
   (** The original proof command. If it exceeds the length specified
       in field [proof_command_length] (see {!Configuration.t} and
-      {!current_config}) then only a part of it is displayed in the tree
-      display.
-  *)
+      {!Configuration.current_config}) then only a part of it is
+      displayed in the tree display. *)
   val command = command
 
   (** Flag to indicate that only a part of the proof command is
@@ -1352,7 +1351,7 @@ object (self)
       ^ "\226\128\166" 			(* append horizontal ellipsis *)
     end
 
-  (** Set {!proof_tree_element.width} and {!proof_tree_element.heigth}
+  (** Set {!proof_tree_element.width} and {!proof_tree_element.height}
       after rendering the proof command.
   *)
   method private set_node_size =

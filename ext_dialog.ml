@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: ext_dialog.ml,v 1.7 2012/03/11 20:09:40 tews Exp $
+ * $Id: ext_dialog.ml,v 1.8 2012/05/14 14:03:36 tews Exp $
  *)
 
 (** The Existential Variable Dialog *)
@@ -66,8 +66,9 @@ type ext_table_line = {
     Arguments are
     - proof_window      {!class: Proof_window.proof_window} to which this 
     window is associated to
-    - top_window	{!GWindow.window} of the top-level widget
-    - ext_table		{!GPack.table} of the main table
+    - top_window	{xref lablgtk class GWindow.window}
+                        of the top-level widget
+    - ext_table		{xref lablgtk class GPack.table} of the main table
     - start_row		first row in the table
     - name_col		column for names
     - status_col	column for status

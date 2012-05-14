@@ -19,14 +19,16 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: gtk_ext.ml,v 1.15 2012/01/02 15:50:50 tews Exp $
+ * $Id: gtk_ext.ml,v 1.16 2012/05/14 14:03:36 tews Exp $
  *)
 
 
 (** Some misc LablGtk extensions *)
 
 
-(** An extension of {!Gdraw.drawable} with a few convinience methods. *)
+(** An extension of {xref lablgtk class GDraw.drawable} with a few
+    convinience methods. 
+*)
 class better_drawable ?colormap w pc = 
 object
   inherit GDraw.drawable ?colormap w
@@ -49,12 +51,12 @@ object
 end
 
 
-(** Convinience wrapper around {!GWindow.message_dialog}.
-    [run_message_dialog message message_type] displays a modal message
-    dialog of [message_type] with message [message] and one OK button.
-    The dialog is destroyed when the OK button is pressed.
-    [message_type] must be one of [`INFO], [`WARNING], [`QUESTION] and
-    [`ERROR ].
+(** Convinience wrapper around {xref lablgtk val
+    GWindow.message_dialog}. [run_message_dialog message message_type]
+    displays a modal message dialog of [message_type] with message
+    [message] and one OK button. The dialog is destroyed when the OK
+    button is pressed. [message_type] must be one of [`INFO],
+    [`WARNING], [`QUESTION] and [`ERROR ].
 *)
 let run_message_dialog message message_type =
   let warn = GWindow.message_dialog ~message ~message_type
@@ -64,11 +66,11 @@ let run_message_dialog message message_type =
   warn#destroy()
 
 
-(** Another convenience wrapper around {!GWindow.message_dialog}.
-    [error_message_dialog message] displays a modal error message
-    dialog (of type [`ERROR]) with message [message] and one OK
-    button. The application is terminated with exit status 1 after the
-    error has been acknowledged.
+(** Another convenience wrapper around {xref lablgtk val
+    GWindow.message_dialog}. [error_message_dialog message] displays a
+    modal error message dialog (of type [`ERROR]) with message
+    [message] and one OK button. The application is terminated with
+    exit status 1 after the error has been acknowledged.
 *)
 let error_message_dialog message =
   run_message_dialog message `ERROR;
