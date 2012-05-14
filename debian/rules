@@ -18,10 +18,15 @@ export DH_OPTIONS
 %:
 	dh $@ --with ocaml
 
+.PHONY: override_dh_auto_clean
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -f Makefile
+
 .PHONY: override_dh_auto_configure
 override_dh_auto_configure:
 	./configure --prefix /usr
 
 .PHONY: override_dh_gencontrol
 override_dh_gencontrol:
-        dh_gencontrol -- -VF:OCamlABI="$(OCAML_ABI)"
+	dh_gencontrol -- -VF:OCamlABI="$(OCAML_ABI)"

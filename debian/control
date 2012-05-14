@@ -5,7 +5,7 @@ Maintainer: Hendrik Tews <hendrik@askra.de>
 Build-Depends:
  debhelper (>= 9.0.0),
  dh-ocaml (>= 0.9~),
- ocaml-native-compilers,
+ ocaml-best-compilers,
  liblablgtk2-ocaml-dev
 Standards-Version: 3.9.3
 Homepage: http://askra.de/software/prooftree
@@ -14,6 +14,7 @@ Package: prooftree
 Architecture: any
 Depends:
  proofgeneral,
+ ${ocaml:Depends},
  ${shlibs:Depends},
  ${misc:Depends}
 Suggests:
