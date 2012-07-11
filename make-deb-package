@@ -35,7 +35,7 @@ cvs export -r HEAD -d $subdir src/proof-tree
 
 pushd $subdir
 
-rm -f make-bundle make-release make-dep-package
+rm -f make-bundle make-release make-deb-package
 
 popd
 # back in $dir

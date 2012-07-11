@@ -1,3 +1,7 @@
+2012-07-11  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* fix an embarrassing control flow bug in input.ml
+
 2012-05-14  Hendrik Tews <prooftree@askra.de>
 
 	* release version 0.10 on 2012-05-14 21:11:13 UTC

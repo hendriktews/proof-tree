@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.30 2012/05/14 14:03:37 tews Exp $
+ * $Id: input.ml,v 1.31 2012/07/11 14:55:59 tews Exp $
  *)
 
 
@@ -351,8 +351,13 @@ let local_input buf start len =
     @raise Sys_blocked_io when not enough input is available currently
 *)
 let rec get_string_cont s i len continuation_fn () =
+  (* Printf.fprintf (debugc()) "GS cont %d - %d enter\n%!" i len; *)
   current_parser := (get_string_cont s i len continuation_fn);
   let n = local_input s i (len - i) in
+  (* 
+   * Printf.fprintf (debugc()) "GS read %d bytes: %s\n%!" 
+   *   n (String.sub s i n);
+   *)
   let i = i + n in
   if i = len
   then begin
@@ -372,6 +377,7 @@ let rec get_string_cont s i len continuation_fn () =
     @raise Sys_blocked_io when not enough input is available currently
 *)
 let get_string len continuation_fn =
+  (* Printf.fprintf (debugc()) "GS %d enter\n%!" len; *)
   let s = String.create len in
   get_string_cont s 0 len continuation_fn ()
 
@@ -459,6 +465,7 @@ let parse_configure com_buf =
 let parse_current_goals_finish state current_sequent_id cheated_string 
     proof_name proof_command current_sequent_text 
     additional_ids_string existentials_string =
+  (* Printf.fprintf (debugc()) "PCGF\n%!"; *)
   let cheated_flag = match cheated_string with
     | "not-cheated" -> false
     | "cheated" -> true
@@ -476,7 +483,9 @@ let parse_current_goals_finish state current_sequent_id cheated_string
   let existentials_string = chop_final_newlines existentials_string in
   let (ex_uninst, ex_inst) = !parse_existential_info existentials_string in
   Proof_tree.process_current_goals state proof_name proof_command cheated_flag
-    current_sequent_id current_sequent_text additional_ids ex_uninst ex_inst
+    current_sequent_id current_sequent_text additional_ids ex_uninst ex_inst;
+  current_parser := !message_start_parser
+
     
 
 (** Start parsing of the [current-goals] command. Extracts elements and 
@@ -531,7 +540,9 @@ let parse_current_goals com_buf =
 let parse_update_sequent_finish state sequent_id proof_name sequent_text =
   let proof_name = chop_final_newlines proof_name in
   let sequent_text = chop_final_newlines sequent_text in
-  Proof_tree.update_sequent state proof_name sequent_id sequent_text
+  Proof_tree.update_sequent state proof_name sequent_id sequent_text;
+  current_parser := !message_start_parser
+
 
 
 (** Parse and process a [update-sequent] command. Extracts the state and
@@ -570,7 +581,8 @@ let parse_update_sequent com_buf =
 *)
 let parse_switch_goal_finish state new_current_id proof_name =
   let proof_name = chop_final_newlines proof_name in
-  Proof_tree.switch_to state proof_name new_current_id
+  Proof_tree.switch_to state proof_name new_current_id;
+  current_parser := !message_start_parser
 
 
 (** Parse and process a [switch-goal] command. Extracts the state, the
@@ -625,7 +637,8 @@ let parse_proof_finished_finish
   let existentials_string = chop_final_newlines existentials_string in
   let (ex_uninst, ex_inst) = !parse_existential_info existentials_string in
   Proof_tree.process_proof_finished 
-    state proof_name proof_command cheated_flag ex_uninst ex_inst
+    state proof_name proof_command cheated_flag ex_uninst ex_inst;
+  current_parser := !message_start_parser
 
 
 (** Parse and process a [proof-finished] command. Extracts the
@@ -670,7 +683,8 @@ let parse_proof_complete com_buf =
       get_string proof_name_bytes 
 	(fun proof_name ->
 	  let proof_name = chop_final_newlines proof_name in
-	  Proof_tree.process_proof_complete state proof_name))
+	  Proof_tree.process_proof_complete state proof_name;
+	  current_parser := !message_start_parser))
 
 
 (******************************************************************************
@@ -703,7 +717,8 @@ let do_undo com_buf =
 *)
 let parse_quit_proof_finish proof_name =
   let proof_name = chop_final_newlines proof_name in
-  Proof_tree.quit_proof proof_name
+  Proof_tree.quit_proof proof_name;
+  current_parser := !message_start_parser
 
 
 (** Parse and process a [quit-proof] command. Extracts the
@@ -752,7 +767,6 @@ let parse_command command =
 			       None))
     );
   current_parser := !message_start_parser;
-  (* Printf.fprintf (debugc()) "PC finished\n%!"; *)
   ()
 
 
@@ -765,6 +779,7 @@ let parse_command command =
 let read_second_line first_line =
   Scanf.sscanf first_line "second line %3d\n"
     (fun second_line_len ->
+      (* Printf.fprintf (debugc()) "second line cont %d\n%!" second_line_len; *)
       get_string second_line_len parse_command)
 
 
@@ -783,6 +798,7 @@ let message_start () =
   (* every message starts with a line "second line %03d"
    * where the number gives the bytes in the next line
    *)
+  (* Printf.fprintf (debugc()) "message start\n%!"; *)
   try
     get_string 16 read_second_line
   with
