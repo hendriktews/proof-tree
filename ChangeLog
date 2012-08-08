@@ -1,3 +1,7 @@
+2012-08-08  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* fix clone deletes primary window problem
+
 2012-07-11  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* fix an embarrassing control flow bug in input.ml

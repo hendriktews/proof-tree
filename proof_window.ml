@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.47 2012/05/14 14:03:37 tews Exp $
+ * $Id: proof_window.ml,v 1.48 2012/08/08 20:51:24 tews Exp $
  *)
 
 
@@ -153,6 +153,9 @@ object (self)
   *)
   val mutable destroy_in_progress = false
 
+  (** True when this is a clone. *)
+  val mutable is_clone = false
+
   (** Set the root node of the proof tree. *)
   method set_root r = 
     root <- Some (r : proof_tree_element)
@@ -167,6 +170,8 @@ object (self)
   method delete_node_window win =
     node_windows <- List.filter (fun owin -> owin <> win) node_windows
 
+  (** Setter for {!is_clone}. *)
+  method set_clone_flag = is_clone <- true
 
   (***************************************************************************
    *
@@ -474,7 +479,8 @@ object (self)
   *)
   method user_delete_proof_window () =
     if destroy_in_progress = false then begin
-      !delete_proof_tree_callback proof_name;
+      if is_clone = false then
+	!delete_proof_tree_callback proof_name;
       self#delete_proof_window
     end
 
@@ -1187,6 +1193,7 @@ object (self)
       window.
   *)
   method clone (owin : proof_window) =
+    owin#set_clone_flag;
     let become_selected = match current_node with
       | Some _ -> current_node
       | None -> selected_node

@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.31 2012/07/11 14:55:59 tews Exp $
+ * $Id: input.ml,v 1.32 2012/08/08 20:51:24 tews Exp $
  *)
 
 
@@ -191,7 +191,8 @@
     {- {v quit-proof proof-name-bytes %d\n\
     <data-proof-name>\n v}
     
-    Quit closes the window for the indicated proof.
+    Quit closes the window for the indicated proof. 
+    Cloned windows are not closed.
     The only data section is:
     {ol
     {- Full name of the proof whoose window should be delected}
