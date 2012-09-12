@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.38 2012/05/14 14:03:37 tews Exp $
+ * $Id: proof_tree.ml,v 1.39 2012/09/12 12:30:31 tews Exp $
  *)
 
 
@@ -729,23 +729,37 @@ let process_current_goals state proof_name proof_command cheated_flag
       if pt.proof_name <> proof_name 
       then stop_proof_tree_last_selected pt state
     | None -> ());
-  match !current_proof_tree with
-    | None -> 
-      assert(additional_ids = []);
-      assert(cheated_flag = false);
-      assert(uninstatiated_existentials = []);
-      start_new_proof state proof_name current_sequent_id current_sequent_text
-    | Some pt ->
-      if pt.current_sequent_id <> current_sequent_id &&
-	Hashtbl.mem pt.sequent_hash current_sequent_id
-      then
-	finish_branch_and_switch_to pt state proof_command cheated_flag
-	  current_sequent_id additional_ids 
-	  uninstatiated_existentials instantiated_ex_deps
-      else
-	add_new_goal pt state proof_command cheated_flag current_sequent_id 
-	  current_sequent_text additional_ids 
-	  uninstatiated_existentials instantiated_ex_deps
+  if !current_proof_tree = None && additional_ids <> []
+  then begin
+    (* emacs_callback_stop_display (); *)
+    (* To gracefully recover from this error requires much more work:
+     * There might already be update-sequence commands in the pipe. 
+     * We have to ignore them until we are sure, that Proof General 
+     * processed the stop-display command.
+     *)
+    error_message_dialog 
+      "Detected a new proof with 2 or more initial goals.\n \
+       (For Coq please start proofs with \"Proof.\" to avoid \
+       this situation.)"
+  end
+  else
+    match !current_proof_tree with
+      | None -> 
+	assert(additional_ids = []);
+	assert(cheated_flag = false);
+	assert(uninstatiated_existentials = []);
+	start_new_proof state proof_name current_sequent_id current_sequent_text
+      | Some pt ->
+	if pt.current_sequent_id <> current_sequent_id &&
+	  Hashtbl.mem pt.sequent_hash current_sequent_id
+	then
+	  finish_branch_and_switch_to pt state proof_command cheated_flag
+	    current_sequent_id additional_ids 
+	    uninstatiated_existentials instantiated_ex_deps
+	else
+	  add_new_goal pt state proof_command cheated_flag current_sequent_id 
+	    current_sequent_text additional_ids 
+	    uninstatiated_existentials instantiated_ex_deps
 
 
 (** Update the sequent text for some sequent. This function is used

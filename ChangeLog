@@ -1,3 +1,8 @@
+2012-09-12  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* die with a sensible message in case Proof is missing
+	* polish man page and add limitations section
+
 2012-08-08  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* fix clone deletes primary window problem

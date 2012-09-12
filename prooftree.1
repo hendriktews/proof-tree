@@ -231,7 +231,7 @@ or
 button is pressed. The 
 .I Save 
 button stores the current configuration (as marshaled 
-.B Ocaml
+.B OCaml
 record) in 
 .I ~/.prooftree\fR,
 which will overwrite the built-in default configuration for the
@@ -256,16 +256,35 @@ followed by the name of the customization group inside
 .B Proof General\fR.
 .\"
 .\" ==========================================================================
+.\" ================ Limitations =============================================
+.\" ==========================================================================
+.\"
+.SH LIMITATIONS
+For Coq proofs must be started with command 
+.I Proof\fR,
+which is the recommended practice anyway (see Coq problem report
+2776).
+.\" ==========================================================================
+.P
+The 
+.B Coq
+command 
+.I Grab Existential Variables
+is not supported.
+.\"
+.\" ==========================================================================
 .\" ================ Prerequisites ===========================================
 .\" ==========================================================================
 .\"
 .SH PREREQUISITES
+This version of
 .B Prooftree
-requires 
+requires recent versions of
 .B Coq
-version 8.4beta or greater and a recent (cvs) development version of
+(8.4beta or better)
+and 
 .B Proof General
-(4th January 2012 or later).
+(4.2 prerelease from 10 January 2012 or better).
 .\"
 .\" ==========================================================================
 .\" ================ Files ===================================================
@@ -277,7 +296,7 @@ Saved
 .B Prooftree
 configuration. Is loaded at application start-up for overwriting
 the built-in default configuration. Must contain a marshaled
-.B Ocaml
+.B OCaml
 configuration record.
 .\"
 .\" ==========================================================================
