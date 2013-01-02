@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.48 2012/08/08 20:51:24 tews Exp $
+ * $Id: proof_window.ml,v 1.49 2013/01/02 22:15:44 tews Exp $
  *)
 
 
@@ -129,6 +129,13 @@ object (self)
   *)
   val mutable position_to_current_node = true
 
+  (** List of position hints, containing lists of proof tree nodes. If
+      possible, the current node will positioned such that some hint
+      nodes are also visible. If the list is longer than one, hints
+      are tried one after each other. 
+  *)
+  val mutable position_hints = []
+
   (** Holds the selected node, if there is one. *)
   val mutable selected_node = None
 
@@ -172,6 +179,9 @@ object (self)
 
   (** Setter for {!is_clone}. *)
   method set_clone_flag = is_clone <- true
+
+  method set_position_hints hints =
+    position_hints <- (hints : proof_tree_element list list)
 
   (***************************************************************************
    *
@@ -686,7 +696,38 @@ object (self)
 		  (float_of_int (y_u_i - y_page_size))
 	      in
 	      drawing_v_adjustment#set_value y_val;
-	      drawing_h_adjustment#clamp_page ~lower:x_l_f ~upper:x_u_f;
+
+	      (* make now the _h_adjustment, first try if one of the 
+               * hint nodes can be made visible as well
+	       *)
+	      if 
+		List.exists
+		  (fun hint_nodes ->
+		    let (off_l, off_u) =
+		      List.fold_left
+			(fun (off_l, off_u) hint_node ->
+			  let (h_x_l_off, h_x_u_off, _, _) = 
+			    hint_node#bounding_box_offsets 
+			  in
+			  (min off_l h_x_l_off, max off_u h_x_u_off))
+			(x_l_off, x_u_off)
+			hint_nodes
+		    in
+		    if x_page_size >= (off_u - off_l)
+		    then begin
+		      (* the hints fit *)
+		      drawing_h_adjustment#clamp_page
+			~lower:(float_of_int (top_left + off_l))
+			~upper:(float_of_int (top_top + off_u));
+		      true
+		    end else 
+		      (* the hints don't fit *)
+		      false
+		  )
+		  position_hints
+	      then ()
+	      else
+		drawing_h_adjustment#clamp_page ~lower:x_l_f ~upper:x_u_f;
 	      (* 
                * Printf.fprintf (debugc()) "clever y_u_i %d up %d y_val %d %!"
 	       * 	y_u_i

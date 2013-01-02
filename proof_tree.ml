@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.40 2013/01/02 16:05:50 tews Exp $
+ * $Id: proof_tree.ml,v 1.41 2013/01/02 22:15:44 tews Exp $
  *)
 
 
@@ -573,6 +573,13 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
 	sw :: res)
       [] new_goal_ids_rev
   in
+  let position_hints = match new_goals with
+    | [] -> [[pc]]
+    | [snd] -> [[snd; pc]; [snd]; [pc]]
+    | snd :: rest -> 
+      let last = list_last rest in
+      [[last; pc]; [snd; pc]; [snd]; [pc]]
+  in
   let all_subgoals = sw :: new_goals in
   set_children pc all_subgoals;
   let unhash_sequent_ids = current_sequent_id :: new_goal_ids_rev in
@@ -584,6 +591,7 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   pt.open_goals_count <- pt.open_goals_count + List.length new_goals;
   sw#mark_current;
   set_current_node_wrapper pt sw;
+  pt.window#set_position_hints position_hints;
   (* The uninstantiated existentials are displayed together with the
    * sequent. Therefore, if some existential got instantiated we have
    * to update all those sequent displays.
