@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.32 2012/08/08 20:51:24 tews Exp $
+ * $Id: input.ml,v 1.33 2013/01/02 16:05:50 tews Exp $
  *)
 
 
@@ -689,8 +689,8 @@ let parse_proof_complete com_buf =
 
 
 (******************************************************************************
-									       * undo-to state %d\n
-*)
+ * undo-to state %d\n
+ *)
 
 (** {3 Undo-to command parser} *)
 

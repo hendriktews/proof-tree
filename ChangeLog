@@ -1,3 +1,8 @@
+2013-01-02  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* fix assertion when undo states are incorrect because of
+	  insertions
+
 2012-09-12  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* die with a sensible message in case Proof is missing

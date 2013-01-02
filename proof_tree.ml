@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.39 2012/09/12 12:30:31 tews Exp $
+ * $Id: proof_tree.ml,v 1.40 2013/01/02 16:05:50 tews Exp $
  *)
 
 
@@ -116,8 +116,8 @@ type proof_tree = {
 (** State record for displayed proof trees. The code maintains the
     following invariants.
     {ul 
-    {- Each live state is in precisely one the lists
-    {!all_proof_trees_for_undo}, {!undo_surviver_trees} or
+    {- Each displayed proof tree is in precisely one the lists
+    {!original_proof_trees} or
     {!Proof_window.cloned_proof_windows}.}
     }
 *)
@@ -139,20 +139,10 @@ let add_undo_action pt pa_state undo_fun =
 	pt.undo_actions <- (pa_state, [undo_fun]) :: pt.undo_actions
 
 
-(** Contains all proof trees that should be affected by undo
-    operations. Cloned proof trees and proof trees that survived a
-    bulk undo are not in this list.
+(** Contains all non-cloned proof trees managed in this module.
+    Cloned proof trees are in {!Proof_window.cloned_proof_trees}.
 *)
-let all_proof_trees_for_undo = ref []
-
-(** Contains proof trees that survived a bulk undo. Like cloned proof
-    trees these trees do not take part in undo actions. Unlike cloned
-    proof trees these proof trees should be reused, when the user
-    eventually starts on the proof again.
-
-    (There is another list cloned_proof_windows in proof_window.ml.)
-*)
-let undo_surviver_trees = ref []
+let original_proof_trees = ref []
 
 
 (** Take the necessary actions when the configuration record changed.
@@ -161,9 +151,7 @@ let undo_surviver_trees = ref []
 *)
 let configuration_updated () =
   List.iter (fun pt -> pt.window#configuration_updated) 
-    !all_proof_trees_for_undo;
-  List.iter (fun pt -> pt.window#configuration_updated) 
-    !undo_surviver_trees;
+    !original_proof_trees;
   List.iter (fun ptw -> ptw#configuration_updated)
     !cloned_proof_windows
 
@@ -304,9 +292,11 @@ let current_proof_tree = ref None
     Additionally clear {!current_proof_tree}.
 *)
 let stop_proof_tree pt pa_state = 
-  (* Keep undo actions, never know if the prover supports jumping in
-   * to the middle of a proof.
+  (* Don't keep undo actions. Because of insertions, undo state
+   * numbers might get out of sync with retired proof trees. Undo into
+   * the middle of a proof is therefore impossible.
    *)
+  pt.undo_actions <- [];
   pt.pa_end_state <- pa_state;
   pt.window#disconnect_proof;
   pt.window#clear_current_node;
@@ -338,7 +328,6 @@ type proof_tree_undo_result =
   | PT_undo_delete    (** Argument proof tree should be deleted  *)
   | PT_undo_current   (** Argument proof tree should be kept as current *)
   | PT_undo_keep      (** Argument proof tree should be kept non-current *)
-  | PT_undo_surviver  (** Argument proof tree should be kept as surviver *)
 
 
 (** Process all undo actions with a state greater than [undo_state].
@@ -367,15 +356,25 @@ let rec fire_undo_actions undo_state = function
     a bulk undo with a state less than the starting state of [pt] was
     detected.)}
     }
+    Because of insertions, undo-state numbers might get out of sync
+    with retired proof trees. Therefore, undo into the middle of an
+    retired proof tree is not supported.
 *)
 let undo_tree pt pa_state =
+  let pt_is_current = match !current_proof_tree with
+    | Some cpt -> pt == cpt
+    | None -> false
+  in
   if pa_state < pt.pa_start_state
   then begin
     if pt.window#survive_undo_before_start 
     then begin
       pt.window#message "Retract before start";
-      stop_proof_tree pt (-1);
-      PT_undo_surviver
+      if pt_is_current then
+	stop_proof_tree pt (-1)
+      else 
+	pt.pa_end_state <- -1;
+      PT_undo_keep
     end
     else begin
       pt.window#delete_proof_window;
@@ -383,16 +382,34 @@ let undo_tree pt pa_state =
     end
   end 
   else if pt.pa_end_state >= 0 && pa_state >= pt.pa_end_state 
-  then PT_undo_keep
-  else begin
-    pt.pa_end_state <- -1;
-    pt.undo_actions <- fire_undo_actions pa_state pt.undo_actions;
-    pt.current_sequent#mark_current;
-    set_current_node_wrapper pt pt.current_sequent;
-    pt.window#message (Printf.sprintf "Retract to %d" pa_state);
-    pt.need_redraw <- true;
-    PT_undo_current
+  then begin
+    assert(pt_is_current = false);
+    PT_undo_keep
   end
+  else (* pt.pa_start_state <= pa_state < pt.pa_end_state *)
+    if pt_is_current 
+    then
+      begin
+	pt.undo_actions <- fire_undo_actions pa_state pt.undo_actions;
+	pt.current_sequent#mark_current;
+	set_current_node_wrapper pt pt.current_sequent;
+	pt.window#message (Printf.sprintf "Retract to %d" pa_state);
+	pt.need_redraw <- true;
+	PT_undo_current
+      end
+    else 
+      begin
+	if pt.window#survive_undo_before_start 
+	then begin
+	  pt.window#message "Retract before start";
+	  pt.pa_end_state <- -1;
+	  PT_undo_keep
+	end
+	else begin
+	  pt.window#delete_proof_window;
+	  PT_undo_delete
+	end
+      end 
 
 
 (** Perform undo to state [pa_state] in all proof trees currently
@@ -404,7 +421,7 @@ let undo_tree pt pa_state =
 *)
 let undo pa_state =
   let new_current = ref None in
-  all_proof_trees_for_undo :=
+  original_proof_trees :=
     List.fold_left
     (fun pts pt -> match undo_tree pt pa_state with
       | PT_undo_delete -> pts
@@ -412,31 +429,20 @@ let undo pa_state =
 	new_current := Some pt;
 	pt :: pts
       | PT_undo_keep -> pt :: pts
-      | PT_undo_surviver -> 
-	undo_surviver_trees := pt :: !undo_surviver_trees;
-	pts
     )
-    [] !all_proof_trees_for_undo;
+    [] !original_proof_trees;
   current_proof_tree := !new_current
 
 
-(** Try to find a surviver proof window for [proof_name]. If found, it
-    is dequeued from the surviver list ({!undo_surviver_trees}) and
-    returned. (The caller will then reuse it.)
+(** Try to find an old proof window for [proof_name]. 
 *)
 let get_surviver proof_name =
-  let rec doit res = function
-    | [] -> None
-    | pt :: pts ->
-      if pt.proof_name = proof_name
-      then begin
-	undo_surviver_trees := List.rev_append res pts;
-	Some pt
-      end 
-      else doit (pt::res) pts
-  in
-  doit [] !undo_surviver_trees
-
+  try
+    Some(
+      List.find (fun pt -> pt.proof_name = proof_name) !original_proof_trees
+    )
+  with
+    | Not_found -> None
 
 (** Create a new proof-tree state (especially a new proof-tree window)
     for [proof_name] with starting state [state] and initial sequent
@@ -507,13 +513,13 @@ let reuse_surviver pt state current_sequent_id current_sequent_text =
     reused. Otherwise a new proof-tree state and window is created.
 *)
 let start_new_proof state proof_name current_sequent_id current_sequent_text =
-  assert(List.for_all 
-	   (fun pt -> pt.proof_name <> proof_name) !all_proof_trees_for_undo);
   let pt =
     match get_surviver proof_name with
       | None -> 
-	create_new_proof_tree proof_name state 
-	  current_sequent_id current_sequent_text
+	let pt = create_new_proof_tree proof_name state 
+	  current_sequent_id current_sequent_text in
+	original_proof_trees := pt :: !original_proof_trees;
+	pt
       | Some pt -> 
 	reuse_surviver pt state current_sequent_id current_sequent_text
   in
@@ -521,8 +527,7 @@ let start_new_proof state proof_name current_sequent_id current_sequent_text =
   set_current_node_wrapper pt pt.current_sequent;
   pt.window#message "Initial sequent";
   pt.need_redraw <- true;
-  current_proof_tree := Some pt;
-  all_proof_trees_for_undo := pt :: !all_proof_trees_for_undo
+  current_proof_tree := Some pt
 
 
 (** Add a new proof command with the new current sequent
@@ -868,10 +873,8 @@ let clear_proof_tree_lists proof_name =
     end
     else pt :: pts
   in
-  all_proof_trees_for_undo := 
-    List.fold_left proof_tree_list_fold_fun [] !all_proof_trees_for_undo;
-  undo_surviver_trees :=
-    List.fold_left proof_tree_list_fold_fun [] !undo_surviver_trees
+  original_proof_trees := 
+    List.fold_left proof_tree_list_fold_fun [] !original_proof_trees
 
 let quit_proof proof_name =
   (match !current_proof_tree with 
