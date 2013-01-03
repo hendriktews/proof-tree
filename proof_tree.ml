@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.41 2013/01/02 22:15:44 tews Exp $
+ * $Id: proof_tree.ml,v 1.42 2013/01/03 12:40:36 tews Exp $
  *)
 
 
@@ -58,7 +58,7 @@ type proof_tree = {
   proof_name : string; 
   (** The name of the proof *)
 
-  pa_start_state : int;
+  mutable pa_start_state : int;
   (** Internal proof assistant state number where this proof starts. 
       Used to detect bulk undos.
   *)
@@ -477,35 +477,24 @@ let create_new_proof_tree proof_name state
 (** Initialize a surviver proof-tree state (and window) for reuse with
     the initial sequent [current_sequent] and start state [state].
 *)
-let reuse_surviver pt state current_sequent_id current_sequent_text =
-  let pt_win = pt.window in
-  let proof_name = pt.proof_name in
-  let sequent_hash = pt.sequent_hash in
-  let ex_hash = pt.existential_hash in
-  let sw = pt_win#new_turnstile current_sequent_id current_sequent_text in
-  pt_win#clear_for_reuse;
-  Hashtbl.clear sequent_hash;
-  Hashtbl.clear ex_hash;
+let reinit_surviver pt state current_sequent_id current_sequent_text =
+  let sw = pt.window#new_turnstile current_sequent_id current_sequent_text in
+  pt.window#clear_for_reuse;
+  Hashtbl.clear pt.sequent_hash;
+  Hashtbl.clear pt.existential_hash;
   Hashtbl.add pt.sequent_hash current_sequent_id sw;
   let sw = (sw :> proof_tree_element) in
-  let pt = {
-    window = pt_win;
-    proof_name = proof_name;
-    pa_start_state = state;
-    pa_end_state = -1;
-    cheated = false;
-    sequent_hash = sequent_hash;
-    current_sequent_id = current_sequent_id;
-    current_sequent = sw;
-    open_goals_count = 1;
-    existential_hash = ex_hash;
-    need_redraw = true;
-    sequent_area_needs_refresh = true;
-    undo_actions = [];
-  } in
-  pt_win#set_root sw;
-  pt_win#message "";
-  pt
+  pt.pa_start_state <- state;
+  pt.pa_end_state <- -1;
+  pt.cheated <- false;
+  pt.current_sequent_id <- current_sequent_id;
+  pt.current_sequent <- sw;
+  pt.open_goals_count <- 1;
+  pt.need_redraw <- true;
+  pt.sequent_area_needs_refresh <- true;
+  pt.undo_actions <- [];
+  pt.window#set_root sw;
+  pt.window#message ""
 
 
 (** Start a new proof [proof_name] with [current_sequent] as initial
@@ -521,7 +510,8 @@ let start_new_proof state proof_name current_sequent_id current_sequent_text =
 	original_proof_trees := pt :: !original_proof_trees;
 	pt
       | Some pt -> 
-	reuse_surviver pt state current_sequent_id current_sequent_text
+	reinit_surviver pt state current_sequent_id current_sequent_text;
+	pt
   in
   pt.current_sequent#mark_current;
   set_current_node_wrapper pt pt.current_sequent;
