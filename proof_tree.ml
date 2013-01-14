@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.42 2013/01/03 12:40:36 tews Exp $
+ * $Id: proof_tree.ml,v 1.43 2013/01/14 21:51:31 tews Exp $
  *)
 
 
@@ -78,14 +78,17 @@ type proof_tree = {
       sequents and to update sequents.
   *)
 
-  mutable current_sequent_id : string;
-  (** The ID of the current sequent. Needed to distinguish the
-      peculiar case, where a non-failing proof command (such as
-      [auto]) does not change the proof state. 
+  mutable current_sequent_id : string option;
+  (** The ID of the current sequent, if there is one. Needed to
+      distinguish the peculiar case, where a non-failing proof command
+      (such as [auto]) does not change the proof state. 
   *)
 
-  mutable current_sequent : proof_tree_element;
-  (** The object of the current sequent. Used for coloring branches. *)
+  mutable current_sequent : proof_tree_element option;
+  (** The object of the current sequent, if there is one. Used for
+      coloring branches. There is no current sequent, if a branch has
+      been finished without switching to a new goal.
+  *)
 
   mutable open_goals_count : int;
   (** Counter for the total number of open goals, including the
@@ -119,6 +122,7 @@ type proof_tree = {
     {- Each displayed proof tree is in precisely one the lists
     {!original_proof_trees} or
     {!Proof_window.cloned_proof_windows}.}
+    {- {!current_sequent_id} = [None] iff {!current_sequent} = [None]}
     }
 *)
 
@@ -277,9 +281,17 @@ let update_existentials ex_hash uninst_ex inst_ex_deps =
     sequent area if there is no selected node.
 *)
 let set_current_node_wrapper pt sequent =
-  pt.window#set_current_node sequent;
+  (match sequent with
+     | Some s -> pt.window#set_current_node s;
+     | None -> pt.window#clear_current_node;
+  );
   if pt.window#get_selected_node = None then
     pt.sequent_area_needs_refresh <- true
+
+(** Local convenience function for marking the current sequent. *)
+let mark_current_sequent_maybe = function
+  | Some cs -> cs#mark_current
+  | None -> ()
 
 
 (** Holds the state for the currently active proof window, if any.
@@ -391,7 +403,7 @@ let undo_tree pt pa_state =
     then
       begin
 	pt.undo_actions <- fire_undo_actions pa_state pt.undo_actions;
-	pt.current_sequent#mark_current;
+	mark_current_sequent_maybe pt.current_sequent;
 	set_current_node_wrapper pt pt.current_sequent;
 	pt.window#message (Printf.sprintf "Retract to %d" pa_state);
 	pt.need_redraw <- true;
@@ -462,8 +474,8 @@ let create_new_proof_tree proof_name state
     pa_end_state = -1;
     cheated = false;
     sequent_hash = hash;
-    current_sequent_id = current_sequent_id;
-    current_sequent = sw;
+    current_sequent_id = Some current_sequent_id;
+    current_sequent = Some sw;
     open_goals_count = 1;
     existential_hash = Hashtbl.create 251;
     need_redraw = true;
@@ -487,8 +499,8 @@ let reinit_surviver pt state current_sequent_id current_sequent_text =
   pt.pa_start_state <- state;
   pt.pa_end_state <- -1;
   pt.cheated <- false;
-  pt.current_sequent_id <- current_sequent_id;
-  pt.current_sequent <- sw;
+  pt.current_sequent_id <- Some current_sequent_id;
+  pt.current_sequent <- Some sw;
   pt.open_goals_count <- 1;
   pt.need_redraw <- true;
   pt.sequent_area_needs_refresh <- true;
@@ -513,7 +525,7 @@ let start_new_proof state proof_name current_sequent_id current_sequent_text =
 	reinit_surviver pt state current_sequent_id current_sequent_text;
 	pt
   in
-  pt.current_sequent#mark_current;
+  mark_current_sequent_maybe pt.current_sequent;
   set_current_node_wrapper pt pt.current_sequent;
   pt.window#message "Initial sequent";
   pt.need_redraw <- true;
@@ -541,12 +553,16 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
     update_existentials pt.existential_hash 
       uninstantiated_existentials instantiated_ex_deps
   in
+  let parent = match pt.current_sequent with
+    | Some s -> s
+    | None -> assert false
+  in
   let pc = 
     pt.window#new_proof_command 
       proof_command ex_got_instantiated new_existentials
   in
   let pc = (pc :> proof_tree_element) in
-  set_children pt.current_sequent [pc];
+  set_children parent [pc];
   let sw = pt.window#new_turnstile current_sequent_id current_sequent_text in
   Hashtbl.add pt.sequent_hash current_sequent_id sw;
   let sw = (sw :> proof_tree_element) in
@@ -574,13 +590,13 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   set_children pc all_subgoals;
   let unhash_sequent_ids = current_sequent_id :: new_goal_ids_rev in
   let old_current_sequent_id = pt.current_sequent_id in
-  let old_current_sequent = pt.current_sequent in
+  let old_current_sequent = parent in
   let old_open_goals_count = pt.open_goals_count in
-  pt.current_sequent_id <- current_sequent_id;
-  pt.current_sequent <- sw;
+  pt.current_sequent_id <- Some current_sequent_id;
+  pt.current_sequent <- Some sw;
   pt.open_goals_count <- pt.open_goals_count + List.length new_goals;
   sw#mark_current;
-  set_current_node_wrapper pt sw;
+  set_current_node_wrapper pt (Some sw);
   pt.window#set_position_hints position_hints;
   (* The uninstantiated existentials are displayed together with the
    * sequent. Therefore, if some existential got instantiated we have
@@ -611,7 +627,7 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
       all_subgoals;
     if pc#is_selected then pt.window#set_selected_node None;
     pt.current_sequent_id <- old_current_sequent_id;
-    pt.current_sequent <- old_current_sequent;
+    pt.current_sequent <- Some old_current_sequent;
     pt.open_goals_count <- old_open_goals_count;
     if ex_got_instantiated <> [] then begin
       undo_instantiate_existentials ex_got_instantiated;
@@ -638,23 +654,30 @@ let finish_branch pt state proof_command cheated_flag
     update_existentials pt.existential_hash 
       uninstantiated_existentials instantiated_ex_deps
   in
+  let parent = match pt.current_sequent with
+    | Some s -> s
+    | None -> assert false
+  in
   let pc = 
     pt.window#new_proof_command 
       proof_command ex_got_instantiated new_existentials
   in
   let pc = (pc :> proof_tree_element) in
-  pt.current_sequent#unmark_current;
-  set_children pt.current_sequent [pc];
+  parent#unmark_current;
+  set_children parent [pc];
   if cheated_flag 
   then pc#mark_cheated
   else pc#mark_proved;
   let old_cheated = pt.cheated in
-  let old_current_sequent = pt.current_sequent in
+  let old_current_sequent = parent in
+  let old_current_sequent_id = pt.current_sequent_id in
   let old_open_goals_count = pt.open_goals_count in
   let undo () =
     pc#delete_non_sticky_external_windows;
     clear_children old_current_sequent;
     old_current_sequent#unmark_proved_or_cheated;
+    pt.current_sequent <- Some old_current_sequent;
+    pt.current_sequent_id <- old_current_sequent_id;
     pt.open_goals_count <- old_open_goals_count;
     pt.cheated <- old_cheated;
     if ex_got_instantiated <> [] then begin
@@ -669,6 +692,9 @@ let finish_branch pt state proof_command cheated_flag
   add_undo_action pt state undo;
   if cheated_flag then pt.cheated <- true;
   pt.open_goals_count <- pt.open_goals_count - 1;
+  pt.current_sequent <- None;
+  pt.current_sequent_id <- None;
+  set_current_node_wrapper pt None;
   if ex_got_instantiated <> [] then begin
     pt.window#update_existentials_display;
     pt.sequent_area_needs_refresh <- true;
@@ -681,21 +707,20 @@ let finish_branch pt state proof_command cheated_flag
     the current one. 
 *)
 let internal_switch_to pt state new_current_sequent_id =
+  assert(pt.current_sequent = None && pt.current_sequent_id = None);
   let new_current_sequent = 
     Hashtbl.find pt.sequent_hash new_current_sequent_id 
   in
   let new_current_sequent = (new_current_sequent :> proof_tree_element) in
-  let old_current_sequent_id = pt.current_sequent_id in
-  let old_current_sequent = pt.current_sequent in
   let undo () =
     new_current_sequent#unmark_current;
-    pt.current_sequent_id <- old_current_sequent_id;
-    pt.current_sequent <- old_current_sequent;
+    pt.current_sequent_id <- None;
+    pt.current_sequent <- None;
   in
   new_current_sequent#mark_current;
-  set_current_node_wrapper pt new_current_sequent;
-  pt.current_sequent_id <- new_current_sequent_id;
-  pt.current_sequent <- new_current_sequent;
+  set_current_node_wrapper pt (Some new_current_sequent);
+  pt.current_sequent_id <- Some new_current_sequent_id;
+  pt.current_sequent <- Some new_current_sequent;
   add_undo_action pt state undo;
   pt.need_redraw <- true
 
@@ -753,7 +778,8 @@ let process_current_goals state proof_name proof_command cheated_flag
 	assert(uninstatiated_existentials = []);
 	start_new_proof state proof_name current_sequent_id current_sequent_text
       | Some pt ->
-	if pt.current_sequent_id <> current_sequent_id &&
+	assert (pt.current_sequent <> None && pt.current_sequent_id <> None);
+	if pt.current_sequent_id <> (Some current_sequent_id) &&
 	  Hashtbl.mem pt.sequent_hash current_sequent_id
 	then
 	  finish_branch_and_switch_to pt state proof_command cheated_flag
@@ -800,6 +826,29 @@ let update_sequent state proof_name sequent_id sequent_text =
 	  raise (Proof_tree_error "Update unknown sequent")
 
 
+(** Leave current branch as is to prepare for switching to a different
+    goal.
+*)
+let leave_branch pt state =
+  assert (pt.current_sequent <> None && pt.current_sequent_id <> None);
+  let last_node = match pt.current_sequent with
+    | Some s -> s
+    | None -> assert false
+  in
+  last_node#unmark_current;
+  let old_current_sequent = last_node in
+  let old_current_sequent_id = pt.current_sequent_id in
+  let undo () =
+    pt.current_sequent <- Some old_current_sequent;
+    pt.current_sequent_id <- old_current_sequent_id;
+  in
+  add_undo_action pt state undo;
+  pt.current_sequent <- None;
+  pt.current_sequent_id <- None;
+  set_current_node_wrapper pt None;
+  pt.need_redraw <- true
+
+
 (* See mli for doc *)
 let switch_to state proof_name new_current_sequent_id =
   match !current_proof_tree with
@@ -808,33 +857,61 @@ let switch_to state proof_name new_current_sequent_id =
     | Some pt ->
       if pt.proof_name <> proof_name
       then raise (Proof_tree_error "Switch to sequent on other proof");
-      pt.current_sequent#unmark_current;
-      internal_switch_to pt state new_current_sequent_id;
-      let message = 
-	Printf.sprintf "Branch changed (%d goal%s remaining)" 
-	  pt.open_goals_count
-	  (if pt.open_goals_count > 1 then "s" else "")
-      in
-      pt.window#message message
+      match pt.current_sequent_id with
+      | Some old_id ->
+	assert (pt.current_sequent <> None);
+	(* Coq generates a lot switch-to commands if you use bullets
+	 * and braces. Some of them don't actually change the current goal.
+	 *)
+	if old_id <> new_current_sequent_id then begin
+	  leave_branch pt state;
+	  internal_switch_to pt state new_current_sequent_id;
+	  let message = 
+	    Printf.sprintf "Branch changed (%d goal%s remaining)" 
+	      pt.open_goals_count
+	      (if pt.open_goals_count > 1 then "s" else "")
+	  in
+	  pt.window#message message
+	end
+      | None ->
+	assert (pt.current_sequent = None);
+	internal_switch_to pt state new_current_sequent_id;
+	let message =
+	  Printf.sprintf "%d open goal%s"
+	    pt.open_goals_count (if pt.open_goals_count > 1 then "s" else "")
+	in
+	pt.window#message message
 
 
 (* See mli for doc *)
-let process_proof_finished state proof_name proof_command cheated_flag
+let process_branch_finished state proof_name proof_command cheated_flag
     uninstatiated_existentials instantiated_ex_deps =
   match !current_proof_tree with
     | None -> 
-      raise (Proof_tree_error "proof-finished without current proof tree")
+      raise (Proof_tree_error "branch-finished without current proof tree")
     | Some pt -> 
       if pt.proof_name <> proof_name
-      then raise (Proof_tree_error "Finish other non-current proof");
+      then raise (Proof_tree_error "Branch finish in other proof");
+      assert (pt.current_sequent <> None && pt.current_sequent_id <> None);
       finish_branch pt state proof_command cheated_flag
 	uninstatiated_existentials instantiated_ex_deps;
       let message = 
-	if pt.cheated 
-	then pango_markup_bold_color "False proof finished" 
-	  !cheated_gdk_color
-	else pango_markup_bold_color "Proof finished" 
-	  !proved_complete_gdk_color
+	if pt.open_goals_count = 0
+	then begin
+	  if pt.cheated 
+	  then pango_markup_bold_color "False proof finished" 
+	    !cheated_gdk_color
+	  else pango_markup_bold_color "Proof finished" 
+	    !proved_complete_gdk_color
+	end else 
+	  Printf.sprintf "%s (%d goal%s remaining)" 
+	    (if cheated_flag
+	     then pango_markup_bold_color "Branch aborted" 
+		!cheated_gdk_color
+	     else pango_markup_bold_color "Branch finished" 
+		!proved_complete_gdk_color)
+	    pt.open_goals_count
+	    (if pt.open_goals_count > 1 then "s" else "")
       in
       pt.window#message message
 

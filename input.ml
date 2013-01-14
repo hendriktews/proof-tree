@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.33 2013/01/02 16:05:50 tews Exp $
+ * $Id: input.ml,v 1.34 2013/01/14 21:51:31 tews Exp $
  *)
 
 
@@ -156,14 +156,16 @@
     {- Full name of the proof}
     }
     }
-    {- {v proof-finished state %d {cheated|not-cheated} \
+    {- {v branch-finished state %d {cheated|not-cheated} \
     proof-name-bytes %d command-bytes %d existential-bytes %d\n\
     <data-proof-name>\n\
     <data-command>\n\
     <data-existentials>\n v}
     
-    [proof-finished] tells [prooftree] the last proof command that 
-    closed the last subgoal. The cheated flag tells [prooftree]
+    [branch-finished] tells [prooftree] the last proof command that 
+    closed the current branch. If there are still open subgoals, the 
+    proof will hopefully continue with one of them, which is not yet 
+    known. The cheated flag tells [prooftree]
     whether the new proof state was obtained by a cheating command 
     such as [admit] or [sorry]. The data sections are :
     {ol
@@ -204,7 +206,7 @@
 (** Version number of the communication protocol described and
     implemented by this module.
 *)
-let protocol_version = 2
+let protocol_version = 3
 
 
 
@@ -603,18 +605,18 @@ let parse_switch_goal com_buf =
 
 
 (******************************************************************************
- * proof-finished state %d {cheated|not-cheated} \
+ * branch-finished state %d {cheated|not-cheated} \
  * proof-name-bytes %d command-bytes %d existential-bytes %d\n\
  * <data-proof-name>\n\
  * <data-command>\n\
  * <data-existentials>\n
 *)
 
-(** {3 Proof-finished command parser} *)
+(** {3 Branch-finished command parser} *)
 
 
-(** Finish parsing of the [proof-finished] command and process it
-    with {!Proof_tree.process_proof_finished}. The arguments are
+(** Finish parsing of the [branch-finished] command and process it
+    with {!Proof_tree.process_branch_finished}. The arguments are
 
     @param state state number
     @param cheated_string either "cheated" or "not-cheated"
@@ -622,14 +624,14 @@ let parse_switch_goal com_buf =
     @param proof_command last proof command (as raw data section string)
     @param existentials_string prover specific data about existentials
 *)
-let parse_proof_finished_finish 
+let parse_branch_finished_finish 
     state cheated_string proof_name proof_command existentials_string =
   let cheated_flag = match cheated_string with
     | "not-cheated" -> false
     | "cheated" -> true
     | _ -> 
       raise(Protocol_error
-	      ("Parse error in proof-finished command. " ^
+	      ("Parse error in branch-finished command. " ^
 		  "Expected \"cheated\" or \"not-cheated\" as 4th word.",
 	       None))
   in
@@ -637,7 +639,7 @@ let parse_proof_finished_finish
   let proof_command = chop_final_newlines proof_command in
   let existentials_string = chop_final_newlines existentials_string in
   let (ex_uninst, ex_inst) = !parse_existential_info existentials_string in
-  Proof_tree.process_proof_finished 
+  Proof_tree.process_branch_finished 
     state proof_name proof_command cheated_flag ex_uninst ex_inst;
   current_parser := !message_start_parser
 
@@ -647,7 +649,7 @@ let parse_proof_finished_finish
     parsing buffer argument, reads the data section and finally calls
     {!Input.parse_proof_finished_finish}.
 *)
-let parse_proof_finished com_buf =
+let parse_branch_finished com_buf =
   check_if_configured ();
   Scanf.bscanf com_buf
     " state %d %s proof-name-bytes %d command-bytes %d existential-bytes %d"
@@ -659,7 +661,7 @@ let parse_proof_finished com_buf =
 	    (fun proof_command ->
 	      get_string existential_bytes
 		(fun existentials_string ->
-		  parse_proof_finished_finish 
+		  parse_branch_finished_finish 
 		    state cheated_string proof_name 
 		    proof_command existentials_string))))
 
@@ -759,7 +761,7 @@ let parse_command command =
       | "current-goals" -> parse_current_goals com_buf
       | "update-sequent" -> parse_update_sequent com_buf
       | "switch-goal" -> parse_switch_goal com_buf
-      | "proof-finished" -> parse_proof_finished com_buf
+      | "branch-finished" -> parse_branch_finished com_buf
       | "proof-complete" -> parse_proof_complete com_buf
       | "undo-to" -> do_undo com_buf
       | "quit-proof" -> parse_quit_proof com_buf

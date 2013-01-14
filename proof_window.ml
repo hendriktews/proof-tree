@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.49 2013/01/02 22:15:44 tews Exp $
+ * $Id: proof_window.ml,v 1.50 2013/01/14 21:51:31 tews Exp $
  *)
 
 
@@ -180,6 +180,7 @@ object (self)
   (** Setter for {!is_clone}. *)
   method set_clone_flag = is_clone <- true
 
+  (** Setter for {!position_hints}. *)
   method set_position_hints hints =
     position_hints <- (hints : proof_tree_element list list)
 

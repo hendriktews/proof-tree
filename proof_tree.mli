@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.mli,v 1.13 2012/01/04 15:12:38 tews Exp $
+ * $Id: proof_tree.mli,v 1.14 2013/01/14 21:51:31 tews Exp $
  *)
 
 
@@ -91,8 +91,9 @@ val update_sequent : int -> string -> string -> string -> unit
 val switch_to : int -> string -> string -> unit
 
 
-(** Finish the current proof but keep it current in case some
-    existential gets instantiated or some sequent updated.
+(** Finish the current branch. Keep current proof, even if this was
+    the last open branch, in case some existential gets
+    instantiated or some sequent updated.
 
     @param state state for undo
     @param proof_name name of the proof
@@ -101,7 +102,7 @@ val switch_to : int -> string -> string -> unit
     @param uninstantiated existential variables
     @param inst_deps instantiated existential variables with dependencies
 *)
-val process_proof_finished : int -> string -> string -> bool -> 
+val process_branch_finished : int -> string -> string -> bool -> 
   string list -> (string * string list) list -> unit
 
 
