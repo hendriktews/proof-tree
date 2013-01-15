@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.50 2013/01/14 21:51:31 tews Exp $
+ * $Id: proof_window.ml,v 1.51 2013/01/15 12:34:33 tews Exp $
  *)
 
 
@@ -331,7 +331,7 @@ object (self)
     assert(node_windows = []);
     self#clear_existential_dialog_for_reuse
 
-  (** Update the existential dialog, if there is one. *)
+  (** Update the existentials info in external sequent displays. *)
   method update_existentials_display =
     match root with
       | None -> ()

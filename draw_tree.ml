@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.38 2012/05/14 14:03:36 tews Exp $
+ * $Id: draw_tree.ml,v 1.39 2013/01/15 12:34:33 tews Exp $
  *)
 
 
@@ -96,7 +96,10 @@ open Gtk_ext
 *)
 
 
-(** Status of an existential variable *)
+(** Status of an existential variable. The tree of existentials is
+    only scanned for redisplay. Therefore, a fully instantiated
+    existential might have state [Partially_instantiated] until the next scan.
+*)
 type existential_status =
   | Uninstantiated			(** open, not instantiated *)
   | Partially_instantiated		(** instantiated, but the
@@ -105,7 +108,11 @@ type existential_status =
   | Fully_instantiated			(** fully instantiated *)
 
 
-(** Representation of existential variables. *)
+(** Representation of existential variables. The [status] field is
+    lazily updated in {!Proof_tree.update_existential_status}.
+    Therefore, a fully instantiated existential might have status
+    {!Partially_instantiated} for some time.
+*)
 type existential_variable = {
   existential_name : string;		(** The name *)
   mutable status : existential_status;	(** instantiation status *)

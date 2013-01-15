@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.43 2013/01/14 21:51:31 tews Exp $
+ * $Id: proof_tree.ml,v 1.44 2013/01/15 12:34:33 tews Exp $
  *)
 
 
@@ -233,7 +233,7 @@ let update_existential_status ex_hash =
     of those existentials that got instantiated is updated. 
 
     This function returns the list of newly instantiated existentials
-    and the list of new uninstantiated existentials.
+    and the list of new existentials.
 *)
 let update_existentials ex_hash uninst_ex inst_ex_deps =
   let test_and_create_ex_list exl accu =
@@ -245,8 +245,8 @@ let update_existentials ex_hash uninst_ex inst_ex_deps =
       )
       accu exl
   in
-  let new_uninst = test_and_create_ex_list uninst_ex [] in
-  let new_uninst =
+  let new_ex = test_and_create_ex_list uninst_ex [] in
+  let new_ex =
     List.fold_left
       (fun res (ex_name, deps) ->
 	(* Complex stategies might create and instantiate several
@@ -256,7 +256,7 @@ let update_existentials ex_hash uninst_ex inst_ex_deps =
 	 *)
 	test_and_create_ex_list (ex_name :: deps) res
       )
-      new_uninst inst_ex_deps
+      new_ex inst_ex_deps
   in
   let ex_got_instatiated =
     List.fold_left
@@ -272,7 +272,7 @@ let update_existentials ex_hash uninst_ex inst_ex_deps =
       [] inst_ex_deps
   in
   (* XXX use a coq specific comparison function for sorting *)
-  (ex_got_instatiated, List.sort compare new_uninst)
+  (ex_got_instatiated, List.sort compare new_ex)
 	 
 
 
