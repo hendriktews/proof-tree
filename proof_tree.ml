@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.44 2013/01/15 12:34:33 tews Exp $
+ * $Id: proof_tree.ml,v 1.45 2013/01/15 13:07:27 tews Exp $
  *)
 
 
@@ -898,11 +898,21 @@ let process_branch_finished state proof_name proof_command cheated_flag
       let message = 
 	if pt.open_goals_count = 0
 	then begin
-	  if pt.cheated 
-	  then pango_markup_bold_color "False proof finished" 
-	    !cheated_gdk_color
-	  else pango_markup_bold_color "Proof finished" 
-	    !proved_complete_gdk_color
+	  let all_ex_inst = 
+	    Hashtbl.fold (fun _ ex res -> res && ex.status <> Uninstantiated)
+	      pt.existential_hash true
+	  in
+	  let message_text =
+	    (if pt.cheated then "False proof finished" else "Proof finished")
+	    ^ (if all_ex_inst then "" else " (incomplete)")
+	  in
+	  let color = 
+	    if pt.cheated then !cheated_gdk_color
+	    else 
+	      if all_ex_inst then !proved_complete_gdk_color
+	      else !proved_incomplete_gdk_color
+	  in
+	  pango_markup_bold_color message_text color
 	end else 
 	  Printf.sprintf "%s (%d goal%s remaining)" 
 	    (if cheated_flag
