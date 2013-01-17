@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.46 2013/01/17 07:48:04 tews Exp $
+ * $Id: proof_tree.ml,v 1.47 2013/01/17 08:48:28 tews Exp $
  *)
 
 
@@ -573,8 +573,13 @@ let create_new_layer pt state current_sequent_id current_sequent_text
   in
   add_undo_action pt state undo;
   pt.need_redraw <- true;
-  pt.sequent_area_needs_refresh <- true
-      
+  pt.sequent_area_needs_refresh <- true;
+  if layer_count = 1 && pt.open_goals_count > 1 then
+    run_message_dialog
+      "More than one initial goal. \n\
+       You need to start proofs with \n\
+       the \"Proof\" command!"
+      `WARNING
     
 
 (** Add a new proof command with the new current sequent
