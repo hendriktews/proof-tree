@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.39 2013/01/15 12:34:33 tews Exp $
+ * $Id: draw_tree.ml,v 1.40 2013/01/17 07:48:04 tews Exp $
  *)
 
 
@@ -351,6 +351,20 @@ let clear_children parent =
 
 (*****************************************************************************)
 (*****************************************************************************)
+(** {3 Tree layer interface} *)
+(*****************************************************************************)
+(*****************************************************************************)
+
+class type ['a] abstract_tree_container =
+object
+  method clear_size_cache : unit
+  method left_top_offset : int * int
+  method child_offsets : 'a -> int * int
+end
+
+
+(*****************************************************************************)
+(*****************************************************************************)
 (** {3 External window interface} *)
 (*****************************************************************************)
 (*****************************************************************************)
@@ -479,6 +493,9 @@ object (self)
   (** The set of all existentials for this node. *)
   val mutable existential_variables = fresh_existentials
 
+  val mutable tree_layer = 
+    (None : proof_tree_element abstract_tree_container option)
+
   (***************************************************************************)
   (***************************************************************************)
   (** {2 Accessors / Setters} *)
@@ -540,6 +557,9 @@ object (self)
       {!debug_name}. *)
   method virtual id : string
 
+  method register_tree_layer tl =
+    assert(tree_layer = None);
+    tree_layer <- Some tl
 
   (***************************************************************************)
   (***************************************************************************)
@@ -701,7 +721,11 @@ object (self)
      * then
      *)
     match parent with 
-      | None -> ()
+      | None -> 
+	(match tree_layer with
+	  | None -> assert false
+	  | Some sco -> sco#clear_size_cache
+	)
       | Some p -> p#update_sizes_in_branch
 
 
@@ -722,7 +746,15 @@ object (self)
   *)
   method left_y_offsets =
     match parent with
-      | None -> (0, height / 2)
+      | None -> 
+	(match tree_layer with
+	  | None -> assert false
+	  | Some tl -> 
+	    let (tl_left, tl_top) = tl#left_top_offset in
+	    let (me_left, me_top) = 
+	      tl#child_offsets (self :> proof_tree_element) in
+	    (tl_left + me_left, tl_top + me_top + height / 2)
+	)
       | Some p ->
 	let (parent_left, parent_y) = p#left_y_offsets in
 	let y_off = parent_y + !current_config.level_distance in
@@ -737,6 +769,11 @@ object (self)
   *)
   method bounding_box_offsets =
     let (left, y) = self#left_y_offsets in
+    (* 
+     * Printf.fprintf (debugc())
+     *   "BBO %s\n%!"
+     *   self#debug_name;
+     *)
     (* 
      * Printf.fprintf (debugc())
      *   "BBO left %d width %d height %d | x %d-%d y %d-%d\n%!"
@@ -1076,13 +1113,13 @@ object (self)
       called when some existential got instantiated or when an undo
       uninstantiates some existential.
   *)
-  method update_existentials_display =
+  method update_existentials_info =
     (if external_windows <> [] && existential_variables <> [] 
      then
 	let new_text = self#displayed_text in
 	List.iter (fun ew -> ew#update_content new_text) external_windows
     );
-    List.iter (fun c -> c#update_existentials_display) children	
+    List.iter (fun c -> c#update_existentials_info) children	
 
   (** Hook to be called when the list of children has been changed.
       Adjusts the relative layout information of this element and all its
@@ -1099,6 +1136,7 @@ object (self)
       been changed. 
   *)
   method configuration_updated =
+    List.iter (fun c -> c#configuration_updated) children;
     List.iter (fun ex -> ex#configuration_updated) external_windows;
     self#set_node_size;
     self#update_subtree_size
@@ -1124,7 +1162,7 @@ object (self)
   (** The pure sequent text. *)
   val mutable sequent_text = (sequent_text : string)
 
-  (** Pango layout for rendering text. Only created if there an ID for
+  (** Pango layout for rendering text. Only created if an ID for
       an external window must be put into the display.
   *)
   val mutable layout = None
@@ -1455,3 +1493,58 @@ object (self)
     ()
 
 end
+
+
+(*****************************************************************************)
+(*****************************************************************************)
+(** {2 Cloning} *)
+(*****************************************************************************)
+(*****************************************************************************)
+
+let rec clone_existentials ex_hash ex =
+  try Hashtbl.find ex_hash ex.existential_name
+  with
+    | Not_found -> 
+      let deps = List.map (clone_existentials ex_hash) ex.dependencies in
+      let nex = { existential_name = ex.existential_name;
+		  status = ex.status;
+		  existential_mark = false;
+		  dependencies = deps;
+		}
+      in
+      Hashtbl.add ex_hash ex.existential_name nex;
+      nex
+
+let rec clone_tree_node new_pc new_seq ex_hash 
+    old_selected cloned_selected node =
+  let cloned_children = 
+    List.map 
+      (clone_tree_node new_pc new_seq ex_hash old_selected cloned_selected) 
+      node#children in
+  let clone = match node#node_kind with
+    | Proof_command -> 
+      (new_pc node#content 
+	 (List.map (clone_existentials ex_hash) node#inst_existentials)
+	 (List.map (clone_existentials ex_hash) node#fresh_existentials)
+       : proof_command :> proof_tree_element)
+    | Turnstile -> 
+      (new_seq node#id node#content : turnstile :> proof_tree_element)
+  in
+  if Some node = old_selected
+  then cloned_selected := Some clone;
+  set_children clone cloned_children;
+  (match node#branch_state with
+    | Cheated
+    | Proven -> clone#set_branch_state node#branch_state
+    | Unproven
+    | CurrentNode
+    | Current -> ()
+  );
+  clone
+
+let clone_proof_tree new_pc new_seq ex_hash old_selected cloned_selected root =
+  let cloned_root = 
+    clone_tree_node new_pc new_seq ex_hash old_selected cloned_selected root in
+  cloned_root#propagate_existentials;
+  cloned_root
+

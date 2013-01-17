@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.45 2013/01/15 13:07:27 tews Exp $
+ * $Id: proof_tree.ml,v 1.46 2013/01/17 07:48:04 tews Exp $
  *)
 
 
@@ -34,6 +34,7 @@ open Util
 open Gtk_ext
 open Configuration
 open Draw_tree
+open Tree_layers
 open Proof_window
 open Emacs_commands
 
@@ -386,6 +387,7 @@ let undo_tree pt pa_state =
 	stop_proof_tree pt (-1)
       else 
 	pt.pa_end_state <- -1;
+      pt.window#clear_position_hints;
       PT_undo_keep
     end
     else begin
@@ -407,6 +409,7 @@ let undo_tree pt pa_state =
 	set_current_node_wrapper pt pt.current_sequent;
 	pt.window#message (Printf.sprintf "Retract to %d" pa_state);
 	pt.need_redraw <- true;
+	pt.window#clear_position_hints;
 	PT_undo_current
       end
     else 
@@ -415,6 +418,7 @@ let undo_tree pt pa_state =
 	then begin
 	  pt.window#message "Retract before start";
 	  pt.pa_end_state <- -1;
+	  pt.window#clear_position_hints;
 	  PT_undo_keep
 	end
 	else begin
@@ -456,81 +460,122 @@ let get_surviver proof_name =
   with
     | Not_found -> None
 
-(** Create a new proof-tree state (especially a new proof-tree window)
-    for [proof_name] with starting state [state] and initial sequent
-    [current_sequent].
+
+(** Create a new proof-tree state (containing an empty proof tree
+    window) for [proof_name] with starting state [state].
 *)
-let create_new_proof_tree proof_name state 
-    current_sequent_id current_sequent_text =
-  let pt_win = make_proof_window proof_name !geometry_string in
-  let sw = pt_win#new_turnstile current_sequent_id current_sequent_text in
-  let hash = Hashtbl.create 503 in
-  Hashtbl.add hash current_sequent_id sw;
-  let sw = (sw :> proof_tree_element) in
-  let pt = {
-    window = pt_win;
+let create_new_proof_tree proof_name state =
+  {
+    window = make_proof_window proof_name !geometry_string;
     proof_name = proof_name;
     pa_start_state = state;
     pa_end_state = -1;
     cheated = false;
-    sequent_hash = hash;
-    current_sequent_id = Some current_sequent_id;
-    current_sequent = Some sw;
-    open_goals_count = 1;
+    sequent_hash = Hashtbl.create 503;
+    current_sequent_id = None;
+    current_sequent = None;
+    open_goals_count = 0;
     existential_hash = Hashtbl.create 251;
     need_redraw = true;
     sequent_area_needs_refresh = true;
     undo_actions = [];
-  } in
-  pt_win#set_root sw;
-  pt
+  }
 
 
 (** Initialize a surviver proof-tree state (and window) for reuse with
     the initial sequent [current_sequent] and start state [state].
 *)
-let reinit_surviver pt state current_sequent_id current_sequent_text =
-  let sw = pt.window#new_turnstile current_sequent_id current_sequent_text in
+let reinit_surviver pt state =
   pt.window#clear_for_reuse;
   Hashtbl.clear pt.sequent_hash;
   Hashtbl.clear pt.existential_hash;
-  Hashtbl.add pt.sequent_hash current_sequent_id sw;
-  let sw = (sw :> proof_tree_element) in
   pt.pa_start_state <- state;
   pt.pa_end_state <- -1;
   pt.cheated <- false;
-  pt.current_sequent_id <- Some current_sequent_id;
-  pt.current_sequent <- Some sw;
-  pt.open_goals_count <- 1;
+  pt.current_sequent_id <- None;
+  pt.current_sequent <- None;
+  pt.open_goals_count <- 0;
   pt.need_redraw <- true;
   pt.sequent_area_needs_refresh <- true;
   pt.undo_actions <- [];
-  pt.window#set_root sw;
   pt.window#message ""
 
 
-(** Start a new proof [proof_name] with [current_sequent] as initial
-    sequent in state [state]. If a surviver proof tree is found it is
-    reused. Otherwise a new proof-tree state and window is created.
+(** Start a new proof [proof_name] which is initially empty, that is
+    contains no proof tree layers. If a surviver proof tree is found
+    it is reused. Otherwise a new proof-tree state and window is
+    created.
 *)
-let start_new_proof state proof_name current_sequent_id current_sequent_text =
+let start_new_proof state proof_name =
   let pt =
     match get_surviver proof_name with
       | None -> 
-	let pt = create_new_proof_tree proof_name state 
-	  current_sequent_id current_sequent_text in
+	let pt = create_new_proof_tree proof_name state in
 	original_proof_trees := pt :: !original_proof_trees;
 	pt
       | Some pt -> 
-	reinit_surviver pt state current_sequent_id current_sequent_text;
+	reinit_surviver pt state;
 	pt
   in
-  mark_current_sequent_maybe pt.current_sequent;
-  set_current_node_wrapper pt pt.current_sequent;
-  pt.window#message "Initial sequent";
-  pt.need_redraw <- true;
-  current_proof_tree := Some pt
+  current_proof_tree := Some pt;
+  pt
 
+
+let create_new_layer pt state current_sequent_id current_sequent_text
+    additional_ids uninstantiated_existentials instantiated_ex_deps =
+  assert(List.for_all (fun id -> Hashtbl.mem pt.sequent_hash id = false)
+	   (current_sequent_id :: additional_ids));
+  assert(pt.open_goals_count = 0);
+  let (ex_got_instantiated, new_existentials) =
+    update_existentials pt.existential_hash 
+      uninstantiated_existentials instantiated_ex_deps in
+  assert (ex_got_instantiated = [] && new_existentials = []);
+  let first_sw = 
+    pt.window#new_turnstile current_sequent_id current_sequent_text in
+  Hashtbl.add pt.sequent_hash current_sequent_id first_sw;
+  let first_sw = (first_sw :> proof_tree_element) in
+  let other_sw =
+    List.fold_right
+      (fun id res ->
+	let sw = pt.window#new_turnstile id "waiting for sequent text" in
+	Hashtbl.add pt.sequent_hash id sw;
+	(sw :> proof_tree_element) :: res)
+      additional_ids []
+  in
+  let all_roots = first_sw :: other_sw in
+  let layer = new tree_layer all_roots in
+  let layer_undo_pos = pt.window#layer_stack#add_layer layer in
+  pt.current_sequent_id <- Some current_sequent_id;
+  pt.current_sequent <- Some first_sw;
+  pt.open_goals_count <- List.length all_roots;
+  first_sw#mark_current;
+  set_current_node_wrapper pt (Some first_sw);
+  pt.window#clear_position_hints;
+  let layer_count = pt.window#layer_stack#count_layers in
+  let message =
+    if layer_count = 1
+    then "Initial sequent"
+    else 
+      Printf.sprintf "Layer %d with %d goals" layer_count pt.open_goals_count
+  in
+  pt.window#message message;
+  let unhash_sequent_ids = current_sequent_id :: additional_ids in
+  let undo () =
+    List.iter (fun s -> s#delete_non_sticky_external_windows) all_roots;
+    List.iter (fun id -> Hashtbl.remove pt.sequent_hash id) unhash_sequent_ids;
+    List.iter 
+      (fun sw -> if sw#is_selected then pt.window#set_selected_node None)
+      all_roots;
+    pt.window#layer_stack#del_layer layer_undo_pos;
+    pt.current_sequent_id <- None;
+    pt.current_sequent <- None;
+    pt.open_goals_count <- 0;
+  in
+  add_undo_action pt state undo;
+  pt.need_redraw <- true;
+  pt.sequent_area_needs_refresh <- true
+      
+    
 
 (** Add a new proof command with the new current sequent
     [current_sequent] and the additionally spawned subgoals. The
@@ -603,7 +648,7 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
    * to update all those sequent displays.
    *)
   if ex_got_instantiated <> [] then begin
-    pt.window#update_existentials_display;
+    pt.window#update_sequent_existentials_info;
     pt.sequent_area_needs_refresh <- true;
   end;
   let message = match List.length new_goals with
@@ -631,7 +676,7 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
     pt.open_goals_count <- old_open_goals_count;
     if ex_got_instantiated <> [] then begin
       undo_instantiate_existentials ex_got_instantiated;
-      pt.window#update_existentials_display;
+      pt.window#update_sequent_existentials_info;
       pt.sequent_area_needs_refresh <- true;
     end;
     List.iter (fun ex -> Hashtbl.remove pt.existential_hash ex.existential_name)
@@ -682,7 +727,7 @@ let finish_branch pt state proof_command cheated_flag
     pt.cheated <- old_cheated;
     if ex_got_instantiated <> [] then begin
       undo_instantiate_existentials ex_got_instantiated;
-      pt.window#update_existentials_display;
+      pt.window#update_sequent_existentials_info;
       pt.sequent_area_needs_refresh <- true;
     end;
     List.iter (fun ex -> Hashtbl.remove pt.existential_hash ex.existential_name)
@@ -694,9 +739,10 @@ let finish_branch pt state proof_command cheated_flag
   pt.open_goals_count <- pt.open_goals_count - 1;
   pt.current_sequent <- None;
   pt.current_sequent_id <- None;
+  pt.window#clear_position_hints;
   set_current_node_wrapper pt None;
   if ex_got_instantiated <> [] then begin
-    pt.window#update_existentials_display;
+    pt.window#update_sequent_existentials_info;
     pt.sequent_area_needs_refresh <- true;
   end;
   pt.window#ext_dialog_add new_existentials;
@@ -721,6 +767,7 @@ let internal_switch_to pt state new_current_sequent_id =
   set_current_node_wrapper pt (Some new_current_sequent);
   pt.current_sequent_id <- Some new_current_sequent_id;
   pt.current_sequent <- Some new_current_sequent;
+  pt.window#clear_position_hints;
   add_undo_action pt state undo;
   pt.need_redraw <- true
 
@@ -750,45 +797,37 @@ let finish_branch_and_switch_to pt state proof_command cheated_flag
 
 (* See mli for doc *)
 let process_current_goals state proof_name proof_command cheated_flag
-    current_sequent_id current_sequent_text additional_ids 
+    layer_flag current_sequent_id current_sequent_text additional_ids 
     uninstatiated_existentials instantiated_ex_deps =
   (match !current_proof_tree with
     | Some pt -> 
       if pt.proof_name <> proof_name 
       then stop_proof_tree_last_selected pt state
     | None -> ());
-  if !current_proof_tree = None && additional_ids <> []
+  let layer_flag = layer_flag || !current_proof_tree = None in
+  let pt = match !current_proof_tree with
+    | None -> start_new_proof state proof_name
+    | Some pt ->
+      assert ((iff (pt.current_sequent = None) (pt.current_sequent_id = None))
+	      && (iff layer_flag (pt.current_sequent = None)));
+      pt
+  in
+  if layer_flag
   then begin
-    (* emacs_callback_stop_display (); *)
-    (* To gracefully recover from this error requires much more work:
-     * There might already be update-sequence commands in the pipe. 
-     * We have to ignore them until we are sure, that Proof General 
-     * processed the stop-display command.
-     *)
-    error_message_dialog 
-      "Detected a new proof with 2 or more initial goals.\n \
-       (For Coq please start proofs with \"Proof.\" to avoid \
-       this situation.)"
-  end
-  else
-    match !current_proof_tree with
-      | None -> 
-	assert(additional_ids = []);
-	assert(cheated_flag = false);
-	assert(uninstatiated_existentials = []);
-	start_new_proof state proof_name current_sequent_id current_sequent_text
-      | Some pt ->
-	assert (pt.current_sequent <> None && pt.current_sequent_id <> None);
-	if pt.current_sequent_id <> (Some current_sequent_id) &&
-	  Hashtbl.mem pt.sequent_hash current_sequent_id
-	then
-	  finish_branch_and_switch_to pt state proof_command cheated_flag
-	    current_sequent_id additional_ids 
-	    uninstatiated_existentials instantiated_ex_deps
-	else
-	  add_new_goal pt state proof_command cheated_flag current_sequent_id 
-	    current_sequent_text additional_ids 
-	    uninstatiated_existentials instantiated_ex_deps
+    assert (cheated_flag = false);
+    create_new_layer pt state current_sequent_id current_sequent_text
+      additional_ids uninstatiated_existentials instantiated_ex_deps
+  end else
+    if pt.current_sequent_id <> (Some current_sequent_id) &&
+      Hashtbl.mem pt.sequent_hash current_sequent_id
+    then
+      finish_branch_and_switch_to pt state proof_command cheated_flag
+	current_sequent_id additional_ids 
+	uninstatiated_existentials instantiated_ex_deps
+    else
+      add_new_goal pt state proof_command cheated_flag current_sequent_id 
+	current_sequent_text additional_ids 
+	uninstatiated_existentials instantiated_ex_deps
 
 
 (** Update the sequent text for some sequent. This function is used

@@ -1,3 +1,10 @@
+2013-01-17  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* support Grab Existential Variables
+	* display several layers with several proof trees each
+	* protocol change, but stay at version 3
+	* new config file version 04
+
 2013-01-15  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* differentiate proof complete message according to
@@ -133,7 +140,7 @@
 
 	* fix case where some existential is instantiated with
 	  the last proof command
-	* protocol change
+	* protocol change to version 2
 	  - rename proof-complete into proof-finished and add
 	    existential info
 	  - add proof-complete message

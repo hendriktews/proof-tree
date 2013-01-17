@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.34 2013/01/14 21:51:31 tews Exp $
+ * $Id: input.ml,v 1.35 2013/01/17 07:48:04 tews Exp $
  *)
 
 
@@ -79,8 +79,9 @@
     the first message. 
     }
     {-  {v current-goals state %d current-sequent %s \
-    {cheated|not-cheated} proof-name-bytes %d command-bytes %d \
-    sequent-text-bytes %d additional-id-bytes %d existential-bytes %d\n\
+    {cheated|not-cheated} {new-layer|current-layer} proof-name-bytes %d \
+     command-bytes %d sequent-text-bytes %d additional-id-bytes %d \
+     existential-bytes %d\n\
     <data-proof-name>\n\
     <data-command>\n\
     <data-current-sequent>\n\
@@ -90,7 +91,7 @@
     The [current-goals] command tells [prooftree] about a new proof 
     state with a new set of open goals. This corresponds to either of
     the following cases:
-    {ul
+    {ol
     {- The initial proof state of a newly started proof}
     {- A proof command has been applied to the old current sequent, 
     yielding a new current sequent and possibly additional new 
@@ -98,14 +99,19 @@
     {- The old current goal has been solved (by some proof command) 
     and the new current sequent is one of the previously spawned 
     subgoals}
+    {- A new set of proof-tree root goal nodes is associated with the
+    current proof. This happens for instance, when Coq transformes
+    open existential variables into proof goals with the command 
+    [Grab Existential Variables].}
     }
     
-    [prooftree] decides with the help of its internal state which of 
-    the cases applies.
+    For case 1 or case 4 [new-layer] must be given. Otherwise,
+    [current-layer] must be specified and [prooftree] decides with the
+    help of its internal state whether case 2 or 3 applies.
     
-    The set of open goals does not need to represent the total 
-    set of all open subgoals, but it must contain all newly 
-    spawned subgoals.
+    For the second and the third case, the set of open goals does not
+    need to represent the total set of all open subgoals, but it must
+    contain all newly spawned subgoals.
     
     The state number in the [current-goals] command is for undo. It 
     is interpreted as the state that has been reached after processing 
@@ -435,6 +441,7 @@ let parse_configure com_buf =
 (******************************************************************************
  ******************************************************************************
  * current-goals state %d current-sequent %s {cheated|not-cheated} \
+ * {new-layer|current-layer}
  * proof-name-bytes %d command-bytes %d sequent-text-bytes %d \
  * additional-id-bytes %d existential-bytes %d\n\
  * <data-proof-name>\n\
@@ -456,17 +463,19 @@ let parse_configure com_buf =
            line of the command
     @param cheated_string either "cheated" or "not-cheated" from the 
            first line of the command
+    @param layer_string either "new-layer" of "current-layer" from the
+           first line of the command
     @param proof_name name of the current proof
     @param proof_command text of the last proof command (or garbage if 
-           this is the first state of the proof)
+    this is the first state of the proof)
     @param current_sequent_text text of the current sequent
     @param additional_ids_string ID's of all currently open goals
     @param existentials_string prover specific information about 
-           existentials
+    existentials
 
 *)
 let parse_current_goals_finish state current_sequent_id cheated_string 
-    proof_name proof_command current_sequent_text 
+    layer_string proof_name proof_command current_sequent_text 
     additional_ids_string existentials_string =
   (* Printf.fprintf (debugc()) "PCGF\n%!"; *)
   let cheated_flag = match cheated_string with
@@ -478,6 +487,15 @@ let parse_current_goals_finish state current_sequent_id cheated_string
 		  "Expected \"cheated\" or \"not-cheated\" as 6th word.",
 	       None))
   in
+  let layer_flag = match layer_string with
+    | "new-layer" -> true
+    | "current-layer" -> false
+    | _ ->
+      raise(Protocol_error
+	      ("Parse error in current-goals command. " ^
+		  "Expected \"new-layer\" or \"current-layer\" as 7th word.",
+	       None))
+  in
   let proof_name = chop_final_newlines proof_name in
   let proof_command = chop_final_newlines proof_command in
   let current_sequent_text = chop_final_newlines current_sequent_text in
@@ -486,7 +504,8 @@ let parse_current_goals_finish state current_sequent_id cheated_string
   let existentials_string = chop_final_newlines existentials_string in
   let (ex_uninst, ex_inst) = !parse_existential_info existentials_string in
   Proof_tree.process_current_goals state proof_name proof_command cheated_flag
-    current_sequent_id current_sequent_text additional_ids ex_uninst ex_inst;
+    layer_flag current_sequent_id current_sequent_text additional_ids 
+    ex_uninst ex_inst;
   current_parser := !message_start_parser
 
     
@@ -499,11 +518,12 @@ let parse_current_goals_finish state current_sequent_id cheated_string
 let parse_current_goals com_buf =
   check_if_configured ();
   Scanf.bscanf com_buf 
-    (" state %d current-sequent %s %s proof-name-bytes %d "
+    (" state %d current-sequent %s %s %s proof-name-bytes %d "
      ^^ "command-bytes %d sequent-text-bytes %d "
      ^^ "additional-id-bytes %d existential-bytes %d")
-    (fun state current_sequent_id cheated_string proof_name_bytes command_bytes 
-      sequent_text_bytes additional_id_bytes existential_bytes ->
+    (fun state current_sequent_id cheated_string layer_string 
+      proof_name_bytes command_bytes sequent_text_bytes additional_id_bytes
+      existential_bytes ->
 	get_string proof_name_bytes
 	  (fun proof_name ->
 	    get_string command_bytes
@@ -515,7 +535,7 @@ let parse_current_goals com_buf =
 			get_string existential_bytes
 			  (fun existentials_string ->
 			    parse_current_goals_finish state current_sequent_id
-			      cheated_string
+			      cheated_string layer_string
 			      proof_name proof_command current_sequent_text
 			      additional_ids_string existentials_string))))))
 

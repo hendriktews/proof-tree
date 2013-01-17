@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.51 2013/01/15 12:34:33 tews Exp $
+ * $Id: proof_window.ml,v 1.52 2013/01/17 07:48:04 tews Exp $
  *)
 
 
@@ -30,6 +30,7 @@ open Util
 open Gtk_ext
 open Configuration
 open Draw_tree
+open Tree_layers
 open Node_window
 open Help_window
 open About_window
@@ -91,15 +92,12 @@ object (self)
    *
    ***************************************************************************)
 
-  (** x-offset of the bounding box of the complete proof tree. This is
-      only non-zero when the width of the complete proof tree is smaller
-      than the width of the drawing area.
-  *)
+  (** x-offset of the bounding box of the complete proof tree layer
+      stack. This is only non-zero when the width of the complete
+      layer stack is smaller than the width of the drawing area. *)
   val mutable top_left = 0
 
-  (** y-offset of the bounding box of the root node of the proof tree.
-      Constantly 0 because the root node stays at the top.
-  *)
+  (** y-offset of the bounding box of the top layer. Constantly 0. *)
   val top_top = 0
 
   (** [true] if the sequent area should always show the last line.
@@ -107,8 +105,8 @@ object (self)
       a proof command is shown. *)
   val mutable sequent_window_scroll_to_bottom = false
 
-  (** The root node of the proof-tree, if it exists. *)
-  val mutable root = None
+  (** The stack of layers of proof trees *)
+  val layer_stack = new tree_layer_stack
 
   (** The current node of the proof tree, if there is one *)
   val mutable current_node = None
@@ -163,12 +161,7 @@ object (self)
   (** True when this is a clone. *)
   val mutable is_clone = false
 
-  (** Set the root node of the proof tree. *)
-  method set_root r = 
-    root <- Some (r : proof_tree_element)
-
-  (** Clear the root node of the proof tree. *)
-  method clear_root = root <- None
+  method layer_stack = layer_stack
 
   (** Return the selected node or [None] if there is none. *)
   method get_selected_node = selected_node
@@ -183,6 +176,9 @@ object (self)
   (** Setter for {!position_hints}. *)
   method set_position_hints hints =
     position_hints <- (hints : proof_tree_element list list)
+
+  (** Clear {!position_hints}. *)
+  method clear_position_hints = position_hints <- []
 
   (***************************************************************************
    *
@@ -286,32 +282,20 @@ object (self)
       window shows more than just the root sequent, it will stay
       alive.
   *)
-  method survive_undo_before_start =
-    match root with
-      | None -> false
-      | Some root -> root#children <> []
+  method survive_undo_before_start = 
+    layer_stack#survive_undo_before_start_hint
 
   (** Disconnect the proof tree. Clears all current node and current
       branch indications.
   *)
-  method disconnect_proof =
-    match root with
-      | None -> ()
-      | Some root -> root#disconnect_proof
+  method disconnect_proof = layer_stack#disconnect
 
   (** Reflect changes in the current configuration. *)
   method configuration_updated =
-    let rec update_tree_sizes node =
-      List.iter update_tree_sizes node#children;
-      node#configuration_updated
-    in
     sequent_window#misc#modify_font !sequent_font_desc;
     drawable#set_line_attributes 
       ~width:(!current_config.turnstile_line_width) ();
-    (match root with
-      | None -> ()
-      | Some root -> update_tree_sizes root
-    );
+    layer_stack#configuration_updated;
     self#expand_drawing_area;
     ignore(self#position_tree);
     GtkBase.Widget.queue_draw top_window#as_widget;
@@ -322,7 +306,7 @@ object (self)
       Deletes and destroys all non-sticky external node windows.
   *)
   method clear_for_reuse =
-    root <- None;
+    layer_stack#clear_for_reuse;
     current_node <- None;
     current_node_offset_cache <- None;
     selected_node <- None;
@@ -332,31 +316,13 @@ object (self)
     self#clear_existential_dialog_for_reuse
 
   (** Update the existentials info in external sequent displays. *)
-  method update_existentials_display =
-    match root with
-      | None -> ()
-      | Some root -> root#update_existentials_display
+  method update_sequent_existentials_info =
+    layer_stack#update_sequent_existentials_info
 
   (** Find the first node in the proof tree satisfying the predicate
       using depth-first search.
   *)
-  method find_node p =
-    let res = ref None in
-    let rec iter node =
-      if p node 
-      then begin
-	res := Some node;
-	raise Exit
-      end
-      else List.iter iter node#children
-    in
-    (match root with
-      | None -> ()
-      | Some root ->
-	try iter root
-	with Exit -> ()
-    );
-    !res
+  method find_node p = layer_stack#find_node p
 
 
   (***************************************************************************
@@ -549,10 +515,8 @@ object (self)
 	let ext = 
 	  make_ext_dialog (self :> proof_window) proof_name 
 	in
-	(match root with
-	  | None -> ()
-	  | Some root_node -> ext#fill_table root_node
-	);
+	layer_stack#init_ext_dialog ext;
+	ext#finish_table_init;
 	existential_window <- Some ext
 
   (** Destroy the existential variables dialog, if one is present. *)
@@ -673,10 +637,8 @@ object (self)
 	    y_page_size >= (y_u_off - y_l_off)
 	  then begin
 	    (* current node fits into the viewport, be sophisticated *)
-	    let (req_width, req_height) = match root with
-	      | None -> (0,0)
-	      | Some root -> (root#subtree_width, root#subtree_height)
-	    in
+	    let req_width = layer_stack#width in
+	    let req_height = layer_stack#height in
 	    if (float_of_int req_width) > drawing_h_adjustment#upper ||
 	       (float_of_int req_height) > drawing_v_adjustment#upper
 	    then begin
@@ -776,36 +738,29 @@ object (self)
       current proof tree.
   *)
   method private expand_drawing_area =
-    match root with
-      | None -> ()
-      | Some root -> 
-	let new_width = root#subtree_width in
-	let new_height = root#subtree_height in
-	(* 
-         * Printf.fprintf (debugc()) "DRAWING AREA SIZE REQUEST %d x %d\n%!" 
-	 *   new_width new_height;
-         *)
-	(* 
-         * if new_width > current_width || new_height > current_height then
-	 *   drawing_area#misc#set_size_request
-	 *     ~width:(max current_width new_width)
-	 *     ~height:(max current_height new_height) ();
-         *)
-	drawing_area#misc#set_size_request
-	  ~width:new_width ~height:new_height ();
+    let new_width = layer_stack#width in
+    let new_height = layer_stack#height in
+    (* 
+     * Printf.fprintf (debugc()) "DRAWING AREA SIZE REQUEST %d x %d\n%!" 
+     *   new_width new_height;
+     *)
+    (* 
+     * if new_width > current_width || new_height > current_height then
+     *   drawing_area#misc#set_size_request
+     * 	~width:(max current_width new_width)
+     * 	~height:(max current_height new_height) ();
+     *)
+    drawing_area#misc#set_size_request ~width:new_width ~height:new_height ();
 
   (** Sets the position of the proof tree in the drawing area by 
       computing [top_left]. Returns true if the position changed. 
       In that case the complete drawing area must be redrawn.
   *)
   method private position_tree =
-    match root with
-      | None -> false
-      | Some root -> 
-	let old_top_left = top_left in
-	let (width, _) = drawable#size in
-	top_left <- max 0 ((width - root#subtree_width) / 2);
-	top_left <> old_top_left
+    let old_top_left = top_left in
+    let (width, _) = drawable#size in
+    top_left <- max 0 ((width - layer_stack#width) / 2);
+    top_left <> old_top_left
 
   (** Handle expose events. Try to move to the current node, erase and
       redraw the complete drawing area.
@@ -821,12 +776,8 @@ object (self)
      *)
     self#try_adjustment;
     self#erase;
-    (* let left = 0 in *)
-    match root with
-      | None -> ()
-      | Some root ->
-	(* Printf.fprintf (debugc()) "REDRAW\n%!"; *)
-	ignore(root#draw_tree_root top_left top_top)
+    (* Printf.fprintf (debugc()) "REDRAW\n%!"; *)
+    layer_stack#draw top_left top_top
 
   (** Schedule an expose event for the drawing area, thereby causing
       it to get redrawn.
@@ -1037,7 +988,7 @@ object (self)
       if there is no root node
   *)
   method select_root_node =
-    self#set_selected_node root
+    self#set_selected_node (layer_stack#get_root_node)
 
   (** Save the selected node state on a button press and clear
       {!restored_selected_node}. 
@@ -1068,12 +1019,7 @@ object (self)
   method private locate_button_node : 
     'a . int -> int -> (#proof_tree_element -> 'a) -> (unit -> 'a) -> 'a =
     fun x y node_click_fun outside_click_fun ->
-      let node_opt = match root with 
-	| None -> None
-	| Some root ->
-	  root#mouse_button_tree_root top_left top_top x y
-      in
-      match node_opt with
+      match layer_stack#mouse_button top_left top_top x y with
 	| None -> outside_click_fun ()
 	| Some node -> node_click_fun node
 
@@ -1236,56 +1182,15 @@ object (self)
   *)
   method clone (owin : proof_window) =
     owin#set_clone_flag;
-    let become_selected = match current_node with
+    let old_selected = match current_node with
       | Some _ -> current_node
       | None -> selected_node
     in
     let cloned_selected = ref None in
-    let ex_hash = Hashtbl.create 251 in
-    let rec copy_existential ex =
-      try Hashtbl.find ex_hash ex.existential_name
-      with
-	| Not_found -> 
-	  let deps = List.map copy_existential ex.dependencies in
-	  let nex = { existential_name = ex.existential_name;
-		      status = ex.status;
-		      existential_mark = false;
-		      dependencies = deps;
-		    }
-	  in
-	  Hashtbl.add ex_hash ex.existential_name nex;
-	  nex
-    in
-    let rec clone_tree node =
-      let cloned_children = List.map clone_tree node#children in
-      let clone = match node#node_kind with
-	| Proof_command -> 
-	  (owin#new_proof_command node#content 
-	     (List.map copy_existential node#inst_existentials)
-	     (List.map copy_existential node#fresh_existentials)
-	   :> proof_tree_element)
-	| Turnstile -> 
-	  (owin#new_turnstile node#id node#content :> proof_tree_element)
-      in
-      if Some node = become_selected
-      then cloned_selected := Some clone;
-      set_children clone cloned_children;
-      (match node#branch_state with
-	| Cheated
-	| Proven -> clone#set_branch_state node#branch_state
-	| Unproven
-	| CurrentNode
-	| Current -> ()
-      );
-      clone
-    in    
-    (match root with
-      | None -> ()
-      | Some root_node ->
-	let cloned_tree = clone_tree root_node in
-	cloned_tree#propagate_existentials;
-	owin#set_root cloned_tree
-    );
+    let cloned_layers = 
+      layer_stack#clone_layers owin#new_proof_command owin#new_turnstile
+        old_selected cloned_selected in
+    owin#layer_stack#set_layers cloned_layers;
     owin#set_selected_node !cloned_selected;
     owin#refresh_and_position;
     cloned_proof_windows := owin :: !cloned_proof_windows

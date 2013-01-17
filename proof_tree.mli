@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.mli,v 1.14 2013/01/14 21:51:31 tews Exp $
+ * $Id: proof_tree.mli,v 1.15 2013/01/17 07:48:04 tews Exp $
  *)
 
 
@@ -52,12 +52,14 @@
     sequent and is therefore found in the hash of known sequents (this
     happens if the user applied a non-failing command, that didn't
     change the goal, auch as [auto] in some cases.)
+XXX
     } }
 
     @param state state for undo
     @param proof_name name of the proof
     @param proof_command command issued to the prover
     @param cheated_flag is true if the command is a cheating one
+    @param layer_flag is true if the command adds a new layer of proof goals
     @param current_sequent_id ID of current sequent
     @param current_sequent_text the current sequent itself
     @param additional_ids ID's of the additionally open goals
@@ -66,7 +68,7 @@
 *)
 val process_current_goals :
   int -> string -> string -> 
-  bool -> string -> string -> string list -> string list -> 
+  bool -> bool -> string -> string -> string list -> string list -> 
   (string * string list) list -> unit
 
 

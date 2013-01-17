@@ -19,14 +19,16 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: util.ml,v 1.18 2012/05/14 14:03:37 tews Exp $
+ * $Id: util.ml,v 1.19 2013/01/17 07:48:04 tews Exp $
  *)
 
 
 (** Misc utility functions *)
 
 
+(****************************************************************************)
 (** {2 Missing from the List module} *)
+(****************************************************************************)
 
 (** Return the last element of a list and [assert false] on the empty
     list.
@@ -49,7 +51,16 @@ let rec list_filter_rev_accu p accu = function
 let list_filter_rev p l = list_filter_rev_accu p [] l
 
 
+let rec firstn n l =
+  if n <= 0 then []
+  else match l with
+    | [] -> []
+    | a :: l -> a :: (firstn (n - 1) l)
+
+
+(****************************************************************************)
 (** {2 Lists as Sets: Simple Set Operations} *)
+(****************************************************************************)
 
 (** [list_set_subset s1 s2] returns true precisely if [s1] is a
     (non-necessarily strict) subset of [s2].
@@ -102,7 +113,9 @@ let list_set_remove_element e s =
   list_set_remove_element_rec e [] s
 
 
+(****************************************************************************)
 (** {2 Missing from the String module} *)
+(****************************************************************************)
 
 (** [search_char buf start stop c] searches for character [c] in the
     substring of [buf] starting at [start] and ending before [stop].
@@ -171,7 +184,31 @@ let string_ends buf tail =
     (String.sub buf (buf_len - tail_len) tail_len) = tail
 
 
+(** Count the number of lines in argument [s]. Returns at least 1. A
+    final newline in [s] adds one to the result.
+*)
+let number_of_lines s =
+  let lines = ref 1 in
+  for i = 0 to String.length s - 1 do
+    if s.[i] = '\n' then incr lines
+  done;
+  !lines
+
+
+(****************************************************************************)
+(** {2 Simple logic operation} *)
+(****************************************************************************)
+
+(** Boolean implication. *)
+let imply b1 b2 = (not b1) || b2
+
+(** Boolean if-and-only-if. *)
+let iff b1 b2 = (imply b1 b2) && (imply b2 b1)
+
+
+(****************************************************************************)
 (** {2 Basic UTF-8 support} *)
+(****************************************************************************)
 
 (** [utf8_sequence_length s i] returns the byte-length of character at
     index [i] in [s]. May raise [Invalid_argument] if there is no
@@ -237,16 +274,10 @@ let utf8_string_sub s len =
     len 0
 
 
-(** Count the number of lines in argument [s]. Returns at least 1. A
-    final newline in [s] adds one to the result.
-*)
-let number_of_lines s =
-  let lines = ref 1 in
-  for i = 0 to String.length s - 1 do
-    if s.[i] = '\n' then incr lines
-  done;
-  !lines
 
+(****************************************************************************)
+(** {2 Debugging support} *)
+(****************************************************************************)
 
 (** Return the filehandle for debugmessages. Only used during
     debugging sessions. 

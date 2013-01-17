@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.35 2012/05/14 14:03:36 tews Exp $
+ * $Id: configuration.ml,v 1.36 2013/01/17 07:48:04 tews Exp $
  *)
 
 
@@ -48,7 +48,7 @@ let config_file_location =
     configuration file is (mostly) a marshaled configuration record.
     In order to be independent of Gdk marshaling, the configuration
     record consists only of pure OCaml values. Fonts and colors are
-    therefore not accessed via the configuration record, but via there
+    therefore not accessed via the configuration record, but via their
     own references (of some suitable Gdk type). These references must,
     of course, be kept in sync with the current configuration. All
     other configurable values are accessed through the current
@@ -99,6 +99,12 @@ type t = {
 
   level_distance : int;
   (** Vertical distance between two levels of the proof tree. *)
+
+  proof_tree_sep : int;
+  (** Horizontal distance between two independent proof trees in one layer *)
+
+  layer_sep : int;
+  (** Vertical distance between two layers of proof trees *)
 
   button_1_drag_acceleration : float;
   (** Acceleration multiplier for dragging the proof-tree display
@@ -231,6 +237,8 @@ let default_configuration =
     subtree_sep = 5;
     line_sep = 3;
     level_distance = 38;
+    proof_tree_sep = 15;
+    layer_sep = 40;
 
     turnstile_left_bar_x_offset = 0;
     turnstile_left_bar_y_offset = 0;
@@ -435,7 +443,7 @@ let geometry_string = ref ""
 let config_file_header_start = "Prooftree configuration file version "
 
 (** Version specific header of the current config file version. *)
-let config_file_version = "03"
+let config_file_version = "04"
 
 (** The complete ASCII header of configuration files. *)
 let config_file_header = config_file_header_start ^ config_file_version ^ "\n"
@@ -761,6 +769,10 @@ object (self)
       subtree_sep = round_to_int subtree_sep_adjustment#value;
       line_sep = round_to_int line_sep_adjustment#value;
       level_distance = round_to_int level_dist_adjustment#value;
+
+      (* XXX *)
+      proof_tree_sep = 15;
+      layer_sep = 40;
 
       turnstile_left_bar_x_offset = 0;
       turnstile_left_bar_y_offset = 0;
