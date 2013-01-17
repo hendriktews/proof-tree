@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.41 2013/01/17 09:57:07 tews Exp $
+ * $Id: draw_tree.ml,v 1.42 2013/01/17 10:12:12 tews Exp $
  *)
 
 
@@ -1388,12 +1388,15 @@ object (self)
     if Util.utf8_string_length command <= !current_config.proof_command_length
     then begin
       content_shortened <- false;
-      displayed_command <- command
+      displayed_command <- replace_char command '\n' ' '
     end else begin
       content_shortened <- true;
       displayed_command <-
-	(Util.utf8_string_sub command (!current_config.proof_command_length - 1))
-      ^ "\226\128\166" 			(* append horizontal ellipsis *)
+	(replace_char
+	   (Util.utf8_string_sub command 
+	      (!current_config.proof_command_length - 1))
+	   '\n' ' ')
+            ^ "\226\128\166" 			(* append horizontal ellipsis *)
     end
 
   (** Set {!proof_tree_element.width} and {!proof_tree_element.height}

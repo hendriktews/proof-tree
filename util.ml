@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: util.ml,v 1.19 2013/01/17 07:48:04 tews Exp $
+ * $Id: util.ml,v 1.20 2013/01/17 10:12:12 tews Exp $
  *)
 
 
@@ -130,6 +130,16 @@ let rec search_char buf start stop c =
     else search_char buf (start + 1) stop c
   else
     None
+
+(** [replace_char s c1 c2] replace all occurrences of [c1] in [s] with
+    [c2].
+*)
+let replace_char s c1 c2 =
+  let r = String.copy s in
+  for i = 0 to String.length r - 1 do
+    if r.[i] = c1 then r.[i] <- c2
+  done;
+  r
 
 (** Remove all trailing newlines (['\n']) from the argument. *)
 let chop_final_newlines s =
