@@ -19,13 +19,14 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.55 2013/01/17 20:32:01 tews Exp $
+ * $Id: proof_window.ml,v 1.56 2013/01/17 22:07:03 tews Exp $
  *)
 
 
 (** Creation, display and drawing of the main proof-tree window *)
 
 
+open Util
 open Gtk_ext
 open Configuration
 open Draw_tree
@@ -1077,14 +1078,19 @@ object (self)
      * last_button_press_time <- GdkEvent.Button.time ev;
      *)
     (* 
-     * Printf.fprintf (debugc()) "%s Button %s%d at %d x %d\n%!" 
-     *   (match GdkEvent.get_type ev with
-     * 	| `BUTTON_PRESS -> "single"
-     * 	| `TWO_BUTTON_PRESS -> "double"
-     * 	| `THREE_BUTTON_PRESS -> "triple"
-     * 	| `BUTTON_RELEASE -> "release")
-     *   (if shifted then "shift " else "")
-     *   button x y;
+     * (let h = drawing_h_adjustment in
+     *  let v = drawing_v_adjustment in
+     *  Printf.fprintf (debugc()) 
+     *    "%s Button %s%d at %d x %d | x: %1.f - %.1f y: %.1f - %.1f\n%!" 
+     *    (match GdkEvent.get_type ev with
+     * 	 | `BUTTON_PRESS -> "single"
+     * 	 | `TWO_BUTTON_PRESS -> "double"
+     * 	 | `THREE_BUTTON_PRESS -> "triple"
+     * 	 | `BUTTON_RELEASE -> "release")
+     *    (if shifted then "shift " else "")
+     *    button x y
+     *    h#value (h#value +. h#page_size)
+     *    v#value (v#value +. v#page_size));
      *)
     (match button with
       | 1 -> self#button_1_press x y shifted double

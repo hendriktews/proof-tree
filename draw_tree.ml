@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.44 2013/01/17 20:32:01 tews Exp $
+ * $Id: draw_tree.ml,v 1.45 2013/01/17 22:07:03 tews Exp $
  *)
 
 
@@ -768,9 +768,11 @@ object (self)
   method child_offset child =
     self#iter_children 0 0 0 (fun left _y _a oc -> (left, child <> oc))
 
-  (** Computes the pair of the left offset and the offset of the
-      y-coordinate of this node relative to the upper-left corner of
-      the complete display. 
+  (** Computes the pair [(left_off, y_off)]. [left_off] is the offset
+      of the left hand side of the bounding box of this node's
+      subtree. [y_off] is the offset of the y-coordinate of this node.
+      The offsets are relative to the left and top of the layer stack,
+      respectively.
   *)
   method left_y_offsets =
     match parent with
@@ -797,6 +799,7 @@ object (self)
   *)
   method bounding_box_offsets =
     let (left, y) = self#left_y_offsets in
+    let x = self#get_x_coordinate left in
     (* 
      * Printf.fprintf (debugc())
      *   "BBO %s\n%!"
@@ -808,7 +811,7 @@ object (self)
      *   left width height 
      *   left (left + width) (y - height / 2) (y + height / 2);
      *)
-    (left, left + width, y - height / 2, y + height / 2)
+    (x - width / 2, x + width / 2, y - height / 2, y + height / 2)
 
   (** [bounding_box left top] computes the bounding box (that is a
       4-tuple [(x_low, x_high, y_low, y_high)]) of this node in

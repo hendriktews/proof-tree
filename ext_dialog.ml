@@ -19,11 +19,12 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: ext_dialog.ml,v 1.11 2013/01/17 20:32:01 tews Exp $
+ * $Id: ext_dialog.ml,v 1.12 2013/01/17 22:07:03 tews Exp $
  *)
 
 (** The Existential Variable Dialog *)
 
+open Util
 open Gtk_ext
 open Configuration
 open Draw_tree
@@ -196,6 +197,16 @@ object (self)
 	| None -> assert false
 	| Some n -> n
     in
+    (* 
+     * Printf.fprintf (debugc())
+     *   "GEN ext %s status %s crea node %s\n%!"
+     *   existential.existential_name
+     *   (match existential.status with
+     * 	| Uninstantiated -> "uninst"
+     * 	| Partially_instantiated -> "partial"
+     * 	| Fully_instantiated -> "fully")
+     *   crea_node#debug_name;
+     *)
     if existential.status <> Uninstantiated then
       let inst_node =  
 	proof_window#find_node
