@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.40 2013/01/17 07:48:04 tews Exp $
+ * $Id: draw_tree.ml,v 1.41 2013/01/17 09:57:07 tews Exp $
  *)
 
 
@@ -907,7 +907,7 @@ object (self)
       @param bx x-coordinate of point
       @param by y-coordinate of point
   *)
-  method mouse_button_tree left y bx by =
+  method find_node_for_point left y bx by =
     let top = y - height / 2 in
     if bx >= left && bx <= left + subtree_width &&
       by >= top && by <= top + self#subtree_height
@@ -920,7 +920,7 @@ object (self)
       else
 	self#iter_children left y None
 	  (fun left y _a child ->
-	    let cres = child#mouse_button_tree left y bx by in
+	    let cres = child#find_node_for_point left y bx by in
 	    (cres, cres = None))
     else
       None
@@ -938,8 +938,8 @@ object (self)
       @param bx x-coordinate of point
       @param by y-coordinate of point
   *)
-  method mouse_button_tree_root left top bx by =
-    self#mouse_button_tree left (top + height/2) bx by
+  method find_node_for_point_root left top bx by =
+    self#find_node_for_point left (top + height/2) bx by
 
 
   (***************************************************************************)

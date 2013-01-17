@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: tree_layers.ml,v 1.1 2013/01/17 07:48:04 tews Exp $
+ * $Id: tree_layers.ml,v 1.2 2013/01/17 09:57:07 tews Exp $
  *)
 
 
@@ -165,12 +165,12 @@ class tree_layer tree_list = object (self)
 	  left + !current_config.proof_tree_sep + r#subtree_width)
 	left tree_list)
 
-  method mouse_button left top bx by =
+  method find_node_for_point_in_layer left top bx by =
     let rec iter left = function
       | [] -> None
       | r :: rest ->
 	if left <= bx && bx <= left + r#subtree_width
-	then r#mouse_button_tree_root left top bx by
+	then r#find_node_for_point_root left top bx by
 	else 
 	  let left = 
 	    left + !current_config.proof_tree_sep + r#subtree_width in
@@ -220,6 +220,8 @@ class tree_layer_stack = object (self)
 
   method left_top_offset = (0, 0)
 
+  method private layer_indent l = (self#width - l#width) / 2
+
   method child_offsets layer =
     let layer_top = ref None in
     (try
@@ -228,7 +230,7 @@ class tree_layer_stack = object (self)
 	   (fun top olayer ->
 	     if layer = olayer
 	     then begin
-	       layer_top := Some top;
+	       layer_top := Some (self#layer_indent layer, top);
 	       raise Exit
 	     end else
 	       top + !current_config.layer_sep + olayer#height)
@@ -237,7 +239,7 @@ class tree_layer_stack = object (self)
     );
     match !layer_top with
       | None -> assert false
-      | Some top -> (0, top)
+      | Some (left, top) -> (left, top)
 
   method width = 
     if width = None then self#update_size_info;
@@ -311,16 +313,18 @@ class tree_layer_stack = object (self)
     ignore(
       List.fold_left
 	(fun top l -> 
-	  l#draw left top;
+	  l#draw (left + self#layer_indent l) top;
 	  top + !current_config.layer_sep + l#height)
 	top layers)
 
-  method mouse_button left top bx by =
+  method find_node_for_point_in_layer_stack left top bx by =
     let rec iter top = function
       | [] -> None
       | l :: rest ->
-	if top <= by && by <= top + l#height
-	then l#mouse_button left top bx by
+	let left = left + (self#layer_indent l) in
+	if top <= by && by <= top + l#height &&
+	  left <= bx && bx <= left + l#width
+	then l#find_node_for_point_in_layer left top bx by
 	else 
 	  let top = top + !current_config.layer_sep + l#height in
 	  if top <= by

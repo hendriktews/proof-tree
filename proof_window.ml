@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.52 2013/01/17 07:48:04 tews Exp $
+ * $Id: proof_window.ml,v 1.53 2013/01/17 09:57:07 tews Exp $
  *)
 
 
@@ -1019,7 +1019,8 @@ object (self)
   method private locate_button_node : 
     'a . int -> int -> (#proof_tree_element -> 'a) -> (unit -> 'a) -> 'a =
     fun x y node_click_fun outside_click_fun ->
-      match layer_stack#mouse_button top_left top_top x y with
+      match layer_stack#find_node_for_point_in_layer_stack 
+	                              top_left top_top x y with
 	| None -> outside_click_fun ()
 	| Some node -> node_click_fun node
 
