@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: util.ml,v 1.20 2013/01/17 10:12:12 tews Exp $
+ * $Id: util.ml,v 1.21 2013/01/17 14:39:12 tews Exp $
  *)
 
 
@@ -50,7 +50,7 @@ let rec list_filter_rev_accu p accu = function
 *)
 let list_filter_rev p l = list_filter_rev_accu p [] l
 
-
+(** Return the sublist of the first [n] elements. *)
 let rec firstn n l =
   if n <= 0 then []
   else match l with

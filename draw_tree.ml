@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.42 2013/01/17 10:12:12 tews Exp $
+ * $Id: draw_tree.ml,v 1.43 2013/01/17 14:39:11 tews Exp $
  *)
 
 
@@ -355,10 +355,32 @@ let clear_children parent =
 (*****************************************************************************)
 (*****************************************************************************)
 
+(** Abstract interface for {!Tree_layers.tree_layer} and
+    {!Tree_layers.tree_layer_stack}. Root nodes of proof trees and
+    layers contain a pointer to the layer or layer stack containing
+    them. This pointer is used to invalidate the size information in
+    these structures and to query location information. This class
+    type breaks the mutual dependency between root nodes and layers
+    and layers and the layer stack. The type parameter stands for the
+    structure containing the upward pointer, because it passes [self]
+    as first argument to {!child_offsets}.
+*)
 class type ['a] abstract_tree_container =
 object
+
+  (** Invalidate the size information in this container and all bigger
+      structures containing it.
+  *)
   method clear_size_cache : unit
+
+  (** Compute the left and top offset of this container relative to
+      the upper-left corner of the complete display. 
+  *)
   method left_top_offset : int * int
+
+  (** Compute the x and y offset of one child relative to the upper
+      left corner of this container.
+  *)
   method child_offsets : 'a -> int * int
 end
 
@@ -493,6 +515,9 @@ object (self)
   (** The set of all existentials for this node. *)
   val mutable existential_variables = fresh_existentials
 
+  (** Upward pointer to the layer containing this proof tree. Must be
+      set for root nodes.
+  *)
   val mutable tree_layer = 
     (None : proof_tree_element abstract_tree_container option)
 
@@ -557,6 +582,7 @@ object (self)
       {!debug_name}. *)
   method virtual id : string
 
+  (** Register the proof tree layer containing this root node. *)
   method register_tree_layer tl =
     assert(tree_layer = None);
     tree_layer <- Some tl
@@ -742,7 +768,7 @@ object (self)
 
   (** Computes the pair of the left offset and the offset of the
       y-coordinate of this node relative to the upper-left corner of
-      the root node of the proof tree. 
+      the complete display. 
   *)
   method left_y_offsets =
     match parent with
@@ -764,8 +790,8 @@ object (self)
 	(left_off, y_off)
 
   (** Computes the bounding box (that is a 4-tuple [(x_low, x_high,
-      y_low, y_high)]) relative to the upper-left corner of the root
-      node of the proof tree.
+      y_low, y_high)]) relative to the upper-left corner of the
+      complete display. 
   *)
   method bounding_box_offsets =
     let (left, y) = self#left_y_offsets in
@@ -1504,6 +1530,10 @@ end
 (*****************************************************************************)
 (*****************************************************************************)
 
+(** Helper for {!clone_tree_node} for cloning the existential
+    variables. Uses the hash to lookup variables, such that for each
+    variable only one {!existential_variable} record is created.
+*)
 let rec clone_existentials ex_hash ex =
   try Hashtbl.find ex_hash ex.existential_name
   with
@@ -1518,6 +1548,10 @@ let rec clone_existentials ex_hash ex =
       Hashtbl.add ex_hash ex.existential_name nex;
       nex
 
+(** Recursively clone all nodes in the given subtree, updating the
+    reference for the selected node, if the old selected node is contained
+    in the subtree.
+ *)
 let rec clone_tree_node new_pc new_seq ex_hash 
     old_selected cloned_selected node =
   let cloned_children = 
@@ -1529,7 +1563,7 @@ let rec clone_tree_node new_pc new_seq ex_hash
       (new_pc node#content 
 	 (List.map (clone_existentials ex_hash) node#inst_existentials)
 	 (List.map (clone_existentials ex_hash) node#fresh_existentials)
-       : proof_command :> proof_tree_element)
+	 : proof_command :> proof_tree_element)
     | Turnstile -> 
       (new_seq node#id node#content : turnstile :> proof_tree_element)
   in
@@ -1545,6 +1579,7 @@ let rec clone_tree_node new_pc new_seq ex_hash
   );
   clone
 
+(** Clone a complete proof tree. *)
 let clone_proof_tree new_pc new_seq ex_hash old_selected cloned_selected root =
   let cloned_root = 
     clone_tree_node new_pc new_seq ex_hash old_selected cloned_selected root in

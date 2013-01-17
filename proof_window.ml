@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.53 2013/01/17 09:57:07 tews Exp $
+ * $Id: proof_window.ml,v 1.54 2013/01/17 14:39:12 tews Exp $
  *)
 
 
@@ -161,6 +161,9 @@ object (self)
   (** True when this is a clone. *)
   val mutable is_clone = false
 
+  (** The stack of layers, containing all proof trees belonging to
+      this proof.
+  *)
   method layer_stack = layer_stack
 
   (** Return the selected node or [None] if there is none. *)

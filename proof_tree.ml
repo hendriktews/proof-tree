@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.47 2013/01/17 08:48:28 tews Exp $
+ * $Id: proof_tree.ml,v 1.48 2013/01/17 14:39:11 tews Exp $
  *)
 
 
@@ -521,6 +521,13 @@ let start_new_proof state proof_name =
   pt
 
 
+(** Create a new layer in the proof tree display with the current
+    sequent and all additional sequents as root goals. There must be
+    no open subgoal. The information about existential variables is
+    processed, but there must be no new and no newly instantiated
+    existential variables. If this is the first layer in the display,
+    a warning is displayed, if there are more than 1 root nodes.
+*)
 let create_new_layer pt state current_sequent_id current_sequent_text
     additional_ids uninstantiated_existentials instantiated_ex_deps =
   assert(List.for_all (fun id -> Hashtbl.mem pt.sequent_hash id = false)
@@ -580,7 +587,7 @@ let create_new_layer pt state current_sequent_id current_sequent_text
        You need to start proofs with \n\
        the \"Proof\" command!"
       `WARNING
-    
+
 
 (** Add a new proof command with the new current sequent
     [current_sequent] and the additionally spawned subgoals. The

@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.mli,v 1.15 2013/01/17 07:48:04 tews Exp $
+ * $Id: proof_tree.mli,v 1.16 2013/01/17 14:39:12 tews Exp $
  *)
 
 
@@ -27,16 +27,20 @@
 
 
 (** Process a current-goals command from Proof General, updating the
-    proof-tree display in the right way. With the help of the internal
-    state, especially the {!current_proof_tree}, the following cases
-    are distinguished:
+    proof-tree display in the right way. If the [layer_flag] is set,
+    new root goals for independent proof trees are added in a new
+    layer to the display. In this case there must be no open goal. If
+    no proof display for [proof_name] is currently in progress, this
+    function assumes that a new proof has just been started. Then a
+    new proof display is created or a previous display is emptied and
+    reused. If [layer_flag] is set, the [current_sequent] and the
+    additional sequents (from [additional_ids]) form all root nodes of
+    independent proof trees.
+
+    If [layer_flag] is false, the following cases are distinguished,
+    using {!current_proof_tree}:
 
     {ol
-    {- A new proof has just been started (in this case argument
-    [proof_command] is ignored). This case applies when there is no
-    {!current_proof_tree} or if the name of {!current_proof_tree}
-    differs from argument [proof_name]. In the latter case the old
-    current proof is finished.}
     {- The old current branch has been finished (possibly with a
     cheating command such as [admit]) and the proof assistant has
     switched to the next open goal. This case applies when the new
@@ -44,15 +48,13 @@
     sequents and differs from the old current sequent.}
     {- A proof command has been applied to the current sequent,
     yielding a new current sequent and possibly some additional
-    subgoals. This is the remaining case that applies when the two
-    cases above do not apply. More specifically, this case applies
+    subgoals. This case applies
     when the new current sequent [current_sequent_id] is not in the
     hash of known sequents. As a special exception, this case does
     also apply when the new current sequent equals the old current
     sequent and is therefore found in the hash of known sequents (this
     happens if the user applied a non-failing command, that didn't
     change the goal, auch as [auto] in some cases.)
-XXX
     } }
 
     @param state state for undo

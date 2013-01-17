@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: ext_dialog.ml,v 1.9 2013/01/17 07:48:04 tews Exp $
+ * $Id: ext_dialog.ml,v 1.10 2013/01/17 14:39:11 tews Exp $
  *)
 
 (** The Existential Variable Dialog *)
@@ -356,8 +356,9 @@ object (self)
     then self#make_no_ext_label
       
 
-  (** XXX Initially fill the table by processing all existentials in the
-      subtree of the argument node.
+  (** Fist part of table initialization. Fill the table by processing
+      all existentials in the proof tree of the given root node. This
+      function can be called several times for different root nodes.
   *)
   method fill_table_lines (nodes : proof_tree_element list) =
     let rec iter node =
@@ -367,6 +368,9 @@ object (self)
     in
     List.iter iter nodes
 
+  (** Second part of table initialization, to be called after all
+      proof trees have been processed with {!fill_table_line}.
+  *)
   method finish_table_init =
     self#update_existential_status;
     if next_row = start_row
