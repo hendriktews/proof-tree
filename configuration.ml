@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.36 2013/01/17 07:48:04 tews Exp $
+ * $Id: configuration.ml,v 1.37 2013/01/17 08:31:26 tews Exp $
  *)
 
 
@@ -238,7 +238,7 @@ let default_configuration =
     line_sep = 3;
     level_distance = 38;
     proof_tree_sep = 15;
-    layer_sep = 40;
+    layer_sep = 30;
 
     turnstile_left_bar_x_offset = 0;
     turnstile_left_bar_y_offset = 0;
@@ -518,12 +518,16 @@ let config_window = ref None
                                 for turnstile size
     - line_sep_spinner 		{xref lablgtk class GEdit.spin_button} 
                                 for line gap
+    - proof_tree_sep_spinner    {xref lablgtk class GEdit.spin_button}
+                                for proof tree sep
     - subtree_sep_spinner 	{xref lablgtk class GEdit.spin_button} 
                                 for node padding
     - command_length_spinner 	{xref lablgtk class GEdit.spin_button} 
                                 for command length
     - level_dist_spinner 	{xref lablgtk class GEdit.spin_button} 
                                 for vertical distance
+    - layer_sep_spinner 	{xref lablgtk class GEdit.spin_button} 
+                                layer sep
     - tree_font_button		{xref lablgtk class GButton.font_button} 
                                 for proof tree font
     - sequent_font_button	{xref lablgtk class GButton.font_button} 
@@ -578,9 +582,11 @@ class config_window
   line_width_spinner
   turnstile_size_spinner
   line_sep_spinner
+  proof_tree_sep_spinner
   subtree_sep_spinner
   command_length_spinner
   level_dist_spinner
+  layer_sep_spinner
   tree_font_button
   sequent_font_button
   current_color_button
@@ -616,6 +622,11 @@ object (self)
   (** {xref lablgtk class GData.adjustment} of the line-gap spin button. *)
   val line_sep_adjustment = line_sep_spinner#adjustment
 
+  (** {xref lablgtk class GData.adjustment} of the proof_tree_sep spin
+      button. 
+  *)
+  val proof_tree_sep_adjustment = proof_tree_sep_spinner#adjustment
+
   (** {xref lablgtk class GData.adjustment} of the node-padding spin
       button.
   *)
@@ -630,6 +641,11 @@ object (self)
       spin button. 
   *)
   val level_dist_adjustment = level_dist_spinner#adjustment
+
+  (** {xref lablgtk class GData.adjustment} of the layer_sep spin
+      button. 
+  *)
+  val layer_sep_adjustment = layer_sep_spinner#adjustment
 
   (** {xref lablgtk class GData.adjustment} of the drag-acceleration
       spin button.
@@ -667,8 +683,10 @@ object (self)
     turnstile_size_adjustment#set_value (float_of_int conf.turnstile_radius);
     subtree_sep_adjustment#set_value (float_of_int conf.subtree_sep);
     line_sep_adjustment#set_value (float_of_int conf.line_sep);
+    proof_tree_sep_adjustment#set_value (float_of_int conf.proof_tree_sep);
     command_length_adjustment#set_value (float_of_int conf.proof_command_length);
     level_dist_adjustment#set_value (float_of_int conf.level_distance);
+    layer_sep_adjustment#set_value (float_of_int conf.layer_sep);
     tree_font_button#set_font_name conf.proof_tree_font;
     sequent_font_button#set_font_name conf.sequent_font;
     current_color_button#set_color (GDraw.color (`RGB conf.current_color));
@@ -763,16 +781,14 @@ object (self)
   method private extract_configuration =
     let round_to_int f = int_of_float(f +. 0.5) in
     let c = {
-      turnstile_radius = round_to_int turnstile_size_adjustment#value;
       turnstile_line_width = round_to_int line_width_adjustment#value;
-      proof_command_length = round_to_int command_length_adjustment#value;
-      subtree_sep = round_to_int subtree_sep_adjustment#value;
+      turnstile_radius = round_to_int turnstile_size_adjustment#value;
       line_sep = round_to_int line_sep_adjustment#value;
+      proof_tree_sep = round_to_int proof_tree_sep_adjustment#value;
+      subtree_sep = round_to_int subtree_sep_adjustment#value;
+      proof_command_length = round_to_int command_length_adjustment#value;
       level_distance = round_to_int level_dist_adjustment#value;
-
-      (* XXX *)
-      proof_tree_sep = 15;
-      layer_sep = 40;
+      layer_sep = round_to_int layer_sep_adjustment#value;
 
       turnstile_left_bar_x_offset = 0;
       turnstile_left_bar_y_offset = 0;
@@ -1047,6 +1063,21 @@ let make_config_window () =
   line_sep_label#misc#set_tooltip_text line_sep_tooltip;
   line_sep_spinner#misc#set_tooltip_text line_sep_tooltip;
 
+  (* proof_tree_sep *)
+  let proof_tree_sep_tooltip = 
+    "Additional padding between adjacent proof trees in one layer" in
+  let proof_tree_sep_label = GMisc.label
+    ~text:"Tree padding" ~xalign:0.0 ~xpad:5
+    ~packing:(tree_frame_table#attach ~left:0 ~top:3) () in
+  let proof_tree_sep_spinner = GEdit.spin_button
+    ~digits:0 ~numeric:true
+    ~packing:(tree_frame_table#attach ~left:1 ~top:3) () in
+  adjustment_set_pos_int ~lower:0.0 proof_tree_sep_spinner#adjustment;
+  proof_tree_sep_spinner#adjustment#set_value
+    (float_of_int !current_config.proof_tree_sep);
+  proof_tree_sep_label#misc#set_tooltip_text proof_tree_sep_tooltip;
+  proof_tree_sep_spinner#misc#set_tooltip_text proof_tree_sep_tooltip;
+
   (* subtree_sep *)
   let subtree_sep_tooltip =
     "Additional padding added to the width of each node in the proof tree" in
@@ -1080,7 +1111,7 @@ let make_config_window () =
   (* level distance *)
   let level_dist_tooltip = "Vertical distance between neighboring nodes" in
   let level_dist_label = GMisc.label
-    ~text:"Vertical distance" ~xpad:5
+    ~text:"Vertical distance" ~xalign:0.0 ~xpad:5
     ~packing:(tree_frame_table#attach ~left:3 ~top:2) () in
   let level_dist_spinner = GEdit.spin_button
     ~digits:0 ~numeric:true
@@ -1090,6 +1121,21 @@ let make_config_window () =
     (float_of_int !current_config.level_distance);
   level_dist_label#misc#set_tooltip_text level_dist_tooltip;
   level_dist_spinner#misc#set_tooltip_text level_dist_tooltip;
+
+  (* layer_sep *)
+  let layer_sep_tooltip = 
+    "Additional padding between adjacent layers of proof trees" in
+  let layer_sep_label = GMisc.label
+    ~text:"Layer padding" ~xalign:0.0 ~xpad:5
+    ~packing:(tree_frame_table#attach ~left:3 ~top:3) () in
+  let layer_sep_spinner = GEdit.spin_button
+    ~digits:0 ~numeric:true
+    ~packing:(tree_frame_table#attach ~left:4 ~top:3) () in
+  adjustment_set_pos_int layer_sep_spinner#adjustment;
+  layer_sep_spinner#adjustment#set_value
+    (float_of_int !current_config.layer_sep);
+  layer_sep_label#misc#set_tooltip_text layer_sep_tooltip;
+  layer_sep_spinner#misc#set_tooltip_text layer_sep_tooltip;
 
   (****************************************************************************
    *
@@ -1462,9 +1508,11 @@ let make_config_window () =
       line_width_spinner
       turnstile_size_spinner
       line_sep_spinner
+      proof_tree_sep_spinner
       subtree_sep_spinner
       command_length_spinner
       level_dist_spinner
+      layer_sep_spinner
       tree_font_button
       sequent_font_button
       current_color_button
@@ -1488,9 +1536,11 @@ let make_config_window () =
       [ line_width_label#misc; line_width_spinner#misc;
 	turnstile_size_label#misc; turnstile_size_spinner#misc;
 	line_sep_label#misc; line_sep_spinner#misc;
+	proof_tree_sep_label#misc; proof_tree_sep_spinner#misc;
 	subtree_sep_label#misc; subtree_sep_spinner#misc;
 	command_length_label#misc; command_length_spinner#misc;
 	level_dist_label#misc; level_dist_spinner#misc;
+	layer_sep_label#misc; layer_sep_spinner#misc;
 	tree_font_label#misc; tree_font_button#misc;
 	sequent_font_label#misc; sequent_font_button#misc;
 	current_color_label#misc; current_color_button#misc;
