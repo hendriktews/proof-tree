@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.35 2013/01/17 07:48:04 tews Exp $
+ * $Id: input.ml,v 1.36 2013/01/17 20:32:01 tews Exp $
  *)
 
 
@@ -667,7 +667,7 @@ let parse_branch_finished_finish
 (** Parse and process a [proof-finished] command. Extracts the
     necessary information from the first command line in the [Scanf]
     parsing buffer argument, reads the data section and finally calls
-    {!Input.parse_proof_finished_finish}.
+    {!Input.parse_branch_finished_finish}.
 *)
 let parse_branch_finished com_buf =
   check_if_configured ();

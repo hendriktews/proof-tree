@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: ext_dialog.ml,v 1.10 2013/01/17 14:39:11 tews Exp $
+ * $Id: ext_dialog.ml,v 1.11 2013/01/17 20:32:01 tews Exp $
  *)
 
 (** The Existential Variable Dialog *)
@@ -369,7 +369,7 @@ object (self)
     List.iter iter nodes
 
   (** Second part of table initialization, to be called after all
-      proof trees have been processed with {!fill_table_line}.
+      proof trees have been processed with {!fill_table_lines}.
   *)
   method finish_table_init =
     self#update_existential_status;

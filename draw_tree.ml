@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.43 2013/01/17 14:39:11 tews Exp $
+ * $Id: draw_tree.ml,v 1.44 2013/01/17 20:32:01 tews Exp $
  *)
 
 
@@ -40,8 +40,8 @@
     tree is created in the right way.
 
     The common code of both proof-goal and proof-command nodes is in
-    the class {!proof_tree_element}. The class for proof goals,
-    {!turnstile} and the class {!proof_command} are derived from it.
+    the class {!class: Draw_tree.proof_tree_element}. The class for proof goals,
+    {!turnstile} and the class {!class: proof_command} are derived from it.
     To work around the impossible down-casts, {!proof_tree_element}
     contains some virtual method hooks for stuff that is really
     specific for just one of its subclasses.
@@ -59,7 +59,7 @@
     works top down. Therefore the nodes are organized in a
     doubly-linked tree, where children nodes contain a link to their
     parent. The doubly-linked tree functionality is in
-    {!doubly_linked_tree}. 
+    {!class: doubly_linked_tree}. 
 
 *)
 
@@ -111,7 +111,7 @@ type existential_status =
 (** Representation of existential variables. The [status] field is
     lazily updated in {!Proof_tree.update_existential_status}.
     Therefore, a fully instantiated existential might have status
-    {!Partially_instantiated} for some time.
+    {!existential_status.Partially_instantiated} for some time.
 *)
 type existential_variable = {
   existential_name : string;		(** The name *)
@@ -355,8 +355,8 @@ let clear_children parent =
 (*****************************************************************************)
 (*****************************************************************************)
 
-(** Abstract interface for {!Tree_layers.tree_layer} and
-    {!Tree_layers.tree_layer_stack}. Root nodes of proof trees and
+(** Abstract interface for {!class: Tree_layers.tree_layer} and
+    {!class: Tree_layers.tree_layer_stack}. Root nodes of proof trees and
     layers contain a pointer to the layer or layer stack containing
     them. This pointer is used to invalidate the size information in
     these structures and to query location information. This class
@@ -440,7 +440,7 @@ end
 class virtual proof_tree_element drawable
     debug_name inst_existentials fresh_existentials = 
 object (self)
-  inherit [proof_tree_element] doubly_linked_tree as super
+  inherit [proof_tree_element] doubly_linked_tree
 
   (***************************************************************************)
   (***************************************************************************)
@@ -464,7 +464,9 @@ object (self)
   *)
   method inst_existentials : existential_variable list = inst_existentials
 
-  (** The {!Gtk_ext.better_drawable} into which this element draws itself. *)
+  (** The {!class: Gtk_ext.better_drawable} into which this element
+      draws itself.
+  *)
   val drawable = drawable
 
   (** The width of this node alone in pixels. Set in the initializer

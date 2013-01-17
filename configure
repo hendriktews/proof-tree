@@ -22,7 +22,7 @@
 # You should have received a copy of the GNU General Public License
 # along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
 # 
-# $Id: configure,v 1.4 2012/01/02 15:50:49 tews Exp $
+# $Id: configure,v 1.5 2013/01/17 20:32:01 tews Exp $
 # 
 ##############################################################################
 
@@ -34,6 +34,7 @@ ocamldep=
 ocamlc=
 prooftree=
 ocamldoc=
+lablgtkdir=
 force_byte="false"
 
 usage (){
@@ -117,15 +118,27 @@ if [ $? -ne 0 ] ; then
 fi
 
 # check for lablgtk
-if [ $native = "true" ] ; then
-    $ocamlc -o /dev/null -I +lablgtk2 lablgtk.cmxa gtkInit.cmx
-    lablgtk=$?
-else
-    $ocamlc -o /dev/null -I +lablgtk2 lablgtk.cma gtkInit.cmo
-    lablgtk=$?
+check_lablgtk () {
+    echo test $ocamlc -I $1
+    if [ $native = "true" ] ; then
+	$ocamlc -o /dev/null -I $1 lablgtk.cmxa gtkInit.cmx
+    else
+	$ocamlc -o /dev/null -I $1 lablgtk.cma gtkInit.cmo
+    fi
+}
+
+if check_lablgtk "+lablgtk2" ; then
+    lablgtkdir="+lablgtk2"
+elif ocamlfind query lablgtk2 > /dev/null ; then
+    lablgtkdir=$(ocamlfind query lablgtk2)
+    if check_lablgtk $lablgtkdir ; then
+	true
+    else
+	lablgtkdir=""
+    fi
 fi
 
-if [ $lablgtk -ne 0 ] ; then
+if [ $lablgtkdir = "" ] ; then
     echo library LablGtk not found. Please install package liblablgtk2-ocaml-dev.
     exit 1
 fi
@@ -141,6 +154,7 @@ if [ $native = "true" ] ; then
 else
     echo "    native-code compilation disabled with $ocamlc"
 fi
+echo "    LablGtk2 at $lablgtkdir"
 
 
 # Make the Makefile
@@ -150,5 +164,6 @@ sed -e "s|@BINDIR@|$bindir|" \
     -e "s|@OCAMLC@|$ocamlc|" \
     -e "s|@OCAMLDEP@|$ocamldep|" \
     -e "s|@OCAMLDOC@|$ocamldoc|" \
+    -e "s|@LABLGTKDIR@|$lablgtkdir|" \
     Makefile.in > Makefile
 

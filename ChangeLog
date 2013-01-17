@@ -1,5 +1,10 @@
 2013-01-17  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
+	* try ocamlfind in configure for lablgtk2
+	* fix ocamldoc warnings
+
+2013-01-17  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
 	* write ocamldoc comments
 
 2013-01-17  Hendrik Tews  <tews@os.inf.tu-dresden.de>

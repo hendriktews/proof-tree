@@ -19,7 +19,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
 ## 
-## $Id: Makefile.in,v 1.22 2013/01/17 07:48:03 tews Exp $
+## $Id: Makefile.in,v 1.23 2013/01/17 20:32:01 tews Exp $
 ## 
 ## Commentary: Makefile
 ## 
@@ -54,6 +54,9 @@ OCAMLDEP:=@OCAMLDEP@
 # ocaml documentation generator
 # should be ``ocamldoc.opt'' if available, ``ocamldep'' otherwise
 OCAMLDOC:=@OCAMLDOC@
+
+# location of the lablgtk2 library
+LABLGTKDIR:=@LABLGTKDIR@
 
 #############################################################################
 ##
@@ -103,7 +106,7 @@ Makefile.deps : $(SOURCES)
 
 include Makefile.deps
 
-OCAMLFLAGS:=-w Aem -g -I +lablgtk2
+OCAMLFLAGS:=-w Aem -g -I $(LABLGTKDIR)
 
 %.cmx: %.ml
 	$(OCAMLC) -c $(OCAMLFLAGS) $<
@@ -119,12 +122,12 @@ TOCLEAN+=prooftree
 
 .PHONY: prooftree.opt
 prooftree.opt: $(CMX_OBJECTS)
-	$(OCAMLC) -g -I +lablgtk2 -o prooftree \
+	$(OCAMLC) -g -I $(LABLGTKDIR) -o prooftree \
 		unix.cmxa lablgtk.cmxa gtkInit.cmx $^
 
 .PHONY: prooftree.byte
 prooftree.byte: $(CMO_OBJECTS)
-	$(OCAMLC) -g -I +lablgtk2 -o prooftree \
+	$(OCAMLC) -g -I $(LABLGTKDIR) -o prooftree \
 		unix.cma lablgtk.cma gtkInit.cmo $^
 
 TOCLEAN+=version.ml
@@ -141,18 +144,19 @@ install:
 	cp prooftree.1 $(DESTDIR)$(MANDIR)/man1
 
 
+TOCLEAN+=dump.odoc-dump
 dump.odoc-dump: $(SOURCES)
-	$(OCAMLDOC) -I `ocamlc -where`/lablgtk2 -d doc \
+	$(OCAMLDOC) -I $(LABLGTKDIR) -d doc \
 		-inv-merge-ml-mli -m A -dump $@ $(SOURCES)
 
 .PHONY: doc
 doc: dump.odoc-dump
 	rm -rf doc
 	mkdir doc
-	$(OCAMLDOC) -I `ocamlc -where`/lablgtk2 -d doc \
+	$(OCAMLDOC) -I $(LABLGTKDIR) -d doc \
 		-g $(ODOC_XREF) -libxref lablgtk $(LABLGTKURL) \
 		-inv-merge-ml-mli -m A -load dump.odoc-dump
-	$(OCAMLDOC) -I `ocamlc -where`/lablgtk2 -dot -dot-reduce \
+	$(OCAMLDOC) -I $(LABLGTKURL) -dot -dot-reduce \
 		-o doc/dependencies.dot -load dump.odoc-dump
 	dot -Tps doc/dependencies.dot > doc/dependencies.ps
 

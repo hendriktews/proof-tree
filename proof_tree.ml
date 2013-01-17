@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.48 2013/01/17 14:39:11 tews Exp $
+ * $Id: proof_tree.ml,v 1.49 2013/01/17 20:32:01 tews Exp $
  *)
 
 
@@ -75,7 +75,7 @@ type proof_tree = {
 
   sequent_hash : (string, turnstile) Hashtbl.t;
   (** Hash table mapping all currently known sequents of this proof
-      tree to {!Draw_tree.turnstile} objects. Used to detect new
+      tree to {!class: Draw_tree.turnstile} objects. Used to detect new
       sequents and to update sequents.
   *)
 
@@ -123,7 +123,8 @@ type proof_tree = {
     {- Each displayed proof tree is in precisely one the lists
     {!original_proof_trees} or
     {!Proof_window.cloned_proof_windows}.}
-    {- {!current_sequent_id} = [None] iff {!current_sequent} = [None]}
+    {- {!proof_tree.current_sequent_id} = [None] iff
+    {!proof_tree.current_sequent} = [None]}
     }
 *)
 
@@ -145,7 +146,7 @@ let add_undo_action pt pa_state undo_fun =
 
 
 (** Contains all non-cloned proof trees managed in this module.
-    Cloned proof trees are in {!Proof_window.cloned_proof_trees}.
+    Cloned proof trees are in {!Proof_window.cloned_proof_windows}.
 *)
 let original_proof_trees = ref []
 
@@ -428,12 +429,10 @@ let undo_tree pt pa_state =
       end 
 
 
-(** Perform undo to state [pa_state] in all proof trees currently
-    affected by undo ({!all_proof_trees_for_undo}). As result some of
-    the proof windows might get deleted, some proof trees might get
-    changed, and some might be kept as surviver (in
-    {!undo_surviver_trees}). {!current_proof_tree} might be cleared or
-    changed.
+(** Perform undo to state [pa_state] in all non-cloned proof trees
+    ({!original_proof_trees}). As result some of the proof windows
+    might get deleted, some proof trees might get changed, and some
+    might be kept as surviver. {!current_proof_tree} might be cleared.
 *)
 let undo pa_state =
   let new_current = ref None in

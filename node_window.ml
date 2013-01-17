@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: node_window.ml,v 1.13 2012/03/07 13:43:31 tews Exp $
+ * $Id: node_window.ml,v 1.14 2013/01/17 20:32:01 tews Exp $
  *)
 
 
@@ -27,7 +27,6 @@
 
 
 open Configuration
-open Gtk_ext
 open Draw_tree
 
 

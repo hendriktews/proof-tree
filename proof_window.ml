@@ -19,14 +19,13 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.54 2013/01/17 14:39:12 tews Exp $
+ * $Id: proof_window.ml,v 1.55 2013/01/17 20:32:01 tews Exp $
  *)
 
 
 (** Creation, display and drawing of the main proof-tree window *)
 
 
-open Util
 open Gtk_ext
 open Configuration
 open Draw_tree
@@ -45,8 +44,7 @@ let delete_proof_tree_callback = ref (fun (_ : string) -> ())
 
 
 (** Contains proof window clones. See also
-    [Proof_tree.all_proof_trees_for_undo] and
-    [Proof_tree.undo_surviver_trees].
+    [Proof_tree.original_proof_trees].
 *)
 let cloned_proof_windows = ref []
 
