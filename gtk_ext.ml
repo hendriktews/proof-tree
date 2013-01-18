@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: gtk_ext.ml,v 1.16 2012/05/14 14:03:36 tews Exp $
+ * $Id: gtk_ext.ml,v 1.17 2013/01/18 16:39:10 tews Exp $
  *)
 
 
@@ -75,6 +75,18 @@ let run_message_dialog message message_type =
 let error_message_dialog message =
   run_message_dialog message `ERROR;
   exit 1
+
+
+(** Scroll the given adjustment [direction] number of pages into the
+    direction idicated by the sign of [direction]. This function is
+    used for scrolling with keys.
+*)
+let scroll_adjustment (a : GData.adjustment) direction =
+  let new_val = a#value +. float_of_int(direction) *. a#step_increment in
+  let new_val = if new_val < 0.0 then 0.0 else new_val in
+  let max = max 0.0 (a#upper -. a#page_size) in
+  let new_val = if new_val > max then max else new_val in
+  a#set_value new_val
 
 
 (** [inside_adj_range adjustment x] checks if [x] is inside the

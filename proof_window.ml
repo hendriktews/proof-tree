@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.56 2013/01/17 22:07:03 tews Exp $
+ * $Id: proof_window.ml,v 1.57 2013/01/18 16:39:10 tews Exp $
  *)
 
 
@@ -416,18 +416,6 @@ object (self)
    *
    ***************************************************************************)
 
-  (** Scroll the given adjustment [direction] number of pages into the
-      direction idicated by the sign of [direction]. This method is
-      used for scrolling with keys.
-  *)
-  method private scroll (adjustment : GData.adjustment) direction =
-    let a = adjustment in
-    let new_val = a#value +. float_of_int(direction) *. a#step_increment in
-    let new_val = if new_val < 0.0 then 0.0 else new_val in
-    let max = max 0.0 (a#upper -. a#page_size) in
-    let new_val = if new_val > max then max else new_val in
-    a#set_value new_val
-
   (** Delete and destroy this proof-tree window, including all its
       non-sticky external node windows and the existential variable
       dialog. Delete this window from {!cloned_proof_windows}. Other
@@ -476,18 +464,16 @@ object (self)
       | ks when (ks = GdkKeysyms._Q or ks = GdkKeysyms._q)  -> 
 	self#user_delete_proof_window (); true
       | ks when ks = GdkKeysyms._Left -> 
-	self#scroll drawing_h_adjustment (-1); true
+	scroll_adjustment drawing_h_adjustment (-1); true
       | ks when ks = GdkKeysyms._Right -> 
-	self#scroll drawing_h_adjustment 1; true
+	scroll_adjustment drawing_h_adjustment 1; true
       | ks when ks = GdkKeysyms._Up -> 
-	self#scroll drawing_v_adjustment (-1); true
+	scroll_adjustment drawing_v_adjustment (-1); true
       | ks when ks = GdkKeysyms._Down -> 
-	self#scroll drawing_v_adjustment 1; true
+	scroll_adjustment drawing_v_adjustment 1; true
 
-      (* 
-       * | ks when (ks = GdkKeysyms._E or ks = GdkKeysyms._e)  -> 
-       * 	self#show_existential_window (); true
-       *)
+      | ks when (ks = GdkKeysyms._E or ks = GdkKeysyms._e)  -> 
+      	self#show_existential_window (); true
 
       (* 
        * | ks when (ks = GdkKeysyms._C or ks = GdkKeysyms._c)  -> 

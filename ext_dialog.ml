@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: ext_dialog.ml,v 1.12 2013/01/17 22:07:03 tews Exp $
+ * $Id: ext_dialog.ml,v 1.13 2013/01/18 16:39:10 tews Exp $
  *)
 
 (** The Existential Variable Dialog *)
@@ -66,10 +66,15 @@ type ext_table_line = {
 
     Arguments are
     - proof_window      {!class: Proof_window.proof_window} to which this 
-    window is associated to
+                        window is associated to
     - top_window	{xref lablgtk class GWindow.window}
                         of the top-level widget
     - ext_table		{xref lablgtk class GPack.table} of the main table
+    - table_v_adjustment  {xref lablgtk class GData.adjustment} 
+                          for the scrollbar of the table
+    - border_vbars      the left and the right vertical bar together 
+                        with their column
+    - inner_vbars       the other vertical bars together with their column
     - start_row		first row in the table
     - name_col		column for names
     - status_col	column for status
@@ -80,6 +85,9 @@ class existential_variable_window
   proof_window
   (top_window : GWindow.window)
   (ext_table : GPack.table)
+  (table_v_adjustment : GData.adjustment)
+  (border_vbars : (GObj.widget * int) array)
+  (inner_vbars : (GObj.widget * int) array)
   start_row name_col status_col using_col button_col last_col
   =
 object (self)
@@ -96,6 +104,15 @@ object (self)
       markup for the color.
   *)
   val mutable fully_inst_label = ""
+
+  (** Used to show the bottom of the existential variable table by
+      default. If the user scrolls the table, then this flag remembers
+      if he scrolled to the bottom, see
+      {!scrollbar_value_changed_callback}. When the table size
+      changes, the table is automatically scrolled to the bottom, if
+      this flag is true.
+  *)
+  val mutable clamp_to_bottom = true
 
   (** The next free row in the table. Managed by all methods that add
       or delete rows in the table.
@@ -155,18 +172,38 @@ object (self)
     if remove_ext <> [] then
       to_delete <- remove_ext :: to_delete
 
+  (** Adjust the length of the vertical bars in the table. The border
+      bars are always drawn to the bottom of the table. The inner bars
+      are only drawn up to row [bottom].
+      
+      All vertical bars are created in the very beginning and then
+      reused all the time by removing and adding them to the table.
+  *)
+  method private adjust_vbars bottom =
+    Array.iter 
+      (fun (bar, col) ->
+	ext_table#remove bar;
+	ext_table#attach ~left:col ~top:0 ~bottom:next_row bar)
+      border_vbars;
+    Array.iter 
+      (fun (bar, col) ->
+	ext_table#remove bar;
+	ext_table#attach ~left:col ~top:0 ~bottom bar)
+      inner_vbars
+
   (** Put a "no existential variables" line into the table and store
       its widgets in {!no_ext_label_widgets}.
   *)
   method private make_no_ext_label =
-    let hbar = GMisc.separator `HORIZONTAL 
-      ~packing:(ext_table#attach ~left:0 ~right:last_col ~top:next_row) () in
-    next_row <- next_row + 1;
     let no_ext_label = GMisc.label 
       ~text:"There are no existential variables" ~ypad:8
       ~packing:(ext_table#attach ~left:name_col ~right:last_col ~top:next_row)
       () in
     next_row <- next_row + 1;
+    let hbar = GMisc.separator `HORIZONTAL 
+      ~packing:(ext_table#attach ~left:0 ~right:last_col ~top:next_row) () in
+    next_row <- next_row + 1;
+    self#adjust_vbars (next_row - 2);
     no_ext_label_widgets <- [| hbar#coerce; no_ext_label#coerce |]
 
   (** Delete the "no existential variables" line from the table. *)
@@ -286,46 +323,40 @@ object (self)
     assert(l <> []);
     let doit ext =
       assert(Hashtbl.mem ext_hash ext.existential_name = false);
-      let hbar = GMisc.separator `HORIZONTAL 
-      	~packing:(ext_table#attach ~left:0 ~right:last_col ~top:next_row) () in
-      next_row <- next_row + 1;
+      let ext_row = next_row in
       let name_label = GMisc.label ~text:ext.existential_name
-	~packing:(ext_table#attach ~left:name_col ~top:next_row) () in
-      let bar_1 = GMisc.separator `VERTICAL
-	~packing:(ext_table#attach ~left:(name_col + 1) ~top:next_row) () in
+	~packing:(ext_table#attach ~left:name_col ~top:ext_row) () in
       let status_label = GMisc.label (* ~xpad:7 *)
-	~packing:(ext_table#attach ~left:status_col ~top:next_row) () in
+	~packing:(ext_table#attach ~left:status_col ~top:ext_row) () in
       status_label#set_use_markup true;
-      let bar_2 = GMisc.separator `VERTICAL
-	~packing:(ext_table#attach ~left:(status_col + 1) ~top:next_row) () in
       let using_label = GMisc.label
-	~packing:(ext_table#attach ~left:using_col ~top:next_row) () in
+	~packing:(ext_table#attach ~left:using_col ~top:ext_row) () in
       using_label#set_use_markup true;
-      let bar_3 = GMisc.separator `VERTICAL
-	~packing:(ext_table#attach ~left:(using_col + 1) ~top:next_row) () in
       let button = GButton.toggle_button
 	~label:"mark"
-	~packing:(ext_table#attach ~fill:`NONE ~left:button_col ~top:next_row)
+	~packing:(ext_table#attach ~fill:`NONE ~left:button_col ~top:ext_row)
 	() in
       ignore(button#connect#toggled 
 	       ~callback:(self#mark_button_toggled button ext));
+      next_row <- next_row + 1;
+      let hbar = GMisc.separator `HORIZONTAL 
+      	~packing:(ext_table#attach ~left:0 ~right:last_col ~top:next_row) () in
+      next_row <- next_row + 1;
       Hashtbl.add ext_hash ext.existential_name 
 	{ ext_table_ext = ext;
-	  ext_table_row = next_row;
+	  ext_table_row = ext_row;
 	  ext_table_status_label = status_label;
 	  ext_table_using_label = using_label;
 	  ext_table_button = button;
 	  ext_table_other = 
-	    [| name_label#coerce; bar_1#coerce; bar_2#coerce; bar_3#coerce;
-	       hbar#coerce; |]
+	    [| name_label#coerce; hbar#coerce; |]
 	};
-      next_row <- next_row + 1;
       ()
     in
     if Array.length no_ext_label_widgets <> 0
     then self#delete_no_ext_label;
-    List.iter doit l
-
+    List.iter doit l;
+    self#adjust_vbars next_row
 
   (** Destroy all widgets in a table line. Takes care of releasing the
       "mark" button if necessary.
@@ -335,7 +366,7 @@ object (self)
     ext_table_line.ext_table_using_label#destroy ();
     ext_table_line.ext_table_button#set_active false;
     ext_table_line.ext_table_button#destroy ();
-    Array.iter (fun w -> w#destroy ()) ext_table_line.ext_table_other;
+    Array.iter (fun w -> w#destroy ()) ext_table_line.ext_table_other
 
 
   (** Delete an existential from the table. Destroys the widgets,
@@ -346,8 +377,7 @@ object (self)
     self#destroy_ext_line tl;
     Hashtbl.remove ext_hash ext.existential_name;
     if tl.ext_table_row < next_row
-    (* Take the separator obove the row into account! *)
-    then next_row <- tl.ext_table_row - 1
+    then next_row <- tl.ext_table_row
 
 
   (** Process pending addition or deletion requests and make the whole
@@ -400,6 +430,55 @@ object (self)
       next_row <- start_row;
     end
 
+  (** Callback for key events. Call the appropriate action for each
+      key.
+  *)
+  method key_pressed_callback ev =
+    match GdkEvent.Key.keyval ev with 
+      | ks when 
+	  (ks = GdkKeysyms._Q or ks = GdkKeysyms._q) 
+	  && (List.mem `CONTROL (GdkEvent.Key.state ev))
+	  -> 
+	exit 0
+      | ks when (ks = GdkKeysyms._Q or ks = GdkKeysyms._q)  -> 
+	self#destroy (); true
+      | ks when ks = GdkKeysyms._Up -> 
+	scroll_adjustment table_v_adjustment (-1); true
+      | ks when ks = GdkKeysyms._Down -> 
+	scroll_adjustment table_v_adjustment 1; true
+
+      | _ -> false
+
+  (** Callback for the [changed] signal of the scrollbar adjustment,
+      which is emitted when anything but the [value] changes. This
+      callback scrolls the table to the bottom, if {!clamp_to_bottom}
+      is [true].
+  *)
+  method scrollbar_changed_callback () =
+    let a = table_v_adjustment in
+    (* 
+     * Printf.fprintf (debugc()) "scroll changed %.1f - %.1f up %.1f\n%!"
+     *   a#value (a#value +. a#page_size) a#upper;
+     *)
+    if clamp_to_bottom then
+      let upper = a#upper in
+      a#clamp_page ~lower:upper ~upper:upper
+
+  (** Callback for the [value-changed] signal of the scrollbar
+      adjustment, which is emitted when the [value] changes. This
+      callback remembers in {!clamp_to_bottom} whether the table was
+      scrolled to the bottom.
+  *)
+  method scrollbar_value_changed_callback () =
+    let a = table_v_adjustment in
+    (* 
+     * Printf.fprintf (debugc()) "scroll value   %.1f - %.1f up %.1f\n%!"
+     *   a#value (a#value +. a#page_size) a#upper;
+     *)
+    if a#value +. a#page_size >= a#upper
+    then clamp_to_bottom <- true
+    else clamp_to_bottom <- false
+
   (** Make this configuration dialog visible. *)
   method present = top_window#present()
 
@@ -431,44 +510,83 @@ let make_ext_dialog proof_window proof_name =
 
   (****************************************************************************
    *
+   * Scrollbar for table
+   *
+   ****************************************************************************)
+  let scrolling_hbox = GPack.hbox 
+    ~packing:(top_v_box#pack ~expand:true) () in
+  let table_scrolling = GBin.scrolled_window 
+    ~hpolicy:`NEVER ~vpolicy:`ALWAYS
+    ~packing:(scrolling_hbox#pack ~expand:true ~fill:false) ()
+  in
+  let table_v_adjustment = table_scrolling#vadjustment in
+
+  (****************************************************************************
+   *
    * table of existentials
    *
    ****************************************************************************)
-  let table_hbox = GPack.hbox 
-    ~packing:(top_v_box#pack ~expand:true ~fill:false) () in
-  let table_frame = GBin.frame ~border_width:5
-    ~packing:(table_hbox#pack ~expand:true ~fill:false) () in
-  (* let table_frame = top_v_box in *)
   let ext_table = GPack.table ~border_width:5
-    ~packing:table_frame#add () in
-  let name_col = 0 in
-  let status_col = 2 in
-  let using_col = 4 in
-  let button_col = 6 in 
-  let last_col = button_col + 1 in
+    ~packing:table_scrolling#add_with_viewport () in
+  let name_col = 1 in
+  let status_col = 3 in
+  let using_col = 5 in
+  let button_col = 7 in 
+  let last_col = button_col + 2 in
   let xpadding = 7 in
   let ypadding = 3 in
   let row = 0 in
+  let _hbar = GMisc.separator `HORIZONTAL 
+    ~packing:(ext_table#attach ~left:0 ~right:last_col ~top:row) () in
+  let row = row + 1 in
+  let bar_l = GMisc.separator `VERTICAL
+    ~packing:(ext_table#attach ~left:0 ~top:row ~bottom:(row + 1)) () in
   let _name_heading = GMisc.label ~markup:"<b>Name</b>" 
     ~xpad:xpadding ~ypad:ypadding
     ~packing:(ext_table#attach ~left:name_col ~top:row) () in
-  let _bar = GMisc.separator `VERTICAL
+  let bar_1 = GMisc.separator `VERTICAL
     ~packing:(ext_table#attach ~left:(name_col + 1) ~top:row) () in
   let _status_heading = GMisc.label ~markup:"<b>Instantiated</b>"
     ~xpad:xpadding ~ypad:ypadding
     ~packing:(ext_table#attach ~left:status_col ~top:row) () in
-  let _bar = GMisc.separator `VERTICAL
+  let bar_2 = GMisc.separator `VERTICAL
     ~packing:(ext_table#attach ~left:(status_col + 1) ~top:row) () in
   let _using_heading = GMisc.label ~markup:"<b>Using</b>"
     ~xpad:xpadding ~ypad:ypadding
     ~packing:(ext_table#attach ~left:using_col ~top:row) () in
-  let _bar = GMisc.separator `VERTICAL
+  let bar_3 = GMisc.separator `VERTICAL
     ~packing:(ext_table#attach ~left:(using_col + 1) ~top:row) () in
   let _button_heading = GMisc.label ~markup:"<b>Mark Nodes</b>"
     ~xpad:xpadding ~ypad:ypadding
     ~packing:(ext_table#attach ~left:button_col ~top:row) () in
+  let bar_r = GMisc.separator `VERTICAL
+    ~packing:(ext_table#attach ~left:(button_col + 1) 
+		~top:row ~bottom:(row + 1)) () in
+  let border_vbars = [| (bar_l#coerce, 0); 
+			(bar_r#coerce, button_col + 1) |] in
+  let inner_vbars = [| (bar_1#coerce, name_col + 1);
+		       (bar_2#coerce, status_col + 1);
+		       (bar_3#coerce, using_col + 1); |] in
 
   let row = row + 1 in
+  let _hbar = GMisc.separator `HORIZONTAL 
+    ~packing:(ext_table#attach ~left:0 ~right:last_col ~top:row) () in
+  let row = row + 1 in
+
+  (****************************************************************************
+   *
+   * compute size
+   *
+   ****************************************************************************)
+  let context = ext_table#misc#pango_context in
+  let layout = context#create_layout in
+  Pango.Layout.set_text layout "X";
+  let (_, char_height) = Pango.Layout.get_pixel_size layout in
+  top_window#set_default_size ~width:0 
+    ~height:(8 * char_height + 
+	       int_of_float ((float_of_int !current_config.ext_table_lines)
+			     *. 1.76 *. (float_of_int char_height)));
+
 
   (****************************************************************************
    *
@@ -483,11 +601,18 @@ let make_ext_dialog proof_window proof_name =
     ~label:"Close" ~packing:(button_box#pack ~from:`END) () in
 
   let ext_window = 
-    new existential_variable_window proof_window top_window ext_table 
+    new existential_variable_window proof_window top_window 
+      ext_table table_v_adjustment border_vbars inner_vbars
       row name_col status_col using_col button_col last_col
   in
 
   top_window#set_title "Existential Variables";
+  ignore(table_v_adjustment#connect#changed 
+	   ~callback:ext_window#scrollbar_changed_callback);
+  ignore(table_v_adjustment#connect#value_changed 
+	   ~callback:ext_window#scrollbar_value_changed_callback);
+  ignore(top_window#event#connect#key_press 
+	   ~callback:ext_window#key_pressed_callback);
   ignore(top_window#connect#destroy ~callback:ext_window#destroy);
   ignore(show_current_button#connect#clicked 
 	   ~callback:proof_window#show_current_node);
