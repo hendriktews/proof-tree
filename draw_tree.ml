@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.45 2013/01/17 22:07:03 tews Exp $
+ * $Id: draw_tree.ml,v 1.46 2013/01/20 21:55:54 tews Exp $
  *)
 
 
@@ -436,9 +436,12 @@ end
     the code for (relativ) layout, (absolute) coordinates, locating
     mouse button clicks, marking branches and the general drawing
     functions.
+
+    Argument undo_state saves the undo state for the current proof.
+    It's value is arbitrary for cloned proof trees.
 *)
 class virtual proof_tree_element drawable
-    debug_name inst_existentials fresh_existentials = 
+    undo_state debug_name inst_existentials fresh_existentials = 
 object (self)
   inherit [proof_tree_element] doubly_linked_tree
 
@@ -463,6 +466,9 @@ object (self)
       this is a proof command. 
   *)
   method inst_existentials : existential_variable list = inst_existentials
+
+  (** Return the state for this sequent. *)
+  method undo_state = (undo_state : int)
 
   (** The {!class: Gtk_ext.better_drawable} into which this element
       draws itself.
@@ -1185,10 +1191,14 @@ end
 (** Specific element class for sequents, which draw themselves as
     turnstile symbols. This class specializes the abstract
     {!proof_tree_element} class for sequent nodes in the proof tree.
+
+    Argument undo_state saves the undo state for the current proof.
+    It's value is arbitrary for cloned proof trees.
 *)
-class turnstile (drawable : better_drawable) sequent_id sequent_text =
+class turnstile (drawable : better_drawable) 
+                undo_state sequent_id sequent_text =
 object (self)
-  inherit proof_tree_element drawable sequent_id [] [] as super
+  inherit proof_tree_element drawable undo_state sequent_id [] [] as super
 
   (** The pure sequent text. *)
   val mutable sequent_text = (sequent_text : string)
@@ -1345,11 +1355,14 @@ let make_layout context =
 (** Specific element class for proof commands. This class specializes
     the generic and abstract {!proof_tree_element} for proof-command
     nodes.
+
+    Argument undo_state saves the undo state for the current proof.
+    It's value is arbitrary for cloned proof trees.
 *)
 class proof_command (drawable_arg : better_drawable) 
-  command debug_name inst_existentials fresh_existentials =
+  undo_state command debug_name inst_existentials fresh_existentials =
 object (self)
-  inherit proof_tree_element drawable_arg debug_name 
+  inherit proof_tree_element drawable_arg undo_state debug_name 
     inst_existentials fresh_existentials 
     as super
 

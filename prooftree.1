@@ -187,7 +187,7 @@ command that instantiated this variable (with orange background,
 by default). 
 .\" ==========================================================================
 .SS Main Menu
-A right-click or the 
+The
 .I Menu
 button displays the main menu. The 
 .I Clone
@@ -216,6 +216,29 @@ and the
 and 
 .B About
 windows.
+.\" ==========================================================================
+.SS Context Menu
+A right click displays the 
+.I Context Menu\fR,
+which contains additional items.
+.\" ==========================================================================
+.P
+The item
+.I Undo to point
+is active over sequent nodes in the proof tree. Then it sends an
+retract or undo request to Proof General that retracts the
+scripting buffer up to that sequent.
+.\" ==========================================================================
+.P
+The items
+.I Insert command
+and
+.I Insert subproof
+are active over proof commands. They sent, respectively, the
+selected proof command or all proof commands in the selected
+subtree, to Proof General, which inserts them at point. For 
+.I Insert subproof
+the command is asserted as well.
 .\"
 .\" ==========================================================================
 .\" ================ Configuration ===========================================
@@ -266,13 +289,6 @@ proofs must be started with command
 .I Proof\fR,
 which is the recommended practice anyway (see Coq problem report
 2776).
-.\" ==========================================================================
-.P
-The 
-.B Coq
-command 
-.I Grab Existential Variables
-is not supported.
 .\"
 .\" ==========================================================================
 .\" ================ Prerequisites ===========================================
@@ -281,12 +297,12 @@ is not supported.
 .SH PREREQUISITES
 This version of
 .B Prooftree
-requires recent versions of
+requires
 .B Coq
-(8.4beta or better)
+8.4beta or better
 and 
 .B Proof General
-(4.2 prerelease from 10 January 2012 or better).
+newer than the 4.3 pre-release from 11th January 2013.
 .\"
 .\" ==========================================================================
 .\" ================ Files ===================================================

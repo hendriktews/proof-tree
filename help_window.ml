@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: help_window.ml,v 1.14 2013/01/14 22:03:56 tews Exp $
+ * $Id: help_window.ml,v 1.15 2013/01/20 21:55:54 tews Exp $
  *)
 
 
@@ -56,13 +56,16 @@ type tags_symbols =
   | Background of Gdk.color		(** Background color *)
   | Italic				(** Set in italic *)
   | Bold				(** Set in bold *)
+  | Heading                             (** bold and large *)
 
 
 (** The help text *)
 let help_text = 
-  let bold_proof_tree = (Bold, "Prooftree") 
+  let bold_proof_tree = (Bold, "Prooftree") in
+  let bold_proof_general = (Bold, "Proof General")
   in
-  [(Default, "The meaning of the colors in the proof tree is as follows: ");
+  [(Heading, "Colors");
+   (Default, "\n\nThe meaning of the colors in the proof tree is as follows: ");
    (Color !proved_complete_gdk_color, 
     "completely proved branches (green by default), ");
    (Color !proved_incomplete_gdk_color,
@@ -80,7 +83,9 @@ that nevertheless depend on some not (yet) instantiated existential variable \
    bold_proof_tree;
    (Default, " parameters \
 can be changed in the configuration dialog.\n\
-\n\
+\n");
+   (Heading, "Navigation");
+   (Default, "\n\n\
 In addition to scroll bars and the usual keys one can move the proof \
 tree by dragging with mouse button 1 pressed. By default, dragging \
 moves the viewport (i.e., the proof tree underneath moves in the \
@@ -89,22 +94,15 @@ opposite direction). After setting a negative value for ");
    (Default, " in the Configuration dialog, dragging will move \
 the proof tree instead (i.e, the proof tree moves in the same \
 direction as the mouse).\n\
-\n\
+\n");
+   (Heading, "The sequent window and additional displays");
+   (Default, "\n\n\
 The sequent display below the proof tree \
 normally shows the ancestor sequent of the current \
 goal. With a single left mouse click one can display any goal or proof command \
 in the sequent display. A single click outside the proof tree will switch \
 back to default behavior. The initial size of the sequent display can \
 be set in the configuration dialog. A value of 0 hides the sequent display.\n\
-\n\
-If turnstile tool tips are switched on, the complete sequent text is \
-displayed as toop tip when the mouse stays above a sequent symbol in the \
-proof tree display. Similar for command tool tips and proof commands.\n\
-\n\
-Long proof commands are truncated with \226\128\166 in the display. The \
-length at which truncation happens can be set in the configuration dialog. \
-Any truncated proof command is displayed in full length as tool tip if the \
-mouse stays long enough above it (and if command tool tips are enabled).\n\
 \n\
 A double click or a shift-click displays any goal or proof command \
 in an additional \
@@ -114,6 +112,20 @@ window disappears, unless their ");
    (Default, " button is pressed.\n\
 \n\
 ");
+   (Heading, "Tooltips");
+   (Default, "\n\n\
+If turnstile tool tips are switched on, the complete sequent text is \
+displayed as toop tip when the mouse stays above a sequent symbol in the \
+proof tree display. Similar for command tool tips and proof commands.\n\
+\n\
+Long proof commands are truncated with \226\128\166 in the display. The \
+length at which truncation happens can be set in the configuration dialog. \
+Any truncated proof command is displayed in full length as tool tip if the \
+mouse stays long enough above it (and if command tool tips are enabled).\n\
+\n");
+   (Heading, "Existential variables");
+   (Default, "\n\
+\n");
    bold_proof_tree;
    (Default, " keeps track of existential variables, whether they \
 have been instantiated and whether they depend on some other, \
@@ -124,19 +136,7 @@ existential. Displays with sequents \
 or proof commands (in tool-tips and in additional windows) list those \
 existential variables that are currently not (yet) instantiated.\n\
 \n\
-A right click or a click on the menu button opens the main menu. The ");
-
-   (Italic, "Clone");
-   (Default, " menu item clones the current proof tree in a separate \
-proof tree window. This cloned proof tree is not connected with Proof \
-General and won't be updated when the proof is changed.\n\
-\n\
-The ");
-   (Italic, "Show current");
-   (Default, " menu item repositions the proof tree such that the \
-current proof goal is visible.\n\
-\n\
-The item ");
+The menu item ");
    (Italic, "Existentials");
    (Default, " opens the dialog for existential variables, which contains \
 a table with all existential variables of the current proof and their \
@@ -152,6 +152,43 @@ this variable ");
    (Background !existential_instantiate_gdk_color,
     "(with orange background, by default)");
    (Default, " in the proof-tree display.\n\
+\n");
+   (Heading, "Menus");
+   (Default, "\n\n\
+The menu button opens the main menu. A right click opens the context menu, \
+which contains some additional actions. \n\
+\n\
+The item ");
+   (Italic, "Undo to point");
+   (Default, ", wich is only active over a sequent node in the proof \
+tree display, sends an appropriate retract command to ");
+   bold_proof_general;
+   (Default, ".\n\
+\n\
+The items ");
+   (Italic, "Insert command");
+   (Default, " and ");
+   (Italic, "Insert subtree");
+   (Default, " cause ");
+   bold_proof_general;
+   (Default, " to insert, respectively, the selected proof command or all \
+proof commands of the selected subtree, at point in the selected buffer.\n\
+\n\
+The ");
+   (Italic, "Clone");
+   (Default, " menu item clones the current proof tree in a separate \
+proof tree window. This cloned proof tree is not connected with ");
+   bold_proof_general;
+   (Default, " and won't be updated when the proof is changed.\n\
+\n\
+The ");
+   (Italic, "Show current");
+   (Default, " menu item repositions the proof tree such that the \
+current proof goal is visible.\n\
+\n\
+The item ");
+   (Italic, "Existentials");
+   (Default, " opens the dialog for existential variables, see above.\n\
 \n\
 The ");
    (Italic, "Configuration");
@@ -177,12 +214,14 @@ The ");
    (Default, " terminate ");
    bold_proof_tree;
    (Default, ".)\n\
-\n\
+\n");
+   (Heading, "Customization");
+   (Default, "\n\n\
 A major part of the proof visualization task is done by ");
-   (Bold, "Proof General");
+   bold_proof_general;
    (Default, ". Therefore, certain aspects can only be configured \
 inside ");
-   (Bold, "Proof General");
+   bold_proof_general;
    (Default, " in the customization groups ");
    (Italic, "proof-tree");
    (Default, " and ");
@@ -194,7 +233,7 @@ navigation and cheating commands can be configured there. \
 To visit a customization group, type ");
    (Italic, "M-x customize-group");
    (Default, " followed by the name of the customization group inside ");
-   (Bold, "Proof General.");
+   bold_proof_general;
   ]
 
 
@@ -204,6 +243,7 @@ To visit a customization group, type ");
     GText.tag}'s, which in turn are used to insert the help text.
 *)
 let fill_help_buffer (buffer : GText.buffer) =
+  let heading_tag = buffer#create_tag [`SCALE `LARGE; `FONT "bold"] in
   let i_tag = buffer#create_tag [`FONT "italic"] in
   let bold_tag = buffer#create_tag [`FONT "bold"] in
   let get_tags = function
@@ -212,6 +252,7 @@ let fill_help_buffer (buffer : GText.buffer) =
     | Background gdk_color -> [buffer#create_tag [`BACKGROUND_GDK gdk_color]]
     | Italic -> [i_tag]
     | Bold -> [bold_tag]
+    | Heading -> [heading_tag]
   in
   List.iter
     (fun (tag_sym, text) -> buffer#insert ~tags:(get_tags tag_sym) text)
@@ -253,6 +294,6 @@ let show_help_window () =
   ignore(help_win#connect#destroy ~callback:(fun () -> help_win#destroy()));
   ignore(help_win#connect#response ~callback:(fun _ -> help_win#destroy()));
   help_win#set_default_size ~width:400 ~height:300;
-  (* help_win#set_default_size ~width:1000 ~height:1000; *)
+  (* help_win#set_default_size ~width:800 ~height:800; *)
   help_win#show ()
 

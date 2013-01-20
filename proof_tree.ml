@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.49 2013/01/17 20:32:01 tews Exp $
+ * $Id: proof_tree.ml,v 1.50 2013/01/20 21:55:54 tews Exp $
  *)
 
 
@@ -329,7 +329,10 @@ let stop_proof_tree pt pa_state =
 let stop_proof_tree_last_selected pt pa_state =
   (match pt.window#get_selected_node with
     | None -> 
-      add_undo_action pt pa_state (fun () -> pt.window#set_selected_node None);
+      (* stop_proof_tree will clear all undo actions
+       * add_undo_action pt pa_state
+       * 	(fun () -> pt.window#set_selected_node None);
+       *)
       pt.window#select_root_node
     | Some _ -> ());
   stop_proof_tree pt pa_state
@@ -537,13 +540,13 @@ let create_new_layer pt state current_sequent_id current_sequent_text
       uninstantiated_existentials instantiated_ex_deps in
   assert (ex_got_instantiated = [] && new_existentials = []);
   let first_sw = 
-    pt.window#new_turnstile current_sequent_id current_sequent_text in
+    pt.window#new_turnstile state current_sequent_id current_sequent_text in
   Hashtbl.add pt.sequent_hash current_sequent_id first_sw;
   let first_sw = (first_sw :> proof_tree_element) in
   let other_sw =
     List.fold_right
       (fun id res ->
-	let sw = pt.window#new_turnstile id "waiting for sequent text" in
+	let sw = pt.window#new_turnstile state id "waiting for sequent text" in
 	Hashtbl.add pt.sequent_hash id sw;
 	(sw :> proof_tree_element) :: res)
       additional_ids []
@@ -615,11 +618,12 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   in
   let pc = 
     pt.window#new_proof_command 
-      proof_command ex_got_instantiated new_existentials
+      state proof_command ex_got_instantiated new_existentials
   in
   let pc = (pc :> proof_tree_element) in
   set_children parent [pc];
-  let sw = pt.window#new_turnstile current_sequent_id current_sequent_text in
+  let sw =
+    pt.window#new_turnstile state current_sequent_id current_sequent_text in
   Hashtbl.add pt.sequent_hash current_sequent_id sw;
   let sw = (sw :> proof_tree_element) in
   let new_goal_ids_rev = 
@@ -629,7 +633,7 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   let new_goals =
     List.fold_left
       (fun res id ->
-	let sw = pt.window#new_turnstile id "waiting for sequent text" in
+	let sw = pt.window#new_turnstile state id "waiting for sequent text" in
 	Hashtbl.add pt.sequent_hash id sw;
 	let sw = (sw :> proof_tree_element) in
 	sw :: res)
@@ -716,7 +720,7 @@ let finish_branch pt state proof_command cheated_flag
   in
   let pc = 
     pt.window#new_proof_command 
-      proof_command ex_got_instantiated new_existentials
+      state proof_command ex_got_instantiated new_existentials
   in
   let pc = (pc :> proof_tree_element) in
   parent#unmark_current;

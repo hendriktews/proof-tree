@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: emacs_commands.ml,v 1.2 2012/01/02 15:50:50 tews Exp $
+ * $Id: emacs_commands.ml,v 1.3 2013/01/20 21:55:54 tews Exp $
  *)
 
 
@@ -34,3 +34,8 @@ let emacs_callback cmd =
 (** Issue the stop-displaying emacs callback command. *)
 let emacs_callback_stop_display () =
   emacs_callback "stop-displaying"
+
+
+(** Send an undo command to emacs. *)
+let emacs_callback_undo undo_state =
+  emacs_callback (Printf.sprintf "undo %d" undo_state)

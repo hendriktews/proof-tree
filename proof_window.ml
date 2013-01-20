@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.57 2013/01/18 16:39:10 tews Exp $
+ * $Id: proof_window.ml,v 1.58 2013/01/20 21:55:54 tews Exp $
  *)
 
 
@@ -29,6 +29,7 @@
 open Util
 open Gtk_ext
 open Configuration
+open Emacs_commands
 open Draw_tree
 open Tree_layers
 open Node_window
@@ -74,14 +75,15 @@ let cloned_proof_windows = ref []
                               of the vertical scroll bar of the sequent area
     - message_label           {xref lablgtk class GMisc.label}
                               for messages in the bottom line
-    - menu                    {xref lablgtk class GMenu.menu} of main menu
+    - context_menu            {xref lablgtk class GMenu.menu} 
+                              of the context menu
     - proof_name              the name of the proof this display is showing
 *)
 class proof_window (top_window : GWindow.window)
   drawing_h_adjustment drawing_v_adjustment (drawing_area : GMisc.drawing_area)
   (drawable : better_drawable)
   labeled_sequent_frame sequent_window sequent_v_adjustment
-  (message_label : GMisc.label) menu proof_name
+  (message_label : GMisc.label) context_menu proof_name
   =
 object (self)
 
@@ -159,6 +161,11 @@ object (self)
 
   (** True when this is a clone. *)
   val mutable is_clone = false
+
+  (** A proof is disconnected if it is not the current proof that is
+      currently updated by Proof General. Used for the context menu.
+  *)
+  val mutable disconnected = false
 
   (** The stack of layers, containing all proof trees belonging to
       this proof.
@@ -290,7 +297,9 @@ object (self)
   (** Disconnect the proof tree. Clears all current node and current
       branch indications.
   *)
-  method disconnect_proof = layer_stack#disconnect
+  method disconnect_proof = 
+    disconnected <- true;
+    layer_stack#disconnect
 
   (** Reflect changes in the current configuration. *)
   method configuration_updated =
@@ -308,6 +317,7 @@ object (self)
       Deletes and destroys all non-sticky external node windows.
   *)
   method clear_for_reuse =
+    disconnected <- false;
     layer_stack#clear_for_reuse;
     current_node <- None;
     current_node_offset_cache <- None;
@@ -1080,7 +1090,7 @@ object (self)
      *)
     (match button with
       | 1 -> self#button_1_press x y shifted double
-      | 3 -> menu#popup ~button ~time:(GdkEvent.Button.time ev)
+      | 3 -> self#context_menu x y button (GdkEvent.Button.time ev)
       | _ -> ());
     true
 
@@ -1135,6 +1145,64 @@ object (self)
 
   (***************************************************************************
    *
+   * menu actions
+   *
+   ***************************************************************************)
+
+  (** Field to store the undo state number. This number is determined
+      when the context menu is posted and is needed in the callback for
+      the undo menu entry. *)
+  val mutable context_menu_undo_state = None
+
+  (** Callback for the undo menu entry. *)
+  method undo_to_point () = 
+    match context_menu_undo_state with
+      | None -> assert false
+      | Some state -> emacs_callback_undo state
+
+  (** Callback for inserting one proof command. *)
+  method insert_proof_command () = () 	(* XXX *)
+
+  (** Callback for inserting all proof commands of a subtree. *)
+  method insert_subproof () = ()	(* XXX *)
+
+  (** Post the context menu. Depending on where the mouse button is
+      pressed, certain menu entries as disabled. The undo state is
+      stored in {!context_menu_undo_state} for use in the callback for
+      the undo entry.
+  *)
+  method context_menu x y button time =
+    self#locate_button_node x y
+      (fun node -> 
+	let undo_state = 
+	  if disconnected then None
+	  else
+	    match node#node_kind with
+	      | Proof_command -> None
+	      | Turnstile -> match node#children with
+		  | first :: _ -> Some first#undo_state
+		  | _ -> None
+	in
+	context_menu_undo_state <- undo_state;
+	(List.nth context_menu#children 0)#misc#set_sensitive
+	  (undo_state <> None);
+	(List.nth context_menu#children 1)#misc#set_sensitive
+	  (node#node_kind = Proof_command);
+	(List.nth context_menu#children 2)#misc#set_sensitive
+	  (node#node_kind = Proof_command);
+	context_menu#popup ~button ~time;
+      )
+      (fun () ->
+	List.iter
+	  (fun n ->
+	    (List.nth context_menu#children n)#misc#set_sensitive false)
+	  [0; 1; 2];
+	context_menu#popup ~button ~time
+      )
+
+
+  (***************************************************************************
+   *
    * tooltips
    *
    ***************************************************************************)
@@ -1182,7 +1250,7 @@ object (self)
     in
     let cloned_selected = ref None in
     let cloned_layers = 
-      layer_stack#clone_layers owin#new_proof_command owin#new_turnstile
+      layer_stack#clone_layers (owin#new_proof_command 0) (owin#new_turnstile 0)
         old_selected cloned_selected in
     owin#layer_stack#set_layers cloned_layers;
     owin#set_selected_node !cloned_selected;
@@ -1197,12 +1265,13 @@ object (self)
    ***************************************************************************)
 
   (** Create a new turnstile node for sequents. *)
-  method new_turnstile sequent_id sequent_text =
-    new turnstile drawable sequent_id sequent_text
+  method new_turnstile undo_state sequent_id sequent_text =
+    new turnstile drawable undo_state sequent_id sequent_text
 
   (** Create a new proof command node. *)
-  method new_proof_command command inst_existentials new_existentials =
-    new proof_command drawable command command 
+  method new_proof_command undo_state command 
+                           inst_existentials new_existentials =
+    new proof_command drawable undo_state command command 
       (inst_existentials : existential_variable list)
       (new_existentials : existential_variable list)
 end
@@ -1287,18 +1356,40 @@ let rec make_proof_window name geometry_string =
     GButton.button ~label:"Menu" ~packing:(button_h_box#pack) ()
   in
 
-  let menu = GMenu.menu () in
+  let main_menu = GMenu.menu () in
+
+  let context_menu = GMenu.menu () in
 
   let proof_window = 
     new proof_window top_window 
       drawing_h_adjustment drawing_v_adjustment drawing_area
       drawable labeled_sequent_frame sequent_window sequent_v_adjustment
-      message_label menu name
+      message_label context_menu name
   in
   let clone_fun () =
     let owin = make_proof_window name geometry_string in
     proof_window#clone owin
   in
+
+  let main_menu_entries = 
+    [`I("Clone", clone_fun);
+     `I("Show current", proof_window#reposition_current_node);
+     `I("Existentials", proof_window#show_existential_window);
+     `I("Configuration", show_config_window);
+     `I("Help", show_help_window);
+     `I("About", show_about_window);
+     `I("Exit", (fun _ -> exit 0));
+    ] in
+  let context_menu_entries =
+    [`I("Undo to point", proof_window#undo_to_point);
+     `I("Insert command", proof_window#insert_proof_command);
+     `I("Insert subproof", proof_window#insert_subproof);
+     `S
+    ] @ main_menu_entries
+  in
+  GToolbox.build_menu main_menu ~entries:main_menu_entries;
+  GToolbox.build_menu context_menu ~entries:context_menu_entries;
+
   top_window#set_title (name ^ " proof tree");
   drawable#set_line_attributes 
     ~width:(!current_config.turnstile_line_width) ();
@@ -1353,18 +1444,8 @@ let rec make_proof_window name geometry_string =
 	   ~callback:proof_window#user_delete_proof_window);
   ignore(menu_button#connect#clicked 
 	   ~callback:(fun () -> 
-	     menu#popup ~button:0 
+	     main_menu#popup ~button:0 
 	       ~time:(GtkMain.Main.get_current_event_time ())));
-
-  GToolbox.build_menu menu
-    ~entries:[`I("Clone", clone_fun);
-	      `I("Show current", proof_window#reposition_current_node);
-	      `I("Existentials", proof_window#show_existential_window);
-	      `I("Configuration", show_config_window);
-	      `I("Help", show_help_window);
-	      `I("About", show_about_window);
-	      `I("Exit", (fun _ -> exit 0));
-	     ];
 
   top_window#show ();
   if geometry_string <> "" then
