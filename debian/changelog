@@ -1,8 +1,8 @@
-prooftree (0.10-1) unstable; urgency=low
+prooftree (0.11-1) unstable; urgency=low
 
   * new upstream release
 
- -- Hendrik Tews <hendrik@askra.de>  Wed, 11 Jan 2012 15:12:19 +0100
+ -- Hendrik Tews <hendrik@askra.de>  Mon, 21 Jan 2013 17:03:47 +0100
 
 prooftree (0.9-1) unstable; urgency=low
 
