@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: help_window.ml,v 1.15 2013/01/20 21:55:54 tews Exp $
+ * $Id: help_window.ml,v 1.16 2013/01/21 14:26:36 tews Exp $
  *)
 
 
@@ -156,11 +156,11 @@ this variable ");
    (Heading, "Menus");
    (Default, "\n\n\
 The menu button opens the main menu. A right click opens the context menu, \
-which contains some additional actions. \n\
+which contains some additional items. \n\
 \n\
 The item ");
    (Italic, "Undo to point");
-   (Default, ", wich is only active over a sequent node in the proof \
+   (Default, ", which is only active over a sequent node in the proof \
 tree display, sends an appropriate retract command to ");
    bold_proof_general;
    (Default, ".\n\

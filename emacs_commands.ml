@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: emacs_commands.ml,v 1.3 2013/01/20 21:55:54 tews Exp $
+ * $Id: emacs_commands.ml,v 1.4 2013/01/21 14:26:36 tews Exp $
  *)
 
 
@@ -30,6 +30,21 @@
 let emacs_callback cmd =
   Printf.printf "\nemacs exec: %s\n%!" cmd
 
+(** Print [cmd] as emacs callback command with a long data section. *)
+let emacs_long_callback cmd data =
+  Printf.printf "\nemacs exec: %s %d\n%s\n%!" cmd (String.length data) data
+
+(* 
+ * let emacs_long_callback cmd data =
+ *   Printf.printf "\nemacs exec: %s %d\n%s%!" cmd (String.length data) 
+ *     (String.sub data 0 2);
+ *   Unix.sleep 1;
+ *   Printf.printf "%s%!" (String.sub data 2 4);
+ *   Unix.sleep 1;
+ *   Printf.printf "%s\n%!" (String.sub data 4 (String.length data - 4))
+ *)
+
+
 
 (** Issue the stop-displaying emacs callback command. *)
 let emacs_callback_stop_display () =
@@ -39,3 +54,8 @@ let emacs_callback_stop_display () =
 (** Send an undo command to emacs. *)
 let emacs_callback_undo undo_state =
   emacs_callback (Printf.sprintf "undo %d" undo_state)
+
+
+(** Send a piece of proof script to Proof General. *)
+let emacs_send_proof_script script =
+  emacs_long_callback "insert-proof-script" script

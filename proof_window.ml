@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.58 2013/01/20 21:55:54 tews Exp $
+ * $Id: proof_window.ml,v 1.59 2013/01/21 14:26:36 tews Exp $
  *)
 
 
@@ -1154,6 +1154,13 @@ object (self)
       the undo menu entry. *)
   val mutable context_menu_undo_state = None
 
+  (** Field to store the proof command under the mouse when the
+      context menu is posted. This node is needed for sending proof
+      commands and proof scripts. To avoid a memory leak, this field
+      is cleared with an idle action, see {!context_menu_deactivated}.
+  *)
+  val mutable context_menu_node = None
+
   (** Callback for the undo menu entry. *)
   method undo_to_point () = 
     match context_menu_undo_state with
@@ -1161,10 +1168,34 @@ object (self)
       | Some state -> emacs_callback_undo state
 
   (** Callback for inserting one proof command. *)
-  method insert_proof_command () = () 	(* XXX *)
+  method insert_proof_command () = 
+    match context_menu_node with
+      | None -> assert false
+      | Some node -> emacs_send_proof_script node#content
 
   (** Callback for inserting all proof commands of a subtree. *)
-  method insert_subproof () = ()	(* XXX *)
+  method insert_subproof () =
+    let buf = Buffer.create 4095 in
+    let rec collect node indent =
+      Buffer.add_string buf (String.make indent ' ');
+      Buffer.add_string buf node#content;
+      Buffer.add_char buf '\n';
+      let sequents = node#children in
+      ignore(
+	List.fold_left
+	  (fun indent sequent ->
+	    match sequent#children with
+	      | [pc] -> collect pc indent; indent - 2
+	      | [] -> indent - 2        (* happens for the current sequent *)
+	      | _ -> assert false)
+	  (indent + (2 * List.length sequents) - 2)
+	  sequents)
+    in
+    match context_menu_node with
+      | None -> assert false
+      | Some node -> 
+	collect node 0;
+	emacs_send_proof_script (Buffer.contents buf)
 
   (** Post the context menu. Depending on where the mouse button is
       pressed, certain menu entries as disabled. The undo state is
@@ -1174,6 +1205,7 @@ object (self)
   method context_menu x y button time =
     self#locate_button_node x y
       (fun node -> 
+	context_menu_node <- Some node;
 	let undo_state = 
 	  if disconnected then None
 	  else
@@ -1199,6 +1231,15 @@ object (self)
 	  [0; 1; 2];
 	context_menu#popup ~button ~time
       )
+
+  (** Callback for the deactivated signal of the context menu.
+      Unfortunately, this signal is processed before the callback for
+      the selected menu item is processed. Therefore, the
+      {!context_menu_node} cannot be cleared directly but only in an
+      idle action.
+  *)
+  method context_menu_deactivated () =
+    ignore(GMain.Idle.add (fun () -> context_menu_node <- None; false))
 
 
   (***************************************************************************
@@ -1389,6 +1430,8 @@ let rec make_proof_window name geometry_string =
   in
   GToolbox.build_menu main_menu ~entries:main_menu_entries;
   GToolbox.build_menu context_menu ~entries:context_menu_entries;
+  ignore(context_menu#connect#deactivate 
+           ~callback:(proof_window#context_menu_deactivated));
 
   top_window#set_title (name ^ " proof tree");
   drawable#set_line_attributes 
