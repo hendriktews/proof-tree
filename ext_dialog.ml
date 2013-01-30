@@ -19,12 +19,12 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: ext_dialog.ml,v 1.13 2013/01/18 16:39:10 tews Exp $
+ * $Id: ext_dialog.ml,v 1.14 2013/01/30 06:50:04 tews Exp $
  *)
 
 (** The Existential Variable Dialog *)
 
-open Util
+(* open Util *)
 open Gtk_ext
 open Configuration
 open Draw_tree

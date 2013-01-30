@@ -19,6 +19,7 @@ echo using CVSROOT $CVSROOT
 # make source and bin package
 
 version=$(cat version.txt)
+#version=0.11
 
 subdir="prooftree-$version"
 
@@ -32,6 +33,7 @@ mkdir $dir
 pushd $dir
 
 cvs export -r HEAD -d $subdir src/proof-tree
+#cvs export -r prooftree-release-0-11 -d $subdir src/proof-tree
 
 pushd $subdir
 

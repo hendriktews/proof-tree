@@ -19,14 +19,14 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.59 2013/01/21 14:26:36 tews Exp $
+ * $Id: proof_window.ml,v 1.60 2013/01/30 06:50:04 tews Exp $
  *)
 
 
 (** Creation, display and drawing of the main proof-tree window *)
 
 
-open Util
+(* open Util *)
 open Gtk_ext
 open Configuration
 open Emacs_commands

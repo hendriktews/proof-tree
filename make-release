@@ -111,7 +111,7 @@ sed -e "/LATEST VERSION LINK/ c$newlink" \
     -e "/^<P>Previous versions:/ {p
                              c$oldlink
                             }" \
-    -e "/UPDATE VERSION/ s/prooftree_[^_]*_/prooftree_$version-1_/" \
+    -e "/UPDATE VERSION/ s/prooftree_[^-]*-/prooftree_$version-/" \
     < $webdir/index.shtml > $webdir/indexnew.shtml
 
 
