@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.46 2013/01/20 21:55:54 tews Exp $
+ * $Id: draw_tree.ml,v 1.47 2013/01/30 09:10:27 tews Exp $
  *)
 
 
@@ -757,7 +757,11 @@ object (self)
     match parent with 
       | None -> 
 	(match tree_layer with
-	  | None -> assert false
+	  | None -> 
+	    (* during bottom-up clone copy there is no parent and the
+	     * tree_layer will be installed later
+	     *)
+	    ()
 	  | Some sco -> sco#clear_size_cache
 	)
       | Some p -> p#update_sizes_in_branch

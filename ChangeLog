@@ -1,5 +1,9 @@
 2013-01-30  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
+	* fix clone regression
+
+2013-01-30  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
 	* after release changes
 
 2013-01-21  Hendrik Tews <prooftree@askra.de>
