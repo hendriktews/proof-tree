@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: tree_layers.ml,v 1.3 2013/01/17 14:39:12 tews Exp $
+ * $Id: tree_layers.ml,v 1.4 2013/03/11 11:09:43 tews Exp $
  *)
 
 
@@ -302,7 +302,8 @@ class tree_layer_stack = object (self)
     List.iter 
       (fun l -> 
 	l#register_layer_stack (self :> tree_layer abstract_tree_container))
-      ls
+      ls;
+    self#clear_size_cache
 
   (** Return the number of layers. *)
   method count_layers = List.length layers
