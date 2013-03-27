@@ -2,9 +2,9 @@
   PREREQUISITES
 ============================================================================
 
-Make sure you have a recent (cvs) development version of Proof General and
-Coq 8.4beta or greater. For installation instructions see
-http://proofgeneral.inf.ed.ac.uk/devel and http://coq.inria.fr/coq-84
+Make sure you have Proof General >= 4.3pre130327 and Coq 8.4beta or better.
+For installation instructions see http://proofgeneral.inf.ed.ac.uk/devel
+and http://coq.inria.fr/coq-84
 
 If you want to install Prooftree from sources you need ocaml with the Gtk
 bindings from the LablGtk2 library installed. The configure script checks
@@ -48,12 +48,12 @@ General or Coq version.
 
 1. Prooftree is controlled by Proof General as a subprocess of Emacs. You
    therefore have to make sure Emacs loads the right version of Proof
-   General (from the ProofTreeBranch). Put
+   General. Put
 
    (load-file "<pg-dir>/generic/proof-site.el")
 
-   in your .emacs, where <pg-dir> is the installation directory of the
-   ProofTreeBranch version of Proof General.
+   in your .emacs, where <pg-dir> is the installation directory of your
+   version of Proof General.
 
 
 ============================================================================

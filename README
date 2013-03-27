@@ -8,10 +8,10 @@ proof development in a theorem prover. It is currently being developed for
 Coq and Proof General. See http://askra.de/software/prooftree/ for more
 information.
 
-Prooftree requires the (cvs) development version of Proof General
-and Coq version >= 8.4beta. These versions of Proof General and Coq must be
-installed separately. A binary package for Debian Squeeze i386 is available
-on the Prooftree website.
+Prooftree requires Proof General >= 4.3pre130327 and 
+Coq version >= 8.4beta. These versions of Proof General and Coq must be
+installed separately. Binary packages for Debian Squeeze and wheezy for
+i386 and amd64 are available on the Prooftree website.
 
 
 ============================================================================
