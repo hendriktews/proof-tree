@@ -1,7 +1,7 @@
 (* 
  * prooftree --- proof tree display for Proof General
  * 
- * Copyright (C) 2011, 2012 Hendrik Tews
+ * Copyright (C) 2011 - 2013 Hendrik Tews
  * 
  * This file is part of "prooftree".
  * 
@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.50 2013/01/20 21:55:54 tews Exp $
+ * $Id: proof_tree.ml,v 1.51 2013/03/28 08:02:00 tews Exp $
  *)
 
 
