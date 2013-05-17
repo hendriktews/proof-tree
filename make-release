@@ -63,6 +63,10 @@ pushd /tmp/tews/$dir
 
 pushd $subdir
 
+./configure
+
+make
+
 make prooftree.man.html
 
 popd
