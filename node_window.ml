@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: node_window.ml,v 1.15 2013/03/28 08:02:00 tews Exp $
+ * $Id: node_window.ml,v 1.16 2013/07/18 21:27:46 tews Exp $
  *)
 
 
@@ -65,7 +65,8 @@ object (self)
 
   (** Set the content in the text buffer of this node window *)
   method update_content new_content =
-    text_window#buffer#set_text new_content
+    if not sticky_button#active then
+      text_window#buffer#set_text new_content
 
   (** Make this node window orphaned. A orphaned node window is not
       connected with the proof tree any more. Its Sticky button is 
@@ -78,8 +79,8 @@ object (self)
 	  node#delete_external_window (self :> external_node_window);
 	  top_window#set_title 
 	    ((match node#node_kind with
-	      | Turnstile -> "Orphaned sequent of"
-	      | Proof_command -> "Orphaned tactic of"
+	      | Turnstile -> "Orphaned sequent of "
+	      | Proof_command -> "Orphaned tactic of "
 	     ) ^ proof_name)
 	| None -> assert false
       );
