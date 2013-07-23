@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: tree_layers.ml,v 1.4 2013/03/11 11:09:43 tews Exp $
+ * $Id: tree_layers.ml,v 1.5 2013/07/23 20:48:58 tews Exp $
  *)
 
 
@@ -61,6 +61,7 @@ class tree_layer tree_list = object (self)
     assert (layer_stack = None);
     layer_stack <- Some ls
 
+                                         (********** inside tree_layer class *)
   (** The initializer ensures all proof trees have their upward
       pointer set.
   *)
@@ -98,6 +99,7 @@ class tree_layer tree_list = object (self)
     width <- Some w;
     height <- Some h
 
+                                         (********** inside tree_layer class *)
   (** Compute the left and top offset of this layer relative to the
       upper-left corner of the complete display. 
   *)
@@ -131,6 +133,7 @@ class tree_layer tree_list = object (self)
       | None -> assert false
       | Some left -> (left, 0)
 
+                                         (********** inside tree_layer class *)
   (** Width of this layer. Recompute if necessary. *)
   method width = 
     if width = None then self#update_size_info;
@@ -159,6 +162,7 @@ class tree_layer tree_list = object (self)
       | None -> assert false
       | Some sco -> sco#clear_size_cache
 
+                                         (********** inside tree_layer class *)
   (** Draw the content of this layer relative to the specified left
       and top coordinate.
   *)
@@ -187,6 +191,7 @@ class tree_layer tree_list = object (self)
 	  else None
     in
     iter left tree_list
+                                         (********** inside tree_layer class *)
 
 
   (***************************************************************************)
@@ -218,6 +223,7 @@ class tree_layer tree_list = object (self)
     self#clear_self_size_cache;
     List.iter (fun root -> root#configuration_updated) tree_list
 
+                                         (********** inside tree_layer class *)
   (** Update the information about existential variables in sequent
       displays belonging to nodes of this layer.
   *)
@@ -241,6 +247,7 @@ class tree_layer tree_list = object (self)
     );
     !res
 
+                                         (********** inside tree_layer class *)
   (** Initialize the given existential variable dialog with all
       existentials occurring in nodes of this layer.
   *)
@@ -293,6 +300,7 @@ class tree_layer_stack = object (self)
   method del_layer n = 
     layers <- firstn n layers
 
+                                   (********** inside tree_layer_stack class *)
   (** Prepare this layer stack for reuse. *)
   method clear_for_reuse = layers <- []
 
@@ -329,6 +337,7 @@ class tree_layer_stack = object (self)
     width <- Some w;
     height <- Some h
 
+                                   (********** inside tree_layer_stack class *)
   (** Compute the left and top offset of this layer relative to the
       upper-left corner of the complete display, which is trivial.
   *)
@@ -364,6 +373,7 @@ class tree_layer_stack = object (self)
     width <- None;
     height <- None
 
+                                   (********** inside tree_layer_stack class *)
   (** Width of this layer. Recompute if necessary. *)
   method width = 
     if width = None then self#update_size_info;
@@ -389,6 +399,7 @@ class tree_layer_stack = object (self)
 	  top + !current_config.layer_sep + l#height)
 	top layers)
 
+                                   (********** inside tree_layer_stack class *)
   (** Find the proof tree node at coordinates [(bx, by)] or return
       [None].
   *)
@@ -422,6 +433,7 @@ class tree_layer_stack = object (self)
     | [] -> None
     | first :: _ -> first#get_first_root
 
+                                   (********** inside tree_layer_stack class *)
   (** Give a hint if the proof-tree window with this stack should
       survive an undo before the start of the proof. 
   *)
@@ -460,6 +472,7 @@ class tree_layer_stack = object (self)
     );
     !res
 
+                                   (********** inside tree_layer_stack class *)
   (** Initialize the given existential variable dialog with all
       existentials occurring in nodes of this layer.
   *)

@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.51 2013/03/28 08:02:00 tews Exp $
+ * $Id: proof_tree.ml,v 1.52 2013/07/23 20:48:58 tews Exp $
  *)
 
 
@@ -538,6 +538,7 @@ let create_new_layer pt state current_sequent_id current_sequent_text
   let (ex_got_instantiated, new_existentials) =
     update_existentials pt.existential_hash 
       uninstantiated_existentials instantiated_ex_deps in
+  (* schedule an existential status update when this assert goes away *)
   assert (ex_got_instantiated = [] && new_existentials = []);
   let first_sw = 
     pt.window#new_turnstile state current_sequent_id current_sequent_text in
@@ -609,7 +610,7 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
     uninstantiated_existentials instantiated_ex_deps =
   assert(cheated_flag = false);
   let (ex_got_instantiated, new_existentials) =
-    update_existentials pt.existential_hash 
+    update_existentials pt.existential_hash
       uninstantiated_existentials instantiated_ex_deps
   in
   let parent = match pt.current_sequent with
@@ -663,6 +664,7 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
    * to update all those sequent displays.
    *)
   if ex_got_instantiated <> [] then begin
+    update_existential_status pt.existential_hash;
     pt.window#update_sequent_existentials_info;
     pt.sequent_area_needs_refresh <- true;
   end;
@@ -689,13 +691,14 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
     pt.current_sequent_id <- old_current_sequent_id;
     pt.current_sequent <- Some old_current_sequent;
     pt.open_goals_count <- old_open_goals_count;
+    List.iter (fun ex -> Hashtbl.remove pt.existential_hash ex.existential_name)
+      new_existentials;
     if ex_got_instantiated <> [] then begin
       undo_instantiate_existentials ex_got_instantiated;
+      update_existential_status pt.existential_hash;
       pt.window#update_sequent_existentials_info;
       pt.sequent_area_needs_refresh <- true;
     end;
-    List.iter (fun ex -> Hashtbl.remove pt.existential_hash ex.existential_name)
-      new_existentials;
     pt.window#ext_dialog_undo new_existentials;
   in
   add_undo_action pt state undo;
@@ -740,13 +743,14 @@ let finish_branch pt state proof_command cheated_flag
     pt.current_sequent_id <- old_current_sequent_id;
     pt.open_goals_count <- old_open_goals_count;
     pt.cheated <- old_cheated;
+    List.iter (fun ex -> Hashtbl.remove pt.existential_hash ex.existential_name)
+      new_existentials;
     if ex_got_instantiated <> [] then begin
       undo_instantiate_existentials ex_got_instantiated;
+      update_existential_status pt.existential_hash;
       pt.window#update_sequent_existentials_info;
       pt.sequent_area_needs_refresh <- true;
     end;
-    List.iter (fun ex -> Hashtbl.remove pt.existential_hash ex.existential_name)
-      new_existentials;
     pt.window#ext_dialog_undo new_existentials;
   in
   add_undo_action pt state undo;
@@ -757,6 +761,7 @@ let finish_branch pt state proof_command cheated_flag
   pt.window#clear_position_hints;
   set_current_node_wrapper pt None;
   if ex_got_instantiated <> [] then begin
+    update_existential_status pt.existential_hash;
     pt.window#update_sequent_existentials_info;
     pt.sequent_area_needs_refresh <- true;
   end;
@@ -1036,7 +1041,6 @@ let finish_drawing () = match !current_proof_tree with
     if pt.sequent_area_needs_refresh then
       pt.window#refresh_sequent_area;
     if pt.need_redraw then begin
-      update_existential_status pt.existential_hash;
       pt.window#refresh_and_position;
       pt.window#update_ext_dialog;
     end;

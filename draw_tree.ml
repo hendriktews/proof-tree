@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.48 2013/03/28 08:02:00 tews Exp $
+ * $Id: draw_tree.ml,v 1.49 2013/07/23 20:48:58 tews Exp $
  *)
 
 
@@ -475,6 +475,7 @@ object (self)
   *)
   val drawable = drawable
 
+                                (***************** inside proof_tree_element *)
   (** The width of this node alone in pixels. Set in the initializer
       of the heirs. *)
   val mutable width = 0
@@ -504,6 +505,7 @@ object (self)
   *)
   val mutable x_offset = 0
 
+                                (***************** inside proof_tree_element *)
   (** The height of this nodes subtree, counted in tree levels. At
       least 1, because this element occupies already some level. 
   *)
@@ -535,6 +537,7 @@ object (self)
   (***************************************************************************)
   (***************************************************************************)
 
+                                (***************** inside proof_tree_element *)
   (** Accessor method of {!attribute: width}. *)
   method width = width
 
@@ -563,6 +566,7 @@ object (self)
   method selected b = selected <- b
 
 
+                                (***************** inside proof_tree_element *)
   (** Accessor method of {!attribute: existential_variables}. *)
   method existential_variables = existential_variables
 
@@ -601,6 +605,7 @@ object (self)
   (***************************************************************************)
   (***************************************************************************)
 
+                                (***************** inside proof_tree_element *)
   (** General iterator for all children. [iter_children left y a f]
       successively computes the [left] and [y] value of each child and
       calls [f left y c a] for each child [c] (starting with the
@@ -639,6 +644,7 @@ object (self)
   (***************************************************************************)
   (***************************************************************************)
 
+                                (***************** inside proof_tree_element *)
   (** Compute the height of the subtree of this element in pixels. *)
   method subtree_height = 
     (subtree_levels - 1) * !current_config.level_distance + 
@@ -672,6 +678,7 @@ object (self)
 	(0, 0, None)
 	children 
     in
+                                (***************** inside proof_tree_element *)
     subtree_levels <- max_levels + 1;
     subtree_width <- children_width;
     x_offset <- 
@@ -711,6 +718,7 @@ object (self)
       (* this node's left side is right of the left margin of the first child *)
       first_child_offset <- 0;
     end;
+                                (***************** inside proof_tree_element *)
     (* The real condition for the next if is
      *   subtree_width - x_offset < width / 2
      * but it has rounding issues when width is odd.
@@ -741,6 +749,7 @@ object (self)
      *   subtree_levels;
      *)
 	
+                                (***************** inside proof_tree_element *)
   (** Do {!update_subtree_size} in this element and all parent
       elements up to the root of the tree.
   *)
@@ -773,6 +782,7 @@ object (self)
   (***************************************************************************)
   (***************************************************************************)
 
+                                (***************** inside proof_tree_element *)
   (** Computes the left offset of [child] relative to the bounding box
       of its parent, which must be this node. *)
   method child_offset child =
@@ -803,6 +813,7 @@ object (self)
 	in
 	(left_off, y_off)
 
+                                (***************** inside proof_tree_element *)
   (** Computes the bounding box (that is a 4-tuple [(x_low, x_high,
       y_low, y_high)]) relative to the upper-left corner of the
       complete display. 
@@ -836,6 +847,7 @@ object (self)
      float_of_int (y_u + top))
 
 
+                                (***************** inside proof_tree_element *)
   (** Computes the x-coordinate of this node. Argument [left] must be
       the x-coordinate of the left side of the bounding box of this
       node's subtree.
@@ -866,6 +878,7 @@ object (self)
   method virtual line_offset : float -> (int * int)
 
 
+                                (***************** inside proof_tree_element *)
   (** Draw the lines from this node to all its children. 
 
       @param left x-coordinate of the left side of the bounding box of
@@ -889,6 +902,7 @@ object (self)
 	restore_gc drawable gc_opt)
 
 
+                                (***************** inside proof_tree_element *)
   (** Draw this element's subtree given the left side of the bounding box
       and the y-coordinate of this node. This is the internal draw method 
       that iterates through the tree.
@@ -917,6 +931,7 @@ object (self)
       (fun left y child -> child#draw_subtree left y)
 
 
+                                (***************** inside proof_tree_element *)
   (** Draw this node's subtree given the left and top side of the
       bounding box. This is the external draw method that is called 
       from the outside for the root of the tree.
@@ -936,6 +951,7 @@ object (self)
   (***************************************************************************)
   (***************************************************************************)
 
+                                (***************** inside proof_tree_element *)
   (** Iterate over the proof tree to determine the node that contains
       the point [(bx, by)]. Returns [None] if there is no node that
       contains this point. (If [bx] and [by] are the coordinates of a
@@ -967,6 +983,7 @@ object (self)
       None
 
 
+                                (***************** inside proof_tree_element *)
   (** Iterate over the proof tree to determine the node that contains
       the point [(bx, by)]. Returns [None] if there is no node that
       contains this point. This is the external version that is called
@@ -998,6 +1015,7 @@ object (self)
 	| Some p -> p#mark_branch f
 	| None -> ()
 
+                                (***************** inside proof_tree_element *)
   (** Mark this element as [CurrentNode] and all the parent nodes as
       [Current] branch, see {!branch_state_type}. Relies on the
       invariant that the parent of a [Current] element is also marked
@@ -1029,6 +1047,7 @@ object (self)
 	else false
       )
 
+                                (***************** inside proof_tree_element *)
   (** Mark this node as [Cheated] and mark all parents that have only
       [Cheated] children as [Cheated] as well, see
       {!branch_state_type}.
@@ -1057,6 +1076,7 @@ object (self)
 	  | Cheated -> assert false
       )
 
+                                (***************** inside proof_tree_element *)
   (** Remove the [Proved] or [Cheated] mark of this element and all
       parent elements until an [Unproven] or [Current] element is met,
       see {!branch_state_type}. 
@@ -1094,6 +1114,7 @@ object (self)
   (***************************************************************************)
   (***************************************************************************)
 
+                                (***************** inside proof_tree_element *)
   (** Return the displayed sequent text for turnstile elements, which
       contains additional information about uninstantiated and
       partially instantiated existentials.
@@ -1128,6 +1149,7 @@ object (self)
   method delete_external_window win =
     external_windows <- List.filter (fun w -> w <> win) external_windows
 
+                                (***************** inside proof_tree_element *)
   (** Delete all non-sticky external node windows of this node.
   *)
   method delete_non_sticky_external_windows =
@@ -1162,6 +1184,7 @@ object (self)
     );
     List.iter (fun c -> c#update_existentials_info) children	
 
+                                (***************** inside proof_tree_element *)
   (** Hook to be called when the list of children has been changed.
       Adjusts the relative layout information of this element and all its
       parents and (non-recursively) propagates the existentials to all
@@ -1228,6 +1251,7 @@ object (self)
   *)
   method id = sequent_id
 
+                                         (***************** inside turnstile *)
   (** Update the sequent text. *)
   method update_sequent new_text = 
     sequent_text <- new_text;
@@ -1256,6 +1280,7 @@ object (self)
     layout <- None;
     super#configuration_updated
 
+                                         (***************** inside turnstile *)
   (** Draw the turnstile symbol for this sequent at the indicated
       coordinates.
   *)
@@ -1294,6 +1319,7 @@ object (self)
     )
 
 
+                                         (***************** inside turnstile *)
   (** Draw this turnstile node.
 
       @param left x-coordinate of the left side of the bounding box of
@@ -1328,6 +1354,7 @@ object (self)
       2 * !current_config.turnstile_radius +
       2 * !current_config.turnstile_line_width
 
+                                         (***************** inside turnstile *)
   initializer
     self#set_node_size;
     (* 
@@ -1400,6 +1427,7 @@ object (self)
   (** Height (in pixels) of the rendered proof command text. *)
   val mutable layout_height = 0
 
+                              (***************** inside proof_command_length *)
   (** This is a [Proof_command] element, see {!node_kind}. *)
   method node_kind = Proof_command
 
@@ -1429,6 +1457,7 @@ object (self)
     layout_width <- w;
     layout_height <- h
 
+                              (***************** inside proof_command_length *)
   (** Set {!displayed_command}. Called from the initializer and when
       the configuration has been changed.
   *)
@@ -1463,6 +1492,7 @@ object (self)
     layout <- make_layout drawable_arg#pango_context;
     super#configuration_updated
 
+                              (***************** inside proof_command_length *)
   (** Override {!proof_tree_element.register_external_window} because
       the displayed proof command must be rerendered when an external
       window is registered.
@@ -1479,6 +1509,7 @@ object (self)
     super#delete_external_window win;
     self#render_proof_command
 
+                              (***************** inside proof_command_length *)
   (** Draw just this command node.
 
       @param left x-coordinate of the left side of the bounding box of
@@ -1513,6 +1544,7 @@ object (self)
       drawable#rectangle 
 	~x:(x - w/2) ~y:(y - h/2) ~width:w ~height:h ();
 
+                              (***************** inside proof_command_length *)
   (** Compute the line offsets for proof-command nodes, see
       {!proof_tree_element.line_offset}
   *)
