@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.37 2013/03/28 08:02:00 tews Exp $
+ * $Id: input.ml,v 1.38 2013/08/01 21:56:45 tews Exp $
  *)
 
 
@@ -426,8 +426,8 @@ let configure_prooftree proof_assistant pg_protocol_version =
     raise (Protocol_error 
 	     ((Printf.sprintf
 		 ("Communication protocol mismatch.\n"
-		  ^^ "Proof General uses version %02d\n"
-		  ^^ "but this version of Prooftree supports version %02d")
+		  ^^ "Proof General uses version %02d,\n"
+		  ^^ "but this version of Prooftree supports only version %02d.")
 		 pg_protocol_version protocol_version),
 	      None));
   configure_message_received := true

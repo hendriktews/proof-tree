@@ -19,11 +19,20 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: util.ml,v 1.22 2013/03/28 08:02:01 tews Exp $
+ * $Id: util.ml,v 1.23 2013/08/01 21:56:45 tews Exp $
  *)
 
 
 (** Misc utility functions *)
+
+
+(****************************************************************************)
+(** {2 Option functions} *)
+(****************************************************************************)
+
+let access_option = function
+  | Some x -> x
+  | None -> assert false
 
 
 (****************************************************************************)

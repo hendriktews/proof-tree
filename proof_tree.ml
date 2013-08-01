@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_tree.ml,v 1.52 2013/07/23 20:48:58 tews Exp $
+ * $Id: proof_tree.ml,v 1.53 2013/08/01 21:56:45 tews Exp $
  *)
 
 
@@ -541,13 +541,14 @@ let create_new_layer pt state current_sequent_id current_sequent_text
   (* schedule an existential status update when this assert goes away *)
   assert (ex_got_instantiated = [] && new_existentials = []);
   let first_sw = 
-    pt.window#new_turnstile state current_sequent_id current_sequent_text in
+    pt.window#new_turnstile state current_sequent_id 
+      (Some current_sequent_text) in
   Hashtbl.add pt.sequent_hash current_sequent_id first_sw;
   let first_sw = (first_sw :> proof_tree_element) in
   let other_sw =
     List.fold_right
       (fun id res ->
-	let sw = pt.window#new_turnstile state id "waiting for sequent text" in
+	let sw = pt.window#new_turnstile state id None in
 	Hashtbl.add pt.sequent_hash id sw;
 	(sw :> proof_tree_element) :: res)
       additional_ids []
@@ -613,6 +614,11 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
     update_existentials pt.existential_hash
       uninstantiated_existentials instantiated_ex_deps
   in
+  (* Update the existentials early, to have correct info in the 
+   * current sequent.
+   *)
+  if ex_got_instantiated <> [] then
+    update_existential_status pt.existential_hash;
   let parent = match pt.current_sequent with
     | Some s -> s
     | None -> assert false
@@ -624,7 +630,8 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   let pc = (pc :> proof_tree_element) in
   set_children parent [pc];
   let sw =
-    pt.window#new_turnstile state current_sequent_id current_sequent_text in
+    pt.window#new_turnstile state current_sequent_id 
+      (Some current_sequent_text) in
   Hashtbl.add pt.sequent_hash current_sequent_id sw;
   let sw = (sw :> proof_tree_element) in
   let new_goal_ids_rev = 
@@ -634,7 +641,7 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   let new_goals =
     List.fold_left
       (fun res id ->
-	let sw = pt.window#new_turnstile state id "waiting for sequent text" in
+	let sw = pt.window#new_turnstile state id None in
 	Hashtbl.add pt.sequent_hash id sw;
 	let sw = (sw :> proof_tree_element) in
 	sw :: res)
@@ -664,7 +671,6 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
    * to update all those sequent displays.
    *)
   if ex_got_instantiated <> [] then begin
-    update_existential_status pt.existential_hash;
     pt.window#update_sequent_existentials_info;
     pt.sequent_area_needs_refresh <- true;
   end;
@@ -850,23 +856,19 @@ let process_current_goals state proof_name proof_command cheated_flag
 	uninstatiated_existentials instantiated_ex_deps
 
 
-(** Update the sequent text for some sequent. This function is used
-    for both, setting the new sequent text as well as reseting to the
-    old sequent text in the undo action. 
-*)
-let change_sequent_text pt sequent text () =
-  sequent#update_sequent text;
-  if sequent#is_selected then 
-    pt.sequent_area_needs_refresh <- true
-
-
 (** Udate the sequent text for some sequent text and set an
     appropriate undo action.
 *)
 let update_sequent_element pt state sw sequent_text =
-  let old_sequent_text = sw#content in
-  change_sequent_text pt sw sequent_text ();
-  add_undo_action pt state (change_sequent_text pt sw old_sequent_text)  
+  sw#update_sequent sequent_text;
+  if sw#is_selected then 
+    pt.sequent_area_needs_refresh <- true;
+  let undo () =
+    sw#undo_update_sequent;
+    if sw#is_selected then 
+      pt.sequent_area_needs_refresh <- true
+  in
+  add_undo_action pt state undo  
 
 
 (* See mli for doc *)

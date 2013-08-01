@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.49 2013/07/23 20:48:58 tews Exp $
+ * $Id: draw_tree.ml,v 1.50 2013/08/01 21:56:45 tews Exp $
  *)
 
 
@@ -408,8 +408,10 @@ object
   *)
   method window_number : string
 
-  (** Set the content in the text buffer of this node window *)
-  method update_content : string -> unit
+  (** Update the content in the text buffer of this node window. The
+      argument is the updated {!Proof_tree_element.sequent_text_history}.
+  *)
+  method update_content : string list -> unit
 
   (** Reconfigure and redraw the node window. Needs to be called when
       the configuration has been changed. Actually only the font of
@@ -531,6 +533,25 @@ object (self)
   val mutable tree_layer = 
     (None : proof_tree_element abstract_tree_container option)
 
+  (** This field is really used only inside {!turnstile}. In a
+      turnstile element, it holds the list of all previous versions of
+      the sequent text without existential information, except for the
+      head, with contains the current sequent {b with} existential
+      info. For uniform treatment of external node windows, the
+      reference is also used for proof commands. There, it holds just
+      one element, the proof command with existentials info.
+
+      The existential info is omitted from old versions of the sequent
+      text, because this info is incorrect for sequents that get
+      updated. The problem is that the exisitentials change already
+      with {!Proof_tree.add_new_goal}, which happens long before
+      {!Proof_tree.update_sequent}. A fix for this would require a
+      protocol change, which is a bit too much for this little
+      feature.
+  *)
+  val mutable sequent_text_history = []
+
+
   (***************************************************************************)
   (***************************************************************************)
   (** {2 Accessors / Setters} *)
@@ -598,6 +619,18 @@ object (self)
   method register_tree_layer tl =
     assert(tree_layer = None);
     tree_layer <- Some tl
+
+  (** Make {!sequent_text_history} accessible for cloning and for
+      reattaching external node windows.
+  *)
+  method sequent_text_history = sequent_text_history
+
+  (** This method is only used inside {!turnstile} but declared here to
+      avoid downcasting during cloning. Set the sequent text history,
+      used when cloning. *)
+  method set_sequent_text_history history =
+    sequent_text_history <- history
+
 
   (***************************************************************************)
   (***************************************************************************)
@@ -1115,7 +1148,7 @@ object (self)
   (***************************************************************************)
 
                                 (***************** inside proof_tree_element *)
-  (** Return the displayed sequent text for turnstile elements, which
+  (** Return the displayed text for proof-tree elements, which
       contains additional information about uninstantiated and
       partially instantiated existentials.
   *)
@@ -1172,15 +1205,20 @@ object (self)
     List.iter (fun c -> c#propagate_existentials) children
 
   (** Update the list of existential variables in displayed sequent
-      text in the whole subtree of this element. This needs to be
-      called when some existential got instantiated or when an undo
-      uninstantiates some existential.
+      text and proof commands in the whole subtree of this element.
+      This needs to be called when some existential got instantiated
+      or when an undo uninstantiates some existential.
   *)
   method update_existentials_info =
+    (match sequent_text_history with 
+      | [] -> assert false
+      | _ :: history -> 
+	sequent_text_history <- self#displayed_text :: history
+    );
     (if external_windows <> [] && existential_variables <> [] 
      then
-	let new_text = self#displayed_text in
-	List.iter (fun ew -> ew#update_content new_text) external_windows
+	List.iter (fun ew -> ew#update_content sequent_text_history)
+	  external_windows
     );
     List.iter (fun c -> c#update_existentials_info) children	
 
@@ -1223,12 +1261,15 @@ end
     It's value is arbitrary for cloned proof trees.
 *)
 class turnstile (drawable : better_drawable) 
-                undo_state sequent_id sequent_text =
+                undo_state sequent_id sequent_text_option =
 object (self)
   inherit proof_tree_element drawable undo_state sequent_id [] [] as super
 
   (** The pure sequent text. *)
-  val mutable sequent_text = (sequent_text : string)
+  val mutable sequent_text = 
+    match sequent_text_option with
+      | Some t -> t
+      | None -> "waiting for sequent text"
 
   (** Pango layout for rendering text. Only created if an ID for
       an external window must be put into the display.
@@ -1252,12 +1293,32 @@ object (self)
   method id = sequent_id
 
                                          (***************** inside turnstile *)
-  (** Update the sequent text. *)
-  method update_sequent new_text = 
+  (** Update the sequent text to a new version. *)
+  method update_sequent new_text =
+    (match sequent_text_history with
+      | [] -> ()
+      | _ :: old -> sequent_text_history <- sequent_text :: old
+    );
     sequent_text <- new_text;
-    let new_text = self#displayed_text in
-    List.iter 
-      (fun ew -> ew#update_content new_text)
+    sequent_text_history <- self#displayed_text :: sequent_text_history;
+    List.iter (fun ew -> ew#update_content sequent_text_history)
+      external_windows
+
+  (** Restore the previous version of the sequent text. *)
+  method undo_update_sequent =
+    (match sequent_text_history with
+      | [] -> assert false
+      | _ :: [] ->
+	(* This happens when undoing the initial update sequent
+	 * command for additional subgoals.
+	 *)
+	sequent_text_history <- [];
+	sequent_text <- "no sequent text available"
+      | _ :: old :: rest ->
+	sequent_text <- old;
+	sequent_text_history <- self#displayed_text :: rest
+    );
+    List.iter (fun ew -> ew#update_content sequent_text_history)
       external_windows
 
   (** Return the pango layout object of {!layout}. Create one if there
@@ -1318,7 +1379,6 @@ object (self)
 	  layout
     )
 
-
                                          (***************** inside turnstile *)
   (** Draw this turnstile node.
 
@@ -1362,6 +1422,11 @@ object (self)
      *   self#debug_name width height;
      *)
     self#update_subtree_size;
+    (match sequent_text_option with
+      | None -> ()
+      | Some _ -> 
+	sequent_text_history <- [self#displayed_text]
+    );
     ()
 
 end
@@ -1572,6 +1637,7 @@ object (self)
      *   self#debug_name w width height;
      *)
     self#update_subtree_size;
+    sequent_text_history <- [self#displayed_text];
     (* Printf.fprintf (debugc()) "INIT PC %s done\n%!" self#debug_name; *)
     ()
 
@@ -1619,7 +1685,10 @@ let rec clone_tree_node new_pc new_seq ex_hash
 	 (List.map (clone_existentials ex_hash) node#fresh_existentials)
 	 : proof_command :> proof_tree_element)
     | Turnstile -> 
-      (new_seq node#id node#content : turnstile :> proof_tree_element)
+      let ts = new_seq node#id (Some node#content)
+      in
+      ts#set_sequent_text_history node#sequent_text_history;
+      (ts : turnstile :> proof_tree_element)
   in
   if Some node = old_selected
   then cloned_selected := Some clone;

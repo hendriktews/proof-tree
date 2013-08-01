@@ -19,7 +19,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
 ## 
-## $Id: Makefile.in,v 1.26 2013/03/28 08:02:00 tews Exp $
+## $Id: Makefile.in,v 1.27 2013/08/01 21:56:45 tews Exp $
 ## 
 ## Commentary: Makefile
 ## 
@@ -184,4 +184,4 @@ prooftree.man.html: prooftree.1
 
 .PHONY: sloc
 sloc:
-	wc $(SOURCES)
+	wc $(SOURCES) | sort -n

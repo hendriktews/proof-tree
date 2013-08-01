@@ -19,13 +19,14 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: node_window.ml,v 1.16 2013/07/18 21:27:46 tews Exp $
+ * $Id: node_window.ml,v 1.17 2013/08/01 21:56:45 tews Exp $
  *)
 
 
 (** Creation, display and drawing of the extra node windows *)
 
 
+open Util
 open Configuration
 open Draw_tree
 
@@ -37,7 +38,8 @@ open Draw_tree
     signal connection happens outside in {!make_node_window}.
 *)
 class node_window proof_window node top_window text_window 
-  sticky_button window_number proof_name =
+  detach_button (version_label : GMisc.label option)
+  sequent_history window_number proof_name =
 object (self)
 
   (** Flag whether this window is orphaned. An orphaned window has no
@@ -58,15 +60,24 @@ object (self)
   *)
   val mutable node = Some node
 
+  (** Local copy of the sequent text history. Used for the feature
+      that sticky node windows don't change their display and history.
+      For proof commands, this holds always just the current proof
+      command.
+  *)
+  val mutable sequent_history = sequent_history
+
+  (** The element of the sequent history that is currently on display.
+      This counts forwards, starting with 0. 0 means the current
+      version. For proof-command windows, this is always 0, to always
+      select the only element of the history list.
+  *)
+  val mutable sequent_history_pos = 0
+
   (** Number of this node window. Used to correlate node windows with
       the proof-tree display.
   *)
   method window_number = window_number
-
-  (** Set the content in the text buffer of this node window *)
-  method update_content new_content =
-    if not sticky_button#active then
-      text_window#buffer#set_text new_content
 
   (** Make this node window orphaned. A orphaned node window is not
       connected with the proof tree any more. Its Sticky button is 
@@ -90,7 +101,7 @@ object (self)
 	  proof_window#invalidate_drawing_area;
 	| None -> assert false
       );
-      sticky_button#misc#set_sensitive false;
+      detach_button#misc#set_sensitive false;
       node <- None;
       proof_window <- None;
       orphaned <- true;
@@ -114,7 +125,7 @@ object (self)
       deleted.
   *)
   method delete_non_sticky_node_window =
-    if not sticky_button#active 
+    if not detach_button#active 
     then self#delete_node_window ()
     else self#orphan_node_window
 
@@ -133,6 +144,58 @@ object (self)
   method configuration_updated =
     text_window#misc#modify_font !sequent_font_desc;
     GtkBase.Widget.queue_draw top_window#as_widget
+
+  (** Display the element from {!sequent_history} that
+      {!sequent_history_pos} denotes. Update the history label.
+  *)
+  method private display_content =
+    text_window#buffer#set_text
+      (match sequent_history with
+	| [] -> "waiting for sequent text"
+	| _ -> List.nth sequent_history sequent_history_pos);
+    (match version_label with
+      | None -> ()
+      | Some label ->
+	let sequent_history_len = List.length sequent_history in
+	label#set_label 
+	  (Printf.sprintf "version %d of %d versions"
+	     (sequent_history_len - sequent_history_pos) sequent_history_len)
+    )
+
+  (** Update the content in the text buffer of this node window. The
+      argument tells how much the history length grew (greater zero)
+      or shrunk (lesser zero).
+  *)
+  method update_content new_history =
+    if not detach_button#active then begin
+      if sequent_history_pos > 0 then begin
+	let old_length = List.length sequent_history in
+	let new_length = List.length new_history in
+	sequent_history_pos <- max 0
+	  (new_length - (old_length - sequent_history_pos))
+      end;
+      sequent_history <- new_history;
+      self#display_content
+    end
+
+  (** Callback for the sequent-history-backwards button. *)
+  method history_back_click () =
+    sequent_history_pos <- 
+      min (List.length sequent_history - 1) (sequent_history_pos + 1);
+    self#display_content
+
+
+  (** Callback for the sequent-history-forwards button. *)
+  method history_for_click () =
+    sequent_history_pos <- max 0 (sequent_history_pos - 1);
+    self#display_content
+
+  (** Callback for  *)
+  method detach_button_toggle () =
+    if not detach_button#active then
+      match node with
+	| None -> assert false
+	| Some sn -> self#update_content sn#sequent_text_history
 
 end
 
@@ -170,17 +233,36 @@ let make_node_window proof_window proof_name node window_number =
   (* text_win#misc#set_size_chars ~width:60 ~height:lines (); *)
   top_window#set_default_size ~width:(char_width * 80) 
     ~height:(char_height * (lines + 2));
-  let button_h_box = GPack.hbox ~packing:top_v_box#pack () in
+  let button_h_box = GPack.hbox ~spacing:5 ~packing:top_v_box#pack () in
   let dismiss_button = 
-    GButton.button ~label:"Dismiss" ~packing:button_h_box#pack ()
+    GButton.button ~label:"Dismiss" ~packing:(button_h_box#pack ~from:`END) ()
   in
-  let sticky_button = 
-    GButton.toggle_button ~label:"Sticky" 
-      ~packing:(button_h_box#pack ~from:`END) ()
+  let detach_button = 
+    GButton.toggle_button ~label:"Detach" ~packing:button_h_box#pack ()
+  in
+  let sequent_history = node#sequent_text_history in
+  let (version_back_button, version_label, version_for_button) = 
+    match node#node_kind with
+      | Proof_command -> (None, None, None)
+      | Turnstile ->
+	let version_back_button = 
+	  GButton.button ~label:"<" ~packing:button_h_box#pack ()
+	in
+	let sequent_history_len = List.length sequent_history in
+	let version_label =
+	  GMisc.label 
+	    ~text:(Printf.sprintf "version %d of %d versions"
+		     sequent_history_len sequent_history_len)
+	    ~packing:button_h_box#pack ()
+	in
+	let version_for_button = 
+	  GButton.button ~label:">" ~packing:button_h_box#pack ()
+	in
+	(Some version_back_button, Some version_label, Some version_for_button)
   in
   let node_window = 
     new node_window proof_window node top_window text_win
-      sticky_button window_number proof_name
+      detach_button version_label sequent_history window_number proof_name
   in
   node#register_external_window (node_window :> external_node_window);
 
@@ -192,6 +274,17 @@ let make_node_window proof_window proof_name node window_number =
   ignore(top_window#event#connect#key_press 
 	   ~callback:node_window#key_pressed_callback);
   text_win#buffer#set_text node#displayed_text;
+
+  ignore(detach_button#connect#toggled
+	   ~callback:node_window#detach_button_toggle);
+  (match node#node_kind with
+    | Proof_command -> ()
+    | Turnstile ->
+      ignore((access_option version_back_button)#connect#clicked
+		~callback:node_window#history_back_click);
+      ignore((access_option version_for_button)#connect#clicked
+		~callback:node_window#history_for_click);
+  );
 
   ignore(top_window#connect#destroy 
 	   ~callback:node_window#delete_node_window);

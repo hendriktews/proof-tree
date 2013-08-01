@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.61 2013/03/28 08:02:01 tews Exp $
+ * $Id: proof_window.ml,v 1.62 2013/08/01 21:56:45 tews Exp $
  *)
 
 
@@ -139,7 +139,7 @@ object (self)
   val mutable selected_node = None
 
   (** List of all external non-orphaned node windows that belong to nodes 
-      in the current proof tree. This list if stored only for optimization.
+      in the current proof tree. This list is stored only for optimization.
   *)
   val mutable node_windows = []
 
@@ -1306,8 +1306,8 @@ object (self)
    ***************************************************************************)
 
   (** Create a new turnstile node for sequents. *)
-  method new_turnstile undo_state sequent_id sequent_text =
-    new turnstile drawable undo_state sequent_id sequent_text
+  method new_turnstile undo_state sequent_id sequent_text_option =
+    new turnstile drawable undo_state sequent_id sequent_text_option
 
   (** Create a new proof command node. *)
   method new_proof_command undo_state command 
