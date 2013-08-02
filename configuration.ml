@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.39 2013/03/28 08:02:00 tews Exp $
+ * $Id: configuration.ml,v 1.40 2013/08/02 21:45:37 tews Exp $
  *)
 
 
@@ -430,6 +430,9 @@ let update_configuration c =
 
 (** Reference for the argument of the [-geometry] option. *)
 let geometry_string = ref ""
+
+(** Flag for option [-config]. *)
+let start_config_dialog = ref false
 
 
 (*****************************************************************************
@@ -980,7 +983,8 @@ object (self)
   (** Action for the Cancel button and the destroy signal. *)
   method destroy () =
     config_window := None;
-    top_window#destroy()
+    top_window#destroy();
+    if !start_config_dialog then exit 0
       
   (** Action of the OK button. *)
   method ok () =

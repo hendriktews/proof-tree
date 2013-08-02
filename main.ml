@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: main.ml,v 1.19 2013/03/28 08:02:00 tews Exp $
+ * $Id: main.ml,v 1.20 2013/08/02 21:45:37 tews Exp $
  *)
 
 
@@ -53,12 +53,6 @@ let configuration_updated () =
   Input.configuration_updated ()
 
 let _ = configuration_updated_callback := configuration_updated
-
-(** Flag for option [-config]. *)
-let start_config_dialog = ref false
-
-(** Flag for option [-help]. *)
-let start_help_dialog = ref false
 
 (** Argument list for [Arg.parse] *)
 let arguments = Arg.align [

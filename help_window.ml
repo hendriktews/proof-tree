@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: help_window.ml,v 1.17 2013/03/28 08:02:00 tews Exp $
+ * $Id: help_window.ml,v 1.18 2013/08/02 21:45:37 tews Exp $
  *)
 
 
@@ -64,6 +64,9 @@ let help_text =
   let bold_proof_tree = (Bold, "Prooftree") in
   let bold_proof_general = (Bold, "Proof General")
   in
+  (**************************************************************************)
+  (***************************** Colors *************************************)
+  (**************************************************************************)
   [(Heading, "Colors");
    (Default, "\n\nThe meaning of the colors in the proof tree is as follows: ");
    (Color !proved_complete_gdk_color, 
@@ -84,6 +87,9 @@ that nevertheless depend on some not (yet) instantiated existential variable \
    (Default, " parameters \
 can be changed in the configuration dialog.\n\
 \n");
+   (*************************************************************************)
+   (***************************** Navigation ********************************)
+   (*************************************************************************)
    (Heading, "Navigation");
    (Default, "\n\n\
 In addition to scroll bars and the usual keys one can move the proof \
@@ -95,6 +101,9 @@ opposite direction). After setting a negative value for ");
 the proof tree instead (i.e, the proof tree moves in the same \
 direction as the mouse).\n\
 \n");
+   (*************************************************************************)
+   (***************************** Sequent window ****************************)
+   (*************************************************************************)
    (Heading, "The sequent window and additional displays");
    (Default, "\n\n\
 The sequent display below the proof tree \
@@ -105,13 +114,18 @@ back to default behavior. The initial size of the sequent display can \
 be set in the configuration dialog. A value of 0 hides the sequent display.\n\
 \n\
 A double click or a shift-click displays any goal or proof command \
-in an additional \
-window. These additional windows are deleted when the main proof-tree \
-window disappears, unless their ");
-   (Italic, "Sticky");
-   (Default, " button is pressed.\n\
+in an additional window. These additional windows are automatically updated, \
+for instance, if an existential variable is instantiated. For additional \
+sequent displays one can browse the instantiation history of the sequent \
+using the forward and backward buttons. These additional windows can be ");
+   (Italic, "detached");
+   (Default, " from the proof tree. A detached \
+display is neither automatically updated nor automatically deleted.\n\
 \n\
 ");
+   (*************************************************************************)
+   (***************************** Tooltips **********************************)
+   (*************************************************************************)
    (Heading, "Tooltips");
    (Default, "\n\n\
 If turnstile tool tips are switched on, the complete sequent text is \
@@ -123,6 +137,9 @@ length at which truncation happens can be set in the configuration dialog. \
 Any truncated proof command is displayed in full length as tool tip if the \
 mouse stays long enough above it (and if command tool tips are enabled).\n\
 \n");
+   (*************************************************************************)
+   (***************************** Existentials ******************************)
+   (*************************************************************************)
    (Heading, "Existential variables");
    (Default, "\n\
 \n");
@@ -153,6 +170,9 @@ this variable ");
     "(with orange background, by default)");
    (Default, " in the proof-tree display.\n\
 \n");
+   (*************************************************************************)
+   (***************************** Menus *************************************)
+   (*************************************************************************)
    (Heading, "Menus");
    (Default, "\n\n\
 The menu button opens the main menu. A right click opens the context menu, \
@@ -215,6 +235,9 @@ The ");
    bold_proof_tree;
    (Default, ".)\n\
 \n");
+   (*************************************************************************)
+   (***************************** Customization *****************************)
+   (*************************************************************************)
    (Heading, "Customization");
    (Default, "\n\n\
 A major part of the proof visualization task is done by ");
@@ -259,6 +282,10 @@ let fill_help_buffer (buffer : GText.buffer) =
     help_text
 
 
+(** Flag for option [-help]. *)
+let start_help_dialog = ref false
+
+
 (** Create and display a new help window. This function creates a new
     {xref lablgtk class GWindow.dialog} that contains the formatted
     help text inside a {xref lablgtk class GText.view}.
@@ -270,6 +297,10 @@ let show_help_window () =
       ~title:"Prooftree Help"
       ~resizable:true
       ()
+  in
+  let close_fun _ =
+    help_win#destroy ();
+    if !start_help_dialog then exit 0
   in
   help_win#add_button "Close" `CLOSE;
   let _help_title =
@@ -291,9 +322,9 @@ let show_help_window () =
       ~packing:help_scrolling#add ()
   in
   fill_help_buffer help_view#buffer;
-  ignore(help_win#connect#destroy ~callback:(fun () -> help_win#destroy()));
-  ignore(help_win#connect#response ~callback:(fun _ -> help_win#destroy()));
+  ignore(help_win#connect#destroy ~callback:close_fun);
+  ignore(help_win#connect#response ~callback:close_fun);
   help_win#set_default_size ~width:400 ~height:300;
-  (* help_win#set_default_size ~width:800 ~height:800; *)
+  help_win#set_default_size ~width:800 ~height:800;
   help_win#show ()
 

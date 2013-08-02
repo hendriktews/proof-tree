@@ -1,3 +1,8 @@
+2013-08-02  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* quit prooftree when closing -config or -help-dialog windows
+	* update help window text
+
 2013-08-01  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* add history list in external sequent windows
