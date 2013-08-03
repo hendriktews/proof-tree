@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.62 2013/08/01 21:56:45 tews Exp $
+ * $Id: proof_window.ml,v 1.63 2013/08/03 21:57:32 tews Exp $
  *)
 
 
@@ -814,6 +814,12 @@ object (self)
 	then self#show_node current
 	else self#reposition_current_node ()
 
+  (** Make the selected node visible in a user friendly way. *)
+  method show_selected_node () =
+    match selected_node with
+      | None -> ()
+      | Some selected -> self#show_node selected
+
   (** Callback for the size_allocate signal of the drawing area.
       Position the proof tree in the viewport of the drawing area and
       redraw.
@@ -1415,6 +1421,7 @@ let rec make_proof_window name geometry_string =
   let main_menu_entries = 
     [`I("Clone", clone_fun);
      `I("Show current", proof_window#reposition_current_node);
+     `I("Show selected", proof_window#show_selected_node);
      `I("Existentials", proof_window#show_existential_window);
      `I("Configuration", show_config_window);
      `I("Help", show_help_window);

@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: help_window.ml,v 1.19 2013/08/03 21:05:37 tews Exp $
+ * $Id: help_window.ml,v 1.20 2013/08/03 21:57:31 tews Exp $
  *)
 
 
@@ -203,8 +203,10 @@ proof tree window. This cloned proof tree is not connected with ");
 \n\
 The ");
    (Italic, "Show current");
-   (Default, " menu item repositions the proof tree such that the \
-current proof goal is visible.\n\
+   (Default, " and ");
+   (Italic, "Show selected");
+   (Default, " menu items reposition the proof tree such that the \
+current proof goal or, respectively, the selected node is visible.\n\
 \n\
 The item ");
    (Italic, "Existentials");
