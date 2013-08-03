@@ -1,3 +1,7 @@
+2013-08-03  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* update man page
+
 2013-08-02  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* quit prooftree when closing -config or -help-dialog windows

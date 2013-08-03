@@ -161,9 +161,13 @@ configured as well.
 .SS Additional Displays
 A double click or a shift-click displays any goal or proof
 command in an additional window. These additional windows are
-deleted when the main proof-tree window disappears, unless their
-.I Sticky 
-button is pressed.
+automatically updated, for instance, if an existential variable
+is instantiated. For additional sequent displays one can browse
+the instantiation history of the sequent using the forward and
+backward buttons. These additional windows can be
+.I detached
+from the proof tree. A detached display is neither automatically
+updated nor automatically deleted.
 .\" ==========================================================================
 .SS Existential Variables
 .B Prooftree
@@ -225,7 +229,7 @@ which contains additional items.
 .P
 The item
 .I Undo to point
-is active over sequent nodes in the proof tree. Then it sends an
+is active over sequent nodes in the proof tree. There, it sends an
 retract or undo request to Proof General that retracts the
 scripting buffer up to that sequent.
 .\" ==========================================================================
@@ -287,6 +291,16 @@ proofs must be started with command
 .I Proof\fR,
 which is the recommended practice anyway (see Coq problem report
 2776).
+.\" ==========================================================================
+.P
+In additional sequent displays, the information about existential
+variables is only shown for the latest version of the sequent and
+not for older versions in the instantiation history. The current
+communication protocol between
+.B Proof General
+and
+.B Prooftree
+does not permit more.
 .\"
 .\" ==========================================================================
 .\" ================ Prerequisites ===========================================
