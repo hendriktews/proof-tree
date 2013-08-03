@@ -1,0 +1,7 @@
+protocol  prooftree     Proof General                    
+	              
+3         0.11           >= 4.3pre130327
+	              
+2         0.9 - 0.10     4.2; 4.2pre120110 - 4.3pre130111               
+	              
+1         0.8            4.2pre120104                    

@@ -6,7 +6,7 @@ Make sure you have Proof General >= 4.3pre130327 and Coq 8.4beta or better.
 For installation instructions see http://proofgeneral.inf.ed.ac.uk/devel
 and http://coq.inria.fr/coq-84
 
-If you want to install Prooftree from sources you need ocaml with the Gtk
+If you want to install Prooftree from sources you need OCaml with the Gtk
 bindings from the LablGtk2 library installed. The configure script checks
 if
 

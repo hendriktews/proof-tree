@@ -10,8 +10,8 @@ information.
 
 Prooftree requires Proof General >= 4.3pre130327 and 
 Coq version >= 8.4beta. These versions of Proof General and Coq must be
-installed separately. Binary packages for Debian Squeeze and wheezy for
-i386 and amd64 are available on the Prooftree website.
+installed separately. Binary packages are available Debian Jessie, for
+instance.
 
 
 ============================================================================
