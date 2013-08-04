@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.38 2013/08/01 21:56:45 tews Exp $
+ * $Id: input.ml,v 1.39 2013/08/04 19:51:30 tews Exp $
  *)
 
 
@@ -29,13 +29,23 @@
  *****************************************************************************)
 (** {2 Communition Protocol with Proof General}
 
-    The communication protocol with Proof General is almost one-way
-    only: Proof General sends display messages to Prooftree and
-    Prooftree never requests anything from Proof General. Only when
-    the proof-tree window of the current proof is closed, Prooftree
-    notifies Proof General. The communication protocol is designed
-    such that Prooftree always knows in advance how many bytes it has
-    to read until the end of a display message.
+    The communication protocol with Proof General is mostly one-way:
+    Proof General sends display messages to Prooftree and Prooftree
+    never requests information for the proof-tree display from Proof
+    General. Prooftree sends a notification to Proof General when the
+    proof-tree window is closed. It also sends proof commands to Proof
+    General on request of the user.
+
+    The communication protocol between Proof General and Prooftree is
+    split into two parts: The display messages, which are sent from
+    Proof General to Prooftree and the notification messages, which
+    are sent from Prooftree to Proof General.
+
+    {3 Display Messages}
+
+    The protocol for the display messages is designed such that
+    Prooftree always knows in advance how many bytes it has to read
+    until the end of a message.
 
     All display messages consist of 
     {ul
@@ -80,8 +90,8 @@
     }
     {-  {v current-goals state %d current-sequent %s \
     {cheated|not-cheated} {new-layer|current-layer} proof-name-bytes %d \
-     command-bytes %d sequent-text-bytes %d additional-id-bytes %d \
-     existential-bytes %d\n\
+    command-bytes %d sequent-text-bytes %d additional-id-bytes %d \
+    existential-bytes %d\n\
     <data-proof-name>\n\
     <data-command>\n\
     <data-current-sequent>\n\
@@ -207,6 +217,41 @@
     }
     }
     }
+
+    {3 Notification Messages}
+
+    The notification messages are sent from Prooftree to Proof General
+    as a consequence of certain user interactions. There are 3
+    different notification messages: for stopping the proof-tree
+    display, for undo and for sending proof scripts. All notification
+    messages are preceeded with a newline and the string 
+    [emacs exec:], followed by a space, for easy recognition in Proof
+    General.
+
+    The remaining part of the messages have the following format.
+
+    {ul
+    {- {v stop-displaying v}
+    
+    Prooftree sends this message to Proof General when the user closed
+    the proof-tree display of a proof currently under development.
+    Proof General then stops sending display commands for that proof.
+    }
+    {- {v undo %d v}
+
+    Prooftree sends the undo message, when the user selected an undo
+    for a certain sequent from the context menu. The integer is the
+    undo state number of the proof command child node of the selected
+    sequent. 
+    }
+    {- {v insert-proof-script %d\n<script data>\n v}
+
+    Prooftree sends this message when the user selected the Insert
+    command or Insert subproof items from the context menu. The
+    integer is the length of [<script data>] without the enclosing
+    newlines.
+    }
+    }
 *)
 
 (** Version number of the communication protocol described and
@@ -238,7 +283,7 @@ let protocol_version = 3
 *)
 
 (*****************************************************************************
-*****************************************************************************)
+ *****************************************************************************)
 
 
 open Configuration

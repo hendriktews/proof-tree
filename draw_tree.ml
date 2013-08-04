@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.50 2013/08/01 21:56:45 tews Exp $
+ * $Id: draw_tree.ml,v 1.51 2013/08/04 19:51:30 tews Exp $
  *)
 
 
@@ -409,7 +409,7 @@ object
   method window_number : string
 
   (** Update the content in the text buffer of this node window. The
-      argument is the updated {!Proof_tree_element.sequent_text_history}.
+      argument is the updated {!proof_tree_element.sequent_text_history}.
   *)
   method update_content : string list -> unit
 
