@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: node_window.ml,v 1.17 2013/08/01 21:56:45 tews Exp $
+ * $Id: node_window.ml,v 1.18 2013/08/04 22:21:32 tews Exp $
  *)
 
 
@@ -235,9 +235,9 @@ let make_node_window proof_window proof_name node window_number =
     ~height:(char_height * (lines + 2));
   let button_h_box = GPack.hbox ~spacing:5 ~packing:top_v_box#pack () in
   let dismiss_button = 
-    GButton.button ~label:"Dismiss" ~packing:(button_h_box#pack ~from:`END) ()
+    GButton.button ~stock:`CLOSE ~packing:(button_h_box#pack ~from:`END) ()
   in
-  let detach_button = 
+  let detach_button = 			(* XXX find stock item *)
     GButton.toggle_button ~label:"Detach" ~packing:button_h_box#pack ()
   in
   let sequent_history = node#sequent_text_history in
@@ -246,7 +246,7 @@ let make_node_window proof_window proof_name node window_number =
       | Proof_command -> (None, None, None)
       | Turnstile ->
 	let version_back_button = 
-	  GButton.button ~label:"<" ~packing:button_h_box#pack ()
+	  GButton.button ~stock:`GO_BACK ~packing:button_h_box#pack ()
 	in
 	let sequent_history_len = List.length sequent_history in
 	let version_label =
@@ -256,7 +256,7 @@ let make_node_window proof_window proof_name node window_number =
 	    ~packing:button_h_box#pack ()
 	in
 	let version_for_button = 
-	  GButton.button ~label:">" ~packing:button_h_box#pack ()
+	  GButton.button ~stock:`GO_FORWARD ~packing:button_h_box#pack ()
 	in
 	(Some version_back_button, Some version_label, Some version_for_button)
   in

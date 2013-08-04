@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.40 2013/08/02 21:45:37 tews Exp $
+ * $Id: configuration.ml,v 1.41 2013/08/04 22:21:32 tews Exp $
  *)
 
 
@@ -776,8 +776,8 @@ object (self)
       ~focus_on_map:true
       ~modal:true ()
     in
-    file_chooser#add_select_button "Select" `SELECT;
-    file_chooser#add_button "Cancel" `CANCEL;
+    file_chooser#add_select_button_stock `APPLY `SELECT;
+    file_chooser#add_button_stock `CANCEL `CANCEL;
     ignore(file_chooser#set_current_folder 
 	     (Filename.dirname tee_file_name_entry#text));
     (match file_chooser#run() with
@@ -1535,18 +1535,18 @@ let make_config_window () =
    *)
   let button_box = GPack.hbox 
     ~spacing:5 (* ~border_width:5 *) ~packing:top_v_box#pack () in
-  let reset_button = GButton.button 
+  let reset_button = GButton.button 	(* XXX find stock item *)
     ~label:"Set defaults" ~packing:button_box#pack () in
   let apply_button = GButton.button
-    ~label:"Apply" ~packing:button_box#pack () in
+    ~stock:`APPLY ~packing:button_box#pack () in
   let cancel_button = GButton.button
-    ~label:"Cancel" ~packing:button_box#pack () in
+    ~stock:`CANCEL ~packing:button_box#pack () in
   let ok_button = GButton.button
-    ~label:"OK" ~packing:button_box#pack () in
+    ~stock:`OK ~packing:button_box#pack () in
   let restore_button = GButton.button
-    ~label:"Restore" ~packing:(button_box#pack ~from:`END) () in
+    ~stock:`REVERT_TO_SAVED ~packing:(button_box#pack ~from:`END) () in
   let save_button = GButton.button
-    ~label:"Save" ~packing:(button_box#pack ~from:`END) () in
+    ~stock:`SAVE ~packing:(button_box#pack ~from:`END) () in
   let config_window = 
     new config_window top_window 
       line_width_spinner

@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.63 2013/08/03 21:57:32 tews Exp $
+ * $Id: proof_window.ml,v 1.64 2013/08/04 22:21:33 tews Exp $
  *)
 
 
@@ -1392,7 +1392,7 @@ let rec make_proof_window name geometry_string =
   let button_h_box = GPack.hbox
     ~packing:button_box_align#add () in
   let dismiss_button = 
-    GButton.button ~label:"Dismiss" ~packing:button_h_box#pack ()
+    GButton.button ~stock:`CLOSE ~packing:button_h_box#pack ()
   in
   let message_label =
     GMisc.label ~selectable:true ~ellipsize:`END 

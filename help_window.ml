@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: help_window.ml,v 1.20 2013/08/03 21:57:31 tews Exp $
+ * $Id: help_window.ml,v 1.21 2013/08/04 22:21:32 tews Exp $
  *)
 
 
@@ -304,7 +304,7 @@ let show_help_window () =
     help_win#destroy ();
     if !start_help_dialog then exit 0
   in
-  help_win#add_button "Close" `CLOSE;
+  help_win#add_button_stock `CLOSE `CLOSE;
   let _help_title =
     GMisc.label
       ~markup:"<big><b>Prooftree Help</b></big>"

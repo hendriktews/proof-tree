@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: ext_dialog.ml,v 1.15 2013/03/28 08:02:00 tews Exp $
+ * $Id: ext_dialog.ml,v 1.16 2013/08/04 22:21:32 tews Exp $
  *)
 
 (** The Existential Variable Dialog *)
@@ -598,7 +598,7 @@ let make_ext_dialog proof_window proof_name =
   let show_current_button = GButton.button
     ~label:"Show current" ~packing:button_box#pack () in
   let close_button = GButton.button
-    ~label:"Close" ~packing:(button_box#pack ~from:`END) () in
+    ~stock:`CLOSE ~packing:(button_box#pack ~from:`END) () in
 
   let ext_window = 
     new existential_variable_window proof_window top_window 
