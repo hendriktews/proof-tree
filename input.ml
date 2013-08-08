@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.39 2013/08/04 19:51:30 tews Exp $
+ * $Id: input.ml,v 1.40 2013/08/08 21:46:09 tews Exp $
  *)
 
 
@@ -353,15 +353,23 @@ let setup_input_backup_channel () =
   else if !current_config.copy_input = false &&
 	 !input_backup_filename = None
   then ()
-  else if !current_config.copy_input
-  then begin
-    input_backup_oc := Some(open_out !current_config.copy_input_file);
-    input_backup_filename := Some !current_config.copy_input_file;
-  end else begin
-    input_backup_oc := None;
-    input_backup_filename := None;
+  else begin
+    (match !input_backup_oc with
+      | None -> ()
+      | Some oc -> 
+	close_out oc;
+	input_backup_oc := None;
+	input_backup_filename := None;
+    );
+    if !current_config.copy_input
+    then begin
+      input_backup_oc := Some(open_out !current_config.copy_input_file);
+      input_backup_filename := Some !current_config.copy_input_file;
+    end else begin
+      input_backup_oc := None;
+      input_backup_filename := None;
+    end
   end
-    
 
 
 (** Input function for reading from the input channel. To make the
