@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.41 2013/08/04 22:21:32 tews Exp $
+ * $Id: configuration.ml,v 1.42 2013/08/08 21:23:52 tews Exp $
  *)
 
 
@@ -519,21 +519,21 @@ let config_window = ref None
     Arguments are
     - top_window		{xref lablgtk class GWindow.window} 
                                 of the top-level widget
-    - line_width_spinner 	{xref lablgtk class GEdit.spin_button} 
+    - line_width_adjustment 	{xref lablgtk class GData.adjustment} 
                                 for line width
-    - turnstile_size_spinner 	{xref lablgtk class GEdit.spin_button} 
+    - turnstile_size_adjustment {xref lablgtk class GData.adjustment} 
                                 for turnstile size
-    - line_sep_spinner 		{xref lablgtk class GEdit.spin_button} 
+    - line_sep_adjustment       {xref lablgtk class GData.adjustment} 
                                 for line gap
-    - proof_tree_sep_spinner    {xref lablgtk class GEdit.spin_button}
+    - proof_tree_sep_adjustment {xref lablgtk class GData.adjustment}
                                 for proof tree sep
-    - subtree_sep_spinner 	{xref lablgtk class GEdit.spin_button} 
+    - subtree_sep_adjustment 	{xref lablgtk class GData.adjustment} 
                                 for node padding
-    - command_length_spinner 	{xref lablgtk class GEdit.spin_button} 
+    - command_length_adjustment {xref lablgtk class GData.adjustment} 
                                 for command length
-    - level_dist_spinner 	{xref lablgtk class GEdit.spin_button} 
+    - level_dist_adjustment 	{xref lablgtk class GData.adjustment} 
                                 for vertical distance
-    - layer_sep_spinner 	{xref lablgtk class GEdit.spin_button} 
+    - layer_sep_adjustment 	{xref lablgtk class GData.adjustment} 
                                 layer sep
     - tree_font_button		{xref lablgtk class GButton.font_button} 
                                 for proof tree font
@@ -553,7 +553,7 @@ let config_window = ref None
                                   for create exist.
     - ext_inst_color_button       {xref lablgtk class GButton.color_button} 
                                   for instant. exist.
-    - drag_accel_spinner 	  {xref lablgtk class GEdit.spin_button} 
+    - drag_accel_adjustment 	  {xref lablgtk class GData.adjustment} 
                                   for drac acceleration
     - doc_tooltip_check_box	  {xref lablgtk class GButton.toggle_button} 
                                   for the help tool-tips check bock
@@ -561,41 +561,36 @@ let config_window = ref None
                                   for the turnstile tool-tips check bock
     - command_tooltip_check_box	  {xref lablgtk class GButton.toggle_button} 
                                   for the command tool-tips check bock
-    - default_size_width_spinner  {xref lablgtk class GEdit.spin_button} 
+    - default_size_width_adjustment {xref lablgtk class GData.adjustment} 
                                   for default window size width
-    - default_size_height_spinner {xref lablgtk class GEdit.spin_button} 
+    - default_size_height_adjustment {xref lablgtk class GData.adjustment} 
                                   for default window size height
-    - internal_seq_lines_spinner  {xref lablgtk class GEdit.spin_button}
+    - internal_seq_lines_adjustment {xref lablgtk class GData.adjustment}
                                   for lines in the internal sequent window
-    - external_node_lines_spinner {xref lablgtk class GEdit.spin_button}
+    - external_node_lines_adjustment {xref lablgtk class GData.adjustment}
                                   for lines in external node windows
-    - ext_table_lines_spinner     {xref lablgtk class GEdit.spin_button}
+    - ext_table_lines_adjustment  {xref lablgtk class GData.adjustment}
                                   for lines in evar table
     - debug_check_box		{xref lablgtk class GButton.toggle_button}
                                 for the more-debug-info check box
     - tee_file_box_check_box 	{xref lablgtk class GButton.toggle_button}
                                 for log-input check box
-    - tee_file_name_label	{xref lablgtk class GMisc.label}
-                                of the log-file label
     - tee_file_name_entry	{xref lablgtk class GEdit.entry}
                                 of the log-file text entry
-    - tee_file_name_button	{xref lablgtk class GButton.button}
-                                of the log-file button that 
-                                starts the file selection dialog
     - tooltip_misc_objects	list of {xref lablgtk class GObj.misc_ops} 
                                 of config dialog elements that have a tool-tip
                                 to switch on and off
 *)
 class config_window 
   top_window
-  line_width_spinner
-  turnstile_size_spinner
-  line_sep_spinner
-  proof_tree_sep_spinner
-  subtree_sep_spinner
-  command_length_spinner
-  level_dist_spinner
-  layer_sep_spinner
+  line_width_adjustment
+  turnstile_size_adjustment
+  line_sep_adjustment
+  proof_tree_sep_adjustment
+  subtree_sep_adjustment
+  command_length_adjustment
+  level_dist_adjustment
+  layer_sep_adjustment
   tree_font_button
   sequent_font_button
   current_color_button
@@ -606,86 +601,31 @@ class config_window
   (* mark_subtree_color_button *)
   ext_create_color_button
   ext_inst_color_button
-  drag_accel_spinner
+  drag_accel_adjustment
   doc_tooltip_check_box
   turnstile_tooltip_check_box
   command_tooltip_check_box
-  default_size_width_spinner default_size_height_spinner
-  internal_seq_lines_spinner
-  external_node_lines_spinner
-  ext_table_lines_spinner
+  default_size_width_adjustment default_size_height_adjustment
+  internal_seq_lines_adjustment
+  external_node_lines_adjustment
+  ext_table_lines_adjustment
   debug_check_box
   tee_file_box_check_box 
-  tee_file_name_label tee_file_name_entry tee_file_name_button
+  tee_file_name_entry
   tooltip_misc_objects  
   =
 object (self)
 
-  (** {xref lablgtk class GData.adjustment} of the line-width spin button. *)
-  val line_width_adjustment = line_width_spinner#adjustment
-
-  (** {xref lablgtk class GData.adjustment} of the turnstile-size spin
-      button.
+  (** The callbacks for the configuration update may trigger several
+      config updates in a row. When this setting is [true], then the
+      config update is not done.
   *)
-  val turnstile_size_adjustment = turnstile_size_spinner#adjustment
+  val mutable delay_config_update = false
 
-  (** {xref lablgtk class GData.adjustment} of the line-gap spin button. *)
-  val line_sep_adjustment = line_sep_spinner#adjustment
-
-  (** {xref lablgtk class GData.adjustment} of the proof_tree_sep spin
-      button. 
+  (** Set to [true] when the log-file chooser dialog sets the log-file
+      name to avoid switching off the log file check box.
   *)
-  val proof_tree_sep_adjustment = proof_tree_sep_spinner#adjustment
-
-  (** {xref lablgtk class GData.adjustment} of the node-padding spin
-      button.
-  *)
-  val subtree_sep_adjustment = subtree_sep_spinner#adjustment
-
-  (** {xref lablgtk class GData.adjustment} of the command-length spin
-      button.
-  *)
-  val command_length_adjustment = command_length_spinner#adjustment
-
-  (** {xref lablgtk class GData.adjustment} of the vertical-distance
-      spin button. 
-  *)
-  val level_dist_adjustment = level_dist_spinner#adjustment
-
-  (** {xref lablgtk class GData.adjustment} of the layer_sep spin
-      button. 
-  *)
-  val layer_sep_adjustment = layer_sep_spinner#adjustment
-
-  (** {xref lablgtk class GData.adjustment} of the drag-acceleration
-      spin button.
-  *)
-  val drag_accel_adjustment = drag_accel_spinner#adjustment
-
-  (** {xref lablgtk class GData.adjustment} of the
-      default-window-size-width spin button.
-  *)
-  val default_size_width_adjustment = default_size_width_spinner#adjustment
-
-  (** {xref lablgtk class GData.adjustment} of the
-      default-window-size-height spin button. 
-  *)
-  val default_size_height_adjustment = default_size_height_spinner#adjustment
-
-  (** {xref lablgtk class GData.adjustment} of the spin button for the
-      number of lines in the internal sequent window. 
-  *)
-  val internal_seq_lines_adjustment = internal_seq_lines_spinner#adjustment
-
-  (** {xref lablgtk class GData.adjustment} of the spin button for the
-      number of lines in external node windows. 
-  *)
-  val external_node_lines_adjustment = external_node_lines_spinner#adjustment
-
-  (** {xref lablgtk class GData.adjustment} of the spin button for the
-      default number of lines in the existential variable table. 
-  *)
-  val ext_table_lines_adjustment = ext_table_lines_spinner#adjustment
+  val mutable clean_tee_file_check_box = true
 
   (** Make this configuration dialog visible. *)
   method present = top_window#present()
@@ -694,6 +634,7 @@ object (self)
       configuration of the configuration record [c].
   *)
   method set_configuration conf =
+    (* print_endline "set config start"; *)
     line_width_adjustment#set_value (float_of_int conf.turnstile_line_width);
     turnstile_size_adjustment#set_value (float_of_int conf.turnstile_radius);
     subtree_sep_adjustment#set_value (float_of_int conf.subtree_sep);
@@ -737,35 +678,31 @@ object (self)
     debug_check_box#set_active conf.debug_mode;
     tee_file_box_check_box#set_active conf.copy_input;
     tee_file_name_entry#set_text conf.copy_input_file;
+    (* print_endline "set config end"; *)
     ()
 
   (** Change spinners and buttons to show the compile-time default
       configuration. 
   *)
   method reset_to_default () =
-    self#set_configuration default_configuration
+    delay_config_update <- true;
+    clean_tee_file_check_box <- false;
+    (* print_endline "delay config"; *)
+    self#set_configuration default_configuration;
+    delay_config_update <- false;
+    (* print_endline "explicit config"; *)
+    self#config_changed ()
 
   (** Switch the help/documentation tool-tips on or off, according to
-      the state of the help-tool-tips check box.
+      the argument [flag].
   *)
-  method toggle_tooltips () =
-    let flag = doc_tooltip_check_box#active in
-    List.iter (fun misc -> misc#set_has_tooltip flag) tooltip_misc_objects;
-    ()
-
-  (** Change the visibility of the tee-file elements, according to the
-      state of the log-input check box.
-  *)
-  method tee_file_toggle () =
-    let flag = tee_file_box_check_box#active in
-    tee_file_name_label#misc#set_sensitive flag;
-    tee_file_name_entry#misc#set_sensitive flag;
-    tee_file_name_button#misc#set_sensitive flag;
-    ()
+  method toggle_tooltips flag =
+    List.iter (fun misc -> misc#set_has_tooltip flag) tooltip_misc_objects
 
   (** Start and manage the modal file selection dialog for the
       log-file button. If the user makes a selection, the log-file
-      text entry is updated.
+      text entry is updated. The current configuration is then changed
+      via the [notify_text] signal of this entry.
   *)
   method tee_file_button_click () =
     let file_chooser = GWindow.file_chooser_dialog 
@@ -784,7 +721,9 @@ object (self)
       | `SELECT -> 
 	(match file_chooser#filename with
 	  | None -> ()
-	  | Some file -> tee_file_name_entry#set_text file
+	  | Some file -> 
+	    clean_tee_file_check_box <- false;
+	    tee_file_name_entry#set_text file
 	)
       | `CANCEL
       | `DELETE_EVENT -> ()
@@ -865,11 +804,36 @@ object (self)
     in
     update_sizes c
 
-  (** Action for the Apply button: Extract a configuration record and
-      update the current configuration. 
+  (** Callback when any item of the configuration changed. This simply
+      updates the complete configuration in the whole program.
   *)
-  method apply () =
-    update_configuration (self#extract_configuration)
+  method config_changed () =
+    (* Printf.printf "change config delay %b\n%!" delay_config_update; *)
+    if not delay_config_update then begin
+      let app_start = U.gettimeofday () in
+      let c = self#extract_configuration in
+      self#toggle_tooltips c.display_doc_tooltips;
+      update_configuration c;
+      let app_end = U.gettimeofday () in
+      Printf.printf "apply config %f ms\n%!" ((app_end -. app_start) *. 1000.)
+    end
+
+  (** Callback for the case that the log file entry has changed. To
+      avoid lots of file openings, the tee file check box is disabled.
+  *)
+  method log_file_entry_changed (_ : string) =
+    (* Printf.printf "log entry start clean %b\n%!" clean_tee_file_check_box; *)
+    if clean_tee_file_check_box then begin
+      let delay = delay_config_update in
+      delay_config_update <- true;
+      tee_file_box_check_box#set_active false;
+      delay_config_update <- delay;
+    end;
+    clean_tee_file_check_box <- true;
+    (* print_endline "log entry middle"; *)
+    self#config_changed ();
+    (* print_endline "log entry end"; *)
+    ()
 
   (** Action for the Save button: Saves the current configuration in
       the user specific configuration file {!config_file_location}. If
@@ -877,59 +841,37 @@ object (self)
       configuration, a suitable warning is displayed. 
   *)
   method save () = 
-    let do_save = ref true in
-    if self#extract_configuration <> !current_config
-    then begin
-      let proceed_dialog = GWindow.message_dialog 
-	~message:"The save operation writes the current configuration \
-                  record to disk. However, the current configuration \
-                  record differs from what the configuration dialog now \
-                  shows (because there are changes that have not been \
-                  applied). Proceed anyway?"
-	~message_type:`QUESTION
-	~buttons:GWindow.Buttons.yes_no ()
-      in
-      (match proceed_dialog#run () with
-	| `YES -> ()
-	| `NO 
-	| `DELETE_EVENT -> do_save := false
-      );
-      proceed_dialog#destroy ()
-    end;
-    if !do_save 
-    then
-      try
-	write_config_file config_file_location !current_config
-      with
-	| Sys_error s when Util.string_ends s "Permission denied" ->
-	  run_message_dialog
-	    ("No permission to write the configuration file at "
-	     ^ config_file_location ^ "!")
-	    `WARNING
-	| e ->
-	  let backtrace = Printexc.get_backtrace () in
-	  let buf = Buffer.create 4095 in
-	  let print_backtrace = ref !current_config.debug_mode in
-	  (match e with 
-	    | e ->
-	      Buffer.add_string buf "Internal error: Escaping exception ";
-	      Buffer.add_string buf (Printexc.to_string e);
-	      Buffer.add_string buf " in write_config_file";
-	      (match e with
-		| U.Unix_error(error, _func, _info) ->
-		  Buffer.add_char buf '\n';
-		  Buffer.add_string buf (U.error_message error);
-		| _ -> ()
-	      )
-	  );
-	  if !print_backtrace then begin
-	    Buffer.add_char buf '\n';
-	    Buffer.add_string buf backtrace;
-	  end;
-	  prerr_endline (Buffer.contents buf);
-	  run_message_dialog (Buffer.contents buf) `WARNING;
-	  ()
-
+    try
+      write_config_file config_file_location !current_config
+    with
+      | Sys_error s when Util.string_ends s "Permission denied" ->
+	run_message_dialog
+	  ("No permission to write the configuration file at "
+	   ^ config_file_location ^ "!")
+	  `WARNING
+      | e ->
+	let backtrace = Printexc.get_backtrace () in
+	let buf = Buffer.create 4095 in
+	let print_backtrace = ref !current_config.debug_mode in
+	(match e with 
+	  | e ->
+	    Buffer.add_string buf "Internal error: Escaping exception ";
+	    Buffer.add_string buf (Printexc.to_string e);
+	    Buffer.add_string buf " in write_config_file";
+	    (match e with
+	      | U.Unix_error(error, _func, _info) ->
+		Buffer.add_char buf '\n';
+		Buffer.add_string buf (U.error_message error);
+	      | _ -> ()
+	    )
+	);
+	if !print_backtrace then begin
+	  Buffer.add_char buf '\n';
+	  Buffer.add_string buf backtrace;
+	end;
+	prerr_endline (Buffer.contents buf);
+	run_message_dialog (Buffer.contents buf) `WARNING;
+	()
 
   (** Action for the Restore button: Restore the configuration in the
       the user specific configuration file {!config_file_location} as
@@ -938,8 +880,11 @@ object (self)
   method restore () = 
     try
       let c = read_config_file config_file_location in
+      delay_config_update <- true;
+      clean_tee_file_check_box <- false;
       self#set_configuration c;
-      update_configuration c
+      delay_config_update <- false;
+      self#config_changed ();
     with
       | Sys_error s when Util.string_ends s "No such file or directory" ->
 	run_message_dialog
@@ -988,7 +933,6 @@ object (self)
       
   (** Action of the OK button. *)
   method ok () =
-    self#apply ();
     self#destroy ()
 
 end
@@ -1046,8 +990,9 @@ let make_config_window () =
   let line_width_spinner = GEdit.spin_button
     ~digits:0 ~numeric:true 
     ~packing:(tree_frame_table#attach ~left:1 ~top:0) () in
-  adjustment_set_pos_int line_width_spinner#adjustment;
-  line_width_spinner#adjustment#set_value 
+  let line_width_adjustment = line_width_spinner#adjustment in
+  adjustment_set_pos_int line_width_adjustment;
+  line_width_adjustment#set_value 
     (float_of_int !current_config.turnstile_line_width);
   line_width_label#misc#set_tooltip_text line_width_tooltip;
   line_width_spinner#misc#set_tooltip_text line_width_tooltip;
@@ -1062,8 +1007,9 @@ let make_config_window () =
   let turnstile_size_spinner = GEdit.spin_button
     ~digits:0 ~numeric:true
     ~packing:(tree_frame_table#attach ~left:1 ~top:1) () in
-  adjustment_set_pos_int turnstile_size_spinner#adjustment;
-  turnstile_size_spinner#adjustment#set_value
+  let turnstile_size_adjustment = turnstile_size_spinner#adjustment in
+  adjustment_set_pos_int turnstile_size_adjustment;
+  turnstile_size_adjustment#set_value
     (float_of_int !current_config.turnstile_radius);
   turnstile_size_label#misc#set_tooltip_text turnstile_size_tooltip;
   turnstile_size_spinner#misc#set_tooltip_text turnstile_size_tooltip;
@@ -1077,8 +1023,9 @@ let make_config_window () =
   let line_sep_spinner = GEdit.spin_button
     ~digits:0 ~numeric:true
     ~packing:(tree_frame_table#attach ~left:1 ~top:2) () in
-  adjustment_set_pos_int ~lower:0.0 line_sep_spinner#adjustment;
-  line_sep_spinner#adjustment#set_value
+  let line_sep_adjustment = line_sep_spinner#adjustment in
+  adjustment_set_pos_int ~lower:0.0 line_sep_adjustment;
+  line_sep_adjustment#set_value
     (float_of_int !current_config.line_sep);
   line_sep_label#misc#set_tooltip_text line_sep_tooltip;
   line_sep_spinner#misc#set_tooltip_text line_sep_tooltip;
@@ -1092,8 +1039,9 @@ let make_config_window () =
   let proof_tree_sep_spinner = GEdit.spin_button
     ~digits:0 ~numeric:true
     ~packing:(tree_frame_table#attach ~left:1 ~top:3) () in
-  adjustment_set_pos_int ~lower:0.0 proof_tree_sep_spinner#adjustment;
-  proof_tree_sep_spinner#adjustment#set_value
+  let proof_tree_sep_adjustment = proof_tree_sep_spinner#adjustment in
+  adjustment_set_pos_int ~lower:0.0 proof_tree_sep_adjustment;
+  proof_tree_sep_adjustment#set_value
     (float_of_int !current_config.proof_tree_sep);
   proof_tree_sep_label#misc#set_tooltip_text proof_tree_sep_tooltip;
   proof_tree_sep_spinner#misc#set_tooltip_text proof_tree_sep_tooltip;
@@ -1107,8 +1055,9 @@ let make_config_window () =
   let subtree_sep_spinner = GEdit.spin_button
     ~digits:0 ~numeric:true
     ~packing:(tree_frame_table#attach ~left:4 ~top:0) () in
-  adjustment_set_pos_int ~lower:0.0 subtree_sep_spinner#adjustment;
-  subtree_sep_spinner#adjustment#set_value
+  let subtree_sep_adjustment = subtree_sep_spinner#adjustment in
+  adjustment_set_pos_int ~lower:0.0 subtree_sep_adjustment;
+  subtree_sep_adjustment#set_value
     (float_of_int !current_config.subtree_sep);
   subtree_sep_label#misc#set_tooltip_text subtree_sep_tooltip;
   subtree_sep_spinner#misc#set_tooltip_text subtree_sep_tooltip;
@@ -1122,8 +1071,9 @@ let make_config_window () =
   let command_length_spinner = GEdit.spin_button
     ~digits:0 ~numeric:true
     ~packing:(tree_frame_table#attach ~left:4 ~top:1) () in
-  adjustment_set_pos_int command_length_spinner#adjustment;
-  command_length_spinner#adjustment#set_value
+  let command_length_adjustment = command_length_spinner#adjustment in
+  adjustment_set_pos_int command_length_adjustment;
+  command_length_adjustment#set_value
     (float_of_int !current_config.proof_command_length);
   command_length_label#misc#set_tooltip_text command_length_tooltip;
   command_length_spinner#misc#set_tooltip_text command_length_tooltip;
@@ -1136,8 +1086,9 @@ let make_config_window () =
   let level_dist_spinner = GEdit.spin_button
     ~digits:0 ~numeric:true
     ~packing:(tree_frame_table#attach ~left:4 ~top:2) () in
-  adjustment_set_pos_int level_dist_spinner#adjustment;
-  level_dist_spinner#adjustment#set_value
+  let level_dist_adjustment = level_dist_spinner#adjustment in
+  adjustment_set_pos_int level_dist_adjustment;
+  level_dist_adjustment#set_value
     (float_of_int !current_config.level_distance);
   level_dist_label#misc#set_tooltip_text level_dist_tooltip;
   level_dist_spinner#misc#set_tooltip_text level_dist_tooltip;
@@ -1151,8 +1102,9 @@ let make_config_window () =
   let layer_sep_spinner = GEdit.spin_button
     ~digits:0 ~numeric:true
     ~packing:(tree_frame_table#attach ~left:4 ~top:3) () in
-  adjustment_set_pos_int layer_sep_spinner#adjustment;
-  layer_sep_spinner#adjustment#set_value
+  let layer_sep_adjustment = layer_sep_spinner#adjustment in
+  adjustment_set_pos_int layer_sep_adjustment;
+  layer_sep_adjustment#set_value
     (float_of_int !current_config.layer_sep);
   layer_sep_label#misc#set_tooltip_text layer_sep_tooltip;
   layer_sep_spinner#misc#set_tooltip_text layer_sep_tooltip;
@@ -1368,10 +1320,11 @@ let make_config_window () =
   let drag_accel_spinner = GEdit.spin_button
     ~digits:2 ~numeric:true
     ~packing:(misc_frame_table#attach ~left:1 ~top:misc_line) () in
-  drag_accel_spinner#adjustment#set_bounds
+  let drag_accel_adjustment = drag_accel_spinner#adjustment in
+  drag_accel_adjustment#set_bounds
     ~lower:(-99.0) ~upper:99.0
     ~step_incr:0.01 ~page_incr:1.0 ();
-  drag_accel_spinner#adjustment#set_value
+  drag_accel_adjustment#set_value
     !current_config.button_1_drag_acceleration;
   drag_accel_label#misc#set_tooltip_text drag_accel_tooltip;
   drag_accel_spinner#misc#set_tooltip_text drag_accel_tooltip;
@@ -1385,10 +1338,11 @@ let make_config_window () =
   let default_size_width_spinner = GEdit.spin_button
     ~digits:0 ~numeric:true
     ~packing:(misc_frame_table#attach ~left:1 ~top:misc_line) () in
-  default_size_width_spinner#adjustment#set_bounds
+  let default_size_width_adjustment = default_size_width_spinner#adjustment in
+  default_size_width_adjustment#set_bounds
     ~lower:(-9999.0) ~upper:9999.0
     ~step_incr:1.0 ~page_incr:100.0 ();
-  default_size_width_spinner#adjustment#set_value
+  default_size_width_adjustment#set_value
     (float_of_int !current_config.default_width_proof_tree_window);
   let _x_label = GMisc.label
     ~text:"\195\151" (* multiplication sign U+00D7 *)
@@ -1397,10 +1351,11 @@ let make_config_window () =
   let default_size_height_spinner = GEdit.spin_button
     ~digits:0 ~numeric:true
     ~packing:(misc_frame_table#attach ~left:3 ~top:misc_line) () in
-  default_size_height_spinner#adjustment#set_bounds
+  let default_size_height_adjustment = default_size_height_spinner#adjustment in
+  default_size_height_adjustment#set_bounds
     ~lower:(-9999.0) ~upper:9999.0
     ~step_incr:1.0 ~page_incr:100.0 ();
-  default_size_height_spinner#adjustment#set_value
+  default_size_height_adjustment#set_value
     (float_of_int !current_config.default_height_proof_tree_window);
   default_size_label#misc#set_tooltip_text default_size_tooltip;
   default_size_width_spinner#misc#set_tooltip_text default_size_tooltip;
@@ -1418,8 +1373,9 @@ let make_config_window () =
   let internal_seq_lines_spinner = GEdit.spin_button
     ~digits:0 ~numeric:true
     ~packing:(misc_frame_table#attach ~left:1 ~top:misc_line) () in
-  adjustment_set_pos_int ~lower:0.0 internal_seq_lines_spinner#adjustment;
-  internal_seq_lines_spinner#adjustment#set_value
+  let internal_seq_lines_adjustment = internal_seq_lines_spinner#adjustment in
+  adjustment_set_pos_int ~lower:0.0 internal_seq_lines_adjustment;
+  internal_seq_lines_adjustment#set_value
     (float_of_int !current_config.internal_sequent_window_lines);
   internal_seq_lines_label#misc#set_tooltip_text internal_seq_lines_tooltip;
   internal_seq_lines_spinner#misc#set_tooltip_text internal_seq_lines_tooltip;
@@ -1434,8 +1390,9 @@ let make_config_window () =
   let external_node_lines_spinner = GEdit.spin_button
     ~digits:0 ~numeric:true
     ~packing:(misc_frame_table#attach ~left:1 ~top:misc_line) () in
-  adjustment_set_pos_int external_node_lines_spinner#adjustment;
-  external_node_lines_spinner#adjustment#set_value
+  let external_node_lines_adjustment = external_node_lines_spinner#adjustment in
+  adjustment_set_pos_int external_node_lines_adjustment;
+  external_node_lines_adjustment#set_value
     (float_of_int !current_config.node_window_max_lines);
   external_node_lines_label#misc#set_tooltip_text external_node_lines_tooltip;
   external_node_lines_spinner#misc#set_tooltip_text external_node_lines_tooltip;
@@ -1450,8 +1407,9 @@ let make_config_window () =
   let ext_table_lines_spinner = GEdit.spin_button
     ~digits:0 ~numeric:true
     ~packing:(misc_frame_table#attach ~left:1 ~top:misc_line) () in
-  adjustment_set_pos_int ext_table_lines_spinner#adjustment;
-  ext_table_lines_spinner#adjustment#set_value
+  let ext_table_lines_adjustment = ext_table_lines_spinner#adjustment in
+  adjustment_set_pos_int ext_table_lines_adjustment;
+  ext_table_lines_adjustment#set_value
     (float_of_int !current_config.ext_table_lines);
   ext_table_lines_label#misc#set_tooltip_text ext_table_lines_tooltip;
   ext_table_lines_spinner#misc#set_tooltip_text ext_table_lines_tooltip;
@@ -1510,7 +1468,7 @@ let make_config_window () =
   tee_file_box_alignment#misc#set_tooltip_text tee_file_box_tooltip;
 
   (* tee file filename *)
-  let tee_file_name_label = GMisc.label
+  let _tee_file_name_label = GMisc.label
     ~text:"Log file" ~xalign:0.0 ~xpad:5
     ~packing:(debug_frame_table#attach ~left:0 ~top:2) () in
   let tee_file_name_entry = GEdit.entry
@@ -1520,9 +1478,14 @@ let make_config_window () =
   let _button_separator = GMisc.label ~text:"" ~xpad:5
     ~packing:(debug_frame_table#attach ~left:2 ~top:2) () in
   let tee_file_name_button = GButton.button
-    ~label:"Log-file selection dialog"
+    ~label:"Change log file"
     ~packing:(debug_frame_table#attach ~left:3 ~top:2) () in
-
+  (* XXX try again when lablgtk has the file-set signal for 
+   * file chooser_button's. Tried last with lablgtk 2.16 for GTK 2.12.
+   * 
+   * let file_chooser_button = GFile.chooser_button ~action:`SAVE
+   *   ~title:"title" ~packing:(debug_frame_table#attach ~left:3 ~top:3) () in
+   *)
 
   (****************************************************************************
    *
@@ -1537,8 +1500,6 @@ let make_config_window () =
     ~spacing:5 (* ~border_width:5 *) ~packing:top_v_box#pack () in
   let reset_button = GButton.button 	(* XXX find stock item *)
     ~label:"Set defaults" ~packing:button_box#pack () in
-  let apply_button = GButton.button
-    ~stock:`APPLY ~packing:button_box#pack () in
   let cancel_button = GButton.button
     ~stock:`CANCEL ~packing:button_box#pack () in
   let ok_button = GButton.button
@@ -1549,14 +1510,14 @@ let make_config_window () =
     ~stock:`SAVE ~packing:(button_box#pack ~from:`END) () in
   let config_window = 
     new config_window top_window 
-      line_width_spinner
-      turnstile_size_spinner
-      line_sep_spinner
-      proof_tree_sep_spinner
-      subtree_sep_spinner
-      command_length_spinner
-      level_dist_spinner
-      layer_sep_spinner
+      line_width_adjustment
+      turnstile_size_adjustment
+      line_sep_adjustment
+      proof_tree_sep_adjustment
+      subtree_sep_adjustment
+      command_length_adjustment
+      level_dist_adjustment
+      layer_sep_adjustment
       tree_font_button
       sequent_font_button
       current_color_button
@@ -1567,17 +1528,17 @@ let make_config_window () =
       (* mark_subtree_color_button *)
       ext_create_color_button
       ext_inst_color_button
-      drag_accel_spinner
+      drag_accel_adjustment
       doc_tooltip_check_box
       turnstile_tooltip_check_box
       command_tooltip_check_box
-      default_size_width_spinner default_size_height_spinner
-      internal_seq_lines_spinner
-      external_node_lines_spinner
-      ext_table_lines_spinner
+      default_size_width_adjustment default_size_height_adjustment
+      internal_seq_lines_adjustment
+      external_node_lines_adjustment
+      ext_table_lines_adjustment
       debug_check_box
       tee_file_box_check_box 
-      tee_file_name_label tee_file_name_entry tee_file_name_button
+      tee_file_name_entry
       [ line_width_label#misc; line_width_spinner#misc;
 	turnstile_size_label#misc; turnstile_size_spinner#misc;
 	line_sep_label#misc; line_sep_spinner#misc;
@@ -1612,17 +1573,36 @@ let make_config_window () =
   in
 
   top_window#set_title "Prooftree Configuration";
-  config_window#toggle_tooltips ();
-  config_window#tee_file_toggle();
-  ignore(doc_tooltip_check_box#connect#toggled
-	   ~callback:config_window#toggle_tooltips);
-  ignore(tee_file_box_check_box#connect#toggled 
-	   ~callback:config_window#tee_file_toggle);
+  config_window#toggle_tooltips !current_config.display_doc_tooltips;
+  List.iter (fun adj -> ignore(adj#connect#value_changed
+				 ~callback:config_window#config_changed))
+    [line_width_adjustment; turnstile_size_adjustment; line_sep_adjustment; 
+     proof_tree_sep_adjustment; subtree_sep_adjustment; 
+     command_length_adjustment; level_dist_adjustment; layer_sep_adjustment;
+     drag_accel_adjustment; default_size_width_adjustment; 
+     default_size_height_adjustment; internal_seq_lines_adjustment;
+     external_node_lines_adjustment; ext_table_lines_adjustment;
+    ];
+  List.iter (fun fb -> ignore (fb#connect#font_set
+				 ~callback:config_window#config_changed))
+    [tree_font_button; sequent_font_button];
+  List.iter (fun cb -> ignore (cb#connect#color_set
+				 ~callback:config_window#config_changed))
+    [current_color_button; cheated_color_button; proved_complete_color_button;
+     proved_incomplete_color_button; proved_partial_color_button;
+     ext_create_color_button; ext_inst_color_button
+    ];
+  List.iter (fun cb -> ignore (cb#connect#toggled
+  				 ~callback:config_window#config_changed))
+    [doc_tooltip_check_box; turnstile_tooltip_check_box; 
+     command_tooltip_check_box; debug_check_box; tee_file_box_check_box
+    ];
+  ignore(tee_file_name_entry#connect#notify_text 
+	   ~callback:config_window#log_file_entry_changed);
   ignore(tee_file_name_button#connect#clicked 
 	   ~callback:config_window#tee_file_button_click);
   ignore(top_window#connect#destroy ~callback:config_window#destroy);
   ignore(reset_button#connect#clicked ~callback:config_window#reset_to_default);
-  ignore(apply_button#connect#clicked ~callback:config_window#apply);
   ignore(cancel_button#connect#clicked ~callback:config_window#destroy);
   ignore(ok_button#connect#clicked ~callback:config_window#ok);
   ignore(save_button#connect#clicked ~callback:config_window#save);
