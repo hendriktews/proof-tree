@@ -251,12 +251,7 @@ subtree, to Proof General, which inserts them at point.
 .\"
 .SH CONFIGURATION
 .SS Prooftree Configuration Dialog
-Changes in the configuration dialog take only effect when
-the 
-.I Apply
-or
-.I OK 
-button is pressed. The 
+The 
 .I Save 
 button stores the current configuration (as marshaled 
 .B OCaml
@@ -268,6 +263,9 @@ following
 runs. The 
 .I Restore
 button loads and applies the saved configuration.
+To avoid opening partial file names, the
+.I Log Proof General input
+check box is deactivated when typing the log file name.
 .\" ==========================================================================
 .SS Proof General Customization
 The location of the 

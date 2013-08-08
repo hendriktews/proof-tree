@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: help_window.ml,v 1.21 2013/08/04 22:21:32 tews Exp $
+ * $Id: help_window.ml,v 1.22 2013/08/08 21:39:37 tews Exp $
  *)
 
 
@@ -214,12 +214,8 @@ The item ");
 \n\
 The ");
    (Italic, "Configuration");
-   (Default, " item displays the configuration dialog. Changing values \
-there does only take effect after the ");
-   (Italic, "Apply");
-   (Default, " or ");
-   (Italic, "OK");
-   (Default, " button has been pressed. The ");
+   (Default, " item displays the configuration dialog. Changes in this dialog \
+immediately take effect. The ");
    (Italic, "Save");
    (Default, " button stores the current configuration values \
               in the file ");
