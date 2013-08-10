@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: help_window.ml,v 1.22 2013/08/08 21:39:37 tews Exp $
+ * $Id: help_window.ml,v 1.23 2013/08/10 21:49:08 tews Exp $
  *)
 
 
@@ -215,13 +215,16 @@ The item ");
 The ");
    (Italic, "Configuration");
    (Default, " item displays the configuration dialog. Changes in this dialog \
-immediately take effect. The ");
+immediately take effect. In this dialog, the ");
    (Italic, "Save");
    (Default, " button stores the current configuration values \
               in the file ");
    (Italic, config_file_location);
    (Default, ", which overwrites the build-in default configuration \
-at start up.\n\
+at start up. The ");
+   (Italic, "Cancel");
+   (Default, " button closes the dialog and resets the configuration to \
+the state before starting the configuration dialog.\n\
 \n\
 The ");
    (Italic, "Exit");

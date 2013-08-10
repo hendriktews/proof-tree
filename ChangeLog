@@ -1,5 +1,9 @@
 2013-08-10  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
+	* let the cancel button reset the configuration
+
+2013-08-10  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
 	* display a warning for config file version errors
 
 2013-08-10  Hendrik Tews  <tews@os.inf.tu-dresden.de>

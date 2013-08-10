@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.44 2013/08/10 21:17:15 tews Exp $
+ * $Id: configuration.ml,v 1.45 2013/08/10 21:49:08 tews Exp $
  *)
 
 
@@ -536,6 +536,7 @@ let config_window = ref None
     set up by the function that creates objects. 
 
     Arguments are
+    - old_config                current config at config window start time
     - top_window		{xref lablgtk class GWindow.window} 
                                 of the top-level widget
     - line_width_adjustment 	{xref lablgtk class GData.adjustment} 
@@ -600,7 +601,8 @@ let config_window = ref None
                                 of config dialog elements that have a tool-tip
                                 to switch on and off
 *)
-class config_window 
+class config_window
+  old_config
   top_window
   line_width_adjustment
   turnstile_size_adjustment
@@ -704,13 +706,7 @@ object (self)
       configuration. 
   *)
   method reset_to_default () =
-    delay_config_update <- true;
-    clean_tee_file_check_box <- false;
-    (* print_endline "delay config"; *)
-    self#set_configuration default_configuration;
-    delay_config_update <- false;
-    (* print_endline "explicit config"; *)
-    self#config_changed ()
+    self#change_config_and_config_window default_configuration
 
   (** Switch the help/documentation tool-tips on or off, according to
       the argument [flag].
@@ -849,6 +845,18 @@ object (self)
       Printf.printf "apply config %f ms\n%!" ((app_end -. app_start) *. 1000.)
     end
 
+  (** Update the current configuration record and all displayed values
+      in the config window. This method makes sure that the body of
+      the callback {config_changed} is only executed ones and that the
+      input logging flag is not reset.
+  *)
+  method private change_config_and_config_window c =
+    delay_config_update <- true;
+    clean_tee_file_check_box <- false;
+    self#set_configuration c;
+    delay_config_update <- false;
+    self#config_changed ()
+
   (** Callback for the case that the log file entry has changed. To
       avoid lots of file openings, the tee file check box is disabled.
   *)
@@ -911,11 +919,7 @@ object (self)
   method restore () = 
     try
       let c = read_config_file config_file_location in
-      delay_config_update <- true;
-      clean_tee_file_check_box <- false;
-      self#set_configuration c;
-      delay_config_update <- false;
-      self#config_changed ();
+      self#change_config_and_config_window c
     with
       | Sys_error s when Util.string_ends s "No such file or directory" ->
 	run_message_dialog
@@ -962,6 +966,11 @@ object (self)
     top_window#destroy();
     if !start_config_dialog then exit 0
       
+  (** Action for the Cancel button: Reset config to start time. *)
+  method cancel () =
+    self#change_config_and_config_window old_config;
+    self#destroy ()
+
   (** Action of the OK button. *)
   method ok () =
     self#destroy ()
@@ -981,6 +990,7 @@ let adjustment_set_pos_int ?(lower = 1.0) (adjustment : GData.adjustment) =
     initializes the management object and registers all callbacks.
 *)
 let make_config_window () =
+  let current_config = !current_config in
   let top_window = GWindow.window () in
   let top_v_box = GPack.vbox ~packing:top_window#add () in
   let _config_title = GMisc.label
@@ -1024,7 +1034,7 @@ let make_config_window () =
   let line_width_adjustment = line_width_spinner#adjustment in
   adjustment_set_pos_int line_width_adjustment;
   line_width_adjustment#set_value 
-    (float_of_int !current_config.turnstile_line_width);
+    (float_of_int current_config.turnstile_line_width);
   line_width_label#misc#set_tooltip_text line_width_tooltip;
   line_width_spinner#misc#set_tooltip_text line_width_tooltip;
 
@@ -1041,7 +1051,7 @@ let make_config_window () =
   let turnstile_size_adjustment = turnstile_size_spinner#adjustment in
   adjustment_set_pos_int turnstile_size_adjustment;
   turnstile_size_adjustment#set_value
-    (float_of_int !current_config.turnstile_radius);
+    (float_of_int current_config.turnstile_radius);
   turnstile_size_label#misc#set_tooltip_text turnstile_size_tooltip;
   turnstile_size_spinner#misc#set_tooltip_text turnstile_size_tooltip;
 
@@ -1057,7 +1067,7 @@ let make_config_window () =
   let line_sep_adjustment = line_sep_spinner#adjustment in
   adjustment_set_pos_int ~lower:0.0 line_sep_adjustment;
   line_sep_adjustment#set_value
-    (float_of_int !current_config.line_sep);
+    (float_of_int current_config.line_sep);
   line_sep_label#misc#set_tooltip_text line_sep_tooltip;
   line_sep_spinner#misc#set_tooltip_text line_sep_tooltip;
 
@@ -1073,7 +1083,7 @@ let make_config_window () =
   let proof_tree_sep_adjustment = proof_tree_sep_spinner#adjustment in
   adjustment_set_pos_int ~lower:0.0 proof_tree_sep_adjustment;
   proof_tree_sep_adjustment#set_value
-    (float_of_int !current_config.proof_tree_sep);
+    (float_of_int current_config.proof_tree_sep);
   proof_tree_sep_label#misc#set_tooltip_text proof_tree_sep_tooltip;
   proof_tree_sep_spinner#misc#set_tooltip_text proof_tree_sep_tooltip;
 
@@ -1089,7 +1099,7 @@ let make_config_window () =
   let subtree_sep_adjustment = subtree_sep_spinner#adjustment in
   adjustment_set_pos_int ~lower:0.0 subtree_sep_adjustment;
   subtree_sep_adjustment#set_value
-    (float_of_int !current_config.subtree_sep);
+    (float_of_int current_config.subtree_sep);
   subtree_sep_label#misc#set_tooltip_text subtree_sep_tooltip;
   subtree_sep_spinner#misc#set_tooltip_text subtree_sep_tooltip;
 
@@ -1105,7 +1115,7 @@ let make_config_window () =
   let command_length_adjustment = command_length_spinner#adjustment in
   adjustment_set_pos_int command_length_adjustment;
   command_length_adjustment#set_value
-    (float_of_int !current_config.proof_command_length);
+    (float_of_int current_config.proof_command_length);
   command_length_label#misc#set_tooltip_text command_length_tooltip;
   command_length_spinner#misc#set_tooltip_text command_length_tooltip;
 
@@ -1120,7 +1130,7 @@ let make_config_window () =
   let level_dist_adjustment = level_dist_spinner#adjustment in
   adjustment_set_pos_int level_dist_adjustment;
   level_dist_adjustment#set_value
-    (float_of_int !current_config.level_distance);
+    (float_of_int current_config.level_distance);
   level_dist_label#misc#set_tooltip_text level_dist_tooltip;
   level_dist_spinner#misc#set_tooltip_text level_dist_tooltip;
 
@@ -1136,7 +1146,7 @@ let make_config_window () =
   let layer_sep_adjustment = layer_sep_spinner#adjustment in
   adjustment_set_pos_int layer_sep_adjustment;
   layer_sep_adjustment#set_value
-    (float_of_int !current_config.layer_sep);
+    (float_of_int current_config.layer_sep);
   layer_sep_label#misc#set_tooltip_text layer_sep_tooltip;
   layer_sep_spinner#misc#set_tooltip_text layer_sep_tooltip;
 
@@ -1159,7 +1169,7 @@ let make_config_window () =
     ~packing:(font_frame_table#attach ~left:0 ~top:0) () in
   let tree_font_button = GButton.font_button
     ~title:"Proof Tree Font"
-    ~font_name:!current_config.proof_tree_font
+    ~font_name:current_config.proof_tree_font
     ~packing:(font_frame_table#attach ~left:1 ~top:0) () in
   tree_font_button#set_use_size true;
   tree_font_button#set_use_font true;
@@ -1173,7 +1183,7 @@ let make_config_window () =
     ~packing:(font_frame_table#attach ~left:0 ~top:1) () in
   let sequent_font_button = GButton.font_button
     ~title:"Sequent Window Font"
-    ~font_name:!current_config.sequent_font
+    ~font_name:current_config.sequent_font
     ~packing:(font_frame_table#attach ~left:1 ~top:1) () in
   sequent_font_button#set_use_size true;
   sequent_font_button#set_use_font true;
@@ -1311,7 +1321,7 @@ let make_config_window () =
     ~packing:(misc_frame_table#attach ~left:0 ~right:2 ~top:misc_line) () in
   let doc_tooltip_check_box = GButton.check_button
     ~label:"Display help tool tips"
-    ~active:!current_config.display_doc_tooltips
+    ~active:current_config.display_doc_tooltips
     ~packing:doc_tooltip_alignment#add () in
   doc_tooltip_alignment#misc#set_tooltip_text doc_tooltip_tooltip;
 
@@ -1324,7 +1334,7 @@ let make_config_window () =
     ~packing:(misc_frame_table#attach ~left:0 ~right:2 ~top:misc_line) () in
   let turnstile_tooltip_check_box = GButton.check_button
     ~label:"Display turnstile tool tips"
-    ~active:!current_config.display_turnstile_tooltips
+    ~active:current_config.display_turnstile_tooltips
     ~packing:turnstile_tooltip_alignment#add () in
   turnstile_tooltip_alignment#misc#set_tooltip_text turnstile_tooltip_tooltip;
 
@@ -1337,7 +1347,7 @@ let make_config_window () =
     ~packing:(misc_frame_table#attach ~left:0 ~right:2 ~top:misc_line) () in
   let command_tooltip_check_box = GButton.check_button
     ~label:"Display command tool tips"
-    ~active:!current_config.display_command_tooltips
+    ~active:current_config.display_command_tooltips
     ~packing:command_tooltip_alignment#add () in
   command_tooltip_alignment#misc#set_tooltip_text command_tooltip_tooltip;
 
@@ -1356,7 +1366,7 @@ let make_config_window () =
     ~lower:(-99.0) ~upper:99.0
     ~step_incr:0.01 ~page_incr:1.0 ();
   drag_accel_adjustment#set_value
-    !current_config.button_1_drag_acceleration;
+    current_config.button_1_drag_acceleration;
   drag_accel_label#misc#set_tooltip_text drag_accel_tooltip;
   drag_accel_spinner#misc#set_tooltip_text drag_accel_tooltip;
 
@@ -1374,7 +1384,7 @@ let make_config_window () =
     ~lower:(-9999.0) ~upper:9999.0
     ~step_incr:1.0 ~page_incr:100.0 ();
   default_size_width_adjustment#set_value
-    (float_of_int !current_config.default_width_proof_tree_window);
+    (float_of_int current_config.default_width_proof_tree_window);
   let _x_label = GMisc.label
     ~text:"\195\151" (* multiplication sign U+00D7 *)
     ~xpad:5
@@ -1387,7 +1397,7 @@ let make_config_window () =
     ~lower:(-9999.0) ~upper:9999.0
     ~step_incr:1.0 ~page_incr:100.0 ();
   default_size_height_adjustment#set_value
-    (float_of_int !current_config.default_height_proof_tree_window);
+    (float_of_int current_config.default_height_proof_tree_window);
   default_size_label#misc#set_tooltip_text default_size_tooltip;
   default_size_width_spinner#misc#set_tooltip_text default_size_tooltip;
   default_size_height_spinner#misc#set_tooltip_text default_size_tooltip;
@@ -1407,7 +1417,7 @@ let make_config_window () =
   let internal_seq_lines_adjustment = internal_seq_lines_spinner#adjustment in
   adjustment_set_pos_int ~lower:0.0 internal_seq_lines_adjustment;
   internal_seq_lines_adjustment#set_value
-    (float_of_int !current_config.internal_sequent_window_lines);
+    (float_of_int current_config.internal_sequent_window_lines);
   internal_seq_lines_label#misc#set_tooltip_text internal_seq_lines_tooltip;
   internal_seq_lines_spinner#misc#set_tooltip_text internal_seq_lines_tooltip;
 
@@ -1424,7 +1434,7 @@ let make_config_window () =
   let external_node_lines_adjustment = external_node_lines_spinner#adjustment in
   adjustment_set_pos_int external_node_lines_adjustment;
   external_node_lines_adjustment#set_value
-    (float_of_int !current_config.node_window_max_lines);
+    (float_of_int current_config.node_window_max_lines);
   external_node_lines_label#misc#set_tooltip_text external_node_lines_tooltip;
   external_node_lines_spinner#misc#set_tooltip_text external_node_lines_tooltip;
 
@@ -1441,7 +1451,7 @@ let make_config_window () =
   let ext_table_lines_adjustment = ext_table_lines_spinner#adjustment in
   adjustment_set_pos_int ext_table_lines_adjustment;
   ext_table_lines_adjustment#set_value
-    (float_of_int !current_config.ext_table_lines);
+    (float_of_int current_config.ext_table_lines);
   ext_table_lines_label#misc#set_tooltip_text ext_table_lines_tooltip;
   ext_table_lines_spinner#misc#set_tooltip_text ext_table_lines_tooltip;
 
@@ -1483,7 +1493,7 @@ let make_config_window () =
     ~packing:(debug_frame_table#attach ~left:0 ~right:4 ~top:0) () in
   let debug_check_box = GButton.check_button
     ~label:"More debug information"
-    ~active:!current_config.debug_mode
+    ~active:current_config.debug_mode
     ~packing:debug_alignment#add () in
   debug_alignment#misc#set_tooltip_text debug_tooltip;
 
@@ -1494,7 +1504,7 @@ let make_config_window () =
     ~packing:(debug_frame_table#attach ~left:0 ~right:4 ~top:1) () in
   let tee_file_box_check_box = GButton.check_button
     ~label:"Log Proof General input"
-    ~active:!current_config.copy_input
+    ~active:current_config.copy_input
     ~packing:tee_file_box_alignment#add () in
   tee_file_box_alignment#misc#set_tooltip_text tee_file_box_tooltip;
 
@@ -1503,7 +1513,7 @@ let make_config_window () =
     ~text:"Log file" ~xalign:0.0 ~xpad:5
     ~packing:(debug_frame_table#attach ~left:0 ~top:2) () in
   let tee_file_name_entry = GEdit.entry
-    ~text:!current_config.copy_input_file
+    ~text:current_config.copy_input_file
     (* ~max_length:25 *)
     ~packing:(debug_frame_table#attach ~left:1 ~top:2) () in
   let _button_separator = GMisc.label ~text:"" ~xpad:5
@@ -1540,7 +1550,9 @@ let make_config_window () =
   let save_button = GButton.button
     ~stock:`SAVE ~packing:(button_box#pack ~from:`END) () in
   let config_window = 
-    new config_window top_window 
+    new config_window 
+      current_config
+      top_window 
       line_width_adjustment
       turnstile_size_adjustment
       line_sep_adjustment
@@ -1604,7 +1616,7 @@ let make_config_window () =
   in
 
   top_window#set_title "Prooftree Configuration";
-  config_window#toggle_tooltips !current_config.display_doc_tooltips;
+  config_window#toggle_tooltips current_config.display_doc_tooltips;
   List.iter (fun adj -> ignore(adj#connect#value_changed
 				 ~callback:config_window#config_changed))
     [line_width_adjustment; turnstile_size_adjustment; line_sep_adjustment; 
@@ -1634,7 +1646,7 @@ let make_config_window () =
 	   ~callback:config_window#tee_file_button_click);
   ignore(top_window#connect#destroy ~callback:config_window#destroy);
   ignore(reset_button#connect#clicked ~callback:config_window#reset_to_default);
-  ignore(cancel_button#connect#clicked ~callback:config_window#destroy);
+  ignore(cancel_button#connect#clicked ~callback:config_window#cancel);
   ignore(ok_button#connect#clicked ~callback:config_window#ok);
   ignore(save_button#connect#clicked ~callback:config_window#save);
   ignore(restore_button#connect#clicked ~callback:config_window#restore);
