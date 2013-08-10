@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.43 2013/08/10 20:59:38 tews Exp $
+ * $Id: configuration.ml,v 1.44 2013/08/10 21:17:15 tews Exp $
  *)
 
 
@@ -490,14 +490,29 @@ let read_config_file file_name : t =
 
 (** Try to load the configuration file at {!config_file_location},
     ignoring all errors. If a valid configuration file is found, the
-    current configuration record is updated. Used during start-up.
+    current configuration record is updated. If an incompatible
+    version is found, a warning message is displayed. Used during
+    start-up.
 *)
 let try_load_config_file () =
   let copt =
     try
-      Some(read_config_file config_file_location)
+      print_endline "before read";
+      let res = Some(read_config_file config_file_location) in
+      print_endline "after read";
+      res
     with
-      | _ -> None
+      | Failure "Incompatible configuration file version" ->
+	print_endline "version error";
+	run_message_dialog
+	  ("File " ^ config_file_location ^ 
+	      " is not compatible with this version of Prooftree!\n\
+               Using default configuration.")
+	  `WARNING;
+	None
+      | _ -> 
+	print_endline "other error";
+	None
   in
   match copt with
     | None -> ()
