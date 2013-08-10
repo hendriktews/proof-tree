@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: main.ml,v 1.20 2013/08/02 21:45:37 tews Exp $
+ * $Id: main.ml,v 1.21 2013/08/10 20:59:38 tews Exp $
  *)
 
 
@@ -38,6 +38,8 @@
 (**/**)
 module U = Unix
 (**/**)
+open Util
+open Gtk_ext
 open Configuration
 open Help_window
 open Input
@@ -95,7 +97,19 @@ let anon_fun s =
 let main () =
   try_load_config_file ();
   Arg.parse arguments anon_fun "prooftree";
-  setup_input();
+  (try
+     setup_input();
+   with
+     | Log_input_file_error msg ->
+       run_message_dialog
+	 (Printf.sprintf 
+	    "Prooftree startup error: Opening the input logging file \
+             failed with:\n    %s\nDisabeling input logging."
+	    msg)
+	 `WARNING;
+       update_configuration_record {!current_config with copy_input = false};
+       setup_input()
+  );
   Printf.printf 
     ("Prooftree version %s awaiting input on stdin.\n" ^^
 	"Entering LablGTK main loop ...\n\n%!")

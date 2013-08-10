@@ -1,6 +1,10 @@
+2013-08-10  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* catch input log file opening errors
+
 2013-08-08  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
-	* close old PG log file, when changing it
+	* close old PG log file, before changing it
 
 2013-08-08  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 

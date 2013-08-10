@@ -19,11 +19,19 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: util.ml,v 1.24 2013/08/04 19:51:30 tews Exp $
+ * $Id: util.ml,v 1.25 2013/08/10 20:59:38 tews Exp $
  *)
 
 
 (** Misc utility functions *)
+
+
+(****************************************************************************)
+(** {2 Exceptions} *)
+(****************************************************************************)
+
+(** Exception to be raised when input logging file cannot be opend. *)
+exception Log_input_file_error of string
 
 
 (****************************************************************************)

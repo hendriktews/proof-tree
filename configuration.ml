@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: configuration.ml,v 1.42 2013/08/08 21:23:52 tews Exp $
+ * $Id: configuration.ml,v 1.43 2013/08/10 20:59:38 tews Exp $
  *)
 
 
@@ -417,14 +417,18 @@ let update_font_and_color () =
 let configuration_updated_callback = ref (fun () -> ())
 
 
+(** Update the configuration and all directly derived state variables. *)
+let update_configuration_record c =
+  current_config := c;
+  update_font_and_color ()
+
 (** [update_configuration c] does all the necessary actions to make
     [c] the current configuration. It stores [c] in {!current_config},
     updates the references for fonts and colors and calls all
     [configuration_updated] functions/methods.
 *)
 let update_configuration c =
-  current_config := c;
-  update_font_and_color ();
+  update_configuration_record c;
   !configuration_updated_callback ()
 
 
@@ -486,7 +490,7 @@ let read_config_file file_name : t =
 
 (** Try to load the configuration file at {!config_file_location},
     ignoring all errors. If a valid configuration file is found, the
-    current configuration is updated. Used during start-up.
+    current configuration record is updated. Used during start-up.
 *)
 let try_load_config_file () =
   let copt =
@@ -497,7 +501,7 @@ let try_load_config_file () =
   in
   match copt with
     | None -> ()
-    | Some c -> update_configuration c
+    | Some c -> update_configuration_record c
 
 
 (*****************************************************************************
@@ -717,18 +721,19 @@ object (self)
     file_chooser#add_button_stock `CANCEL `CANCEL;
     ignore(file_chooser#set_current_folder 
 	     (Filename.dirname tee_file_name_entry#text));
-    (match file_chooser#run() with
-      | `SELECT -> 
-	(match file_chooser#filename with
-	  | None -> ()
-	  | Some file -> 
-	    clean_tee_file_check_box <- false;
-	    tee_file_name_entry#set_text file
-	)
-      | `CANCEL
-      | `DELETE_EVENT -> ()
-    );
+    let chooser_file = 
+      match file_chooser#run() with
+	| `SELECT -> file_chooser#filename
+	| `CANCEL
+	| `DELETE_EVENT -> None
+    in
     file_chooser#destroy();
+    (match chooser_file with
+      | Some file -> 
+	clean_tee_file_check_box <- false;
+	tee_file_name_entry#set_text file
+      | None -> ()
+    );
     ()
 
   (** Create a new configuration record with the current values of the
@@ -813,7 +818,18 @@ object (self)
       let app_start = U.gettimeofday () in
       let c = self#extract_configuration in
       self#toggle_tooltips c.display_doc_tooltips;
-      update_configuration c;
+      (try
+	 update_configuration c;
+       with
+	 | Log_input_file_error msg ->
+	   run_message_dialog 
+	     (Printf.sprintf 
+		"Opening the input log file failed with\n    %s.\n\
+                 Disabeling input logging."
+		msg)
+	     `WARNING;
+	   tee_file_box_check_box#set_active false
+      );
       let app_end = U.gettimeofday () in
       Printf.printf "apply config %f ms\n%!" ((app_end -. app_start) *. 1000.)
     end

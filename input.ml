@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.40 2013/08/08 21:46:09 tews Exp $
+ * $Id: input.ml,v 1.41 2013/08/10 20:59:38 tews Exp $
  *)
 
 
@@ -363,7 +363,11 @@ let setup_input_backup_channel () =
     );
     if !current_config.copy_input
     then begin
-      input_backup_oc := Some(open_out !current_config.copy_input_file);
+      (try
+	 input_backup_oc := Some(open_out !current_config.copy_input_file);
+       with
+	 | Sys_error msg -> raise (Log_input_file_error msg)
+      );
       input_backup_filename := Some !current_config.copy_input_file;
     end else begin
       input_backup_oc := None;
@@ -1017,7 +1021,10 @@ let parse_input_callback_ex clist =
 let configuration_updated = setup_input_backup_channel
 
 (** Initialize this module and setup the GTK main loop callback for
-    [stdin]. Puts [stdin] into non-blocking mode.
+    [stdin]. Puts [stdin] into non-blocking mode. If
+    [setup_input_backup_channel] raises an [Sys_error] (because of an
+    invalid file name), this function is called a second time with
+    input logging disabled.
 *)
 let setup_input () =
   U.set_nonblock U.stdin;
