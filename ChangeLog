@@ -1,3 +1,7 @@
+2013-08-11  Hendrik Tews  <tews@os.inf.tu-dresden.de>
+
+	* rename delete_non_sticky_node_window
+
 2013-08-10  Hendrik Tews  <tews@os.inf.tu-dresden.de>
 
 	* let the cancel button reset the configuration

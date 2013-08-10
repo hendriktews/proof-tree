@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.64 2013/08/04 22:21:33 tews Exp $
+ * $Id: proof_window.ml,v 1.65 2013/08/10 22:31:13 tews Exp $
  *)
 
 
@@ -323,7 +323,7 @@ object (self)
     current_node_offset_cache <- None;
     selected_node <- None;
     self#refresh_sequent_area;
-    List.iter (fun w -> w#delete_non_sticky_node_window) node_windows;
+    List.iter (fun w -> w#delete_attached_node_window) node_windows;
     assert(node_windows = []);
     self#clear_existential_dialog_for_reuse
 
@@ -438,7 +438,7 @@ object (self)
   method delete_proof_window =
     if destroy_in_progress = false then begin
       destroy_in_progress <- true;
-      List.iter (fun w -> w#delete_non_sticky_node_window) node_windows;
+      List.iter (fun w -> w#delete_attached_node_window) node_windows;
       self#destroy_existential_dialog;
       let self = (self :> proof_window) in
       cloned_proof_windows :=

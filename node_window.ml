@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: node_window.ml,v 1.18 2013/08/04 22:21:32 tews Exp $
+ * $Id: node_window.ml,v 1.19 2013/08/10 22:31:13 tews Exp $
  *)
 
 
@@ -120,11 +120,11 @@ object (self)
     self#delete_node_window ();
     true
 
-  (** Delete this node window if it is not sticky. Needs to be called
+  (** Delete this node window if it is not detached. Needs to be called
       when the corresponding element in the proof-tree display is
       deleted.
   *)
-  method delete_non_sticky_node_window =
+  method delete_attached_node_window =
     if not detach_button#active 
     then self#delete_node_window ()
     else self#orphan_node_window
