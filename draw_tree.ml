@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: draw_tree.ml,v 1.52 2013/08/10 22:31:13 tews Exp $
+ * $Id: draw_tree.ml,v 1.53 2016/01/16 20:07:12 tews Exp $
  *)
 
 
@@ -1211,7 +1211,7 @@ object (self)
   *)
   method update_existentials_info =
     (match sequent_text_history with 
-      | [] -> assert false
+      | [] -> ()
       | _ :: history -> 
 	sequent_text_history <- self#displayed_text :: history
     );
