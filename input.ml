@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: input.ml,v 1.41 2013/08/10 20:59:38 tews Exp $
+ * $Id: input.ml,v 1.42 2016/01/17 16:55:49 tews Exp $
  *)
 
 
@@ -65,7 +65,7 @@
 
     In the following list 
     of commands, ``%d'' stands for a positive integer and %s for a string
-    which contains no white space. ``\{cheated|not-cheated\}'' denotes
+    which contains no white space. ``\{cheated | not-cheated\}'' denotes
     the alternative of either ``cheated'' or ``not-cheated''. An
     integer following the keyword state is a state number. An integer
     following some xxx-bytes denotes the number of bytes of the next
@@ -89,7 +89,7 @@
     the first message. 
     }
     {-  {v current-goals state %d current-sequent %s \
-    {cheated|not-cheated} {new-layer|current-layer} proof-name-bytes %d \
+    {cheated | not-cheated} {new-layer | current-layer} proof-name-bytes %d \
     command-bytes %d sequent-text-bytes %d additional-id-bytes %d \
     existential-bytes %d\n\
     <data-proof-name>\n\
@@ -172,7 +172,7 @@
     {- Full name of the proof}
     }
     }
-    {- {v branch-finished state %d {cheated|not-cheated} \
+    {- {v branch-finished state %d {cheated | not-cheated} \
     proof-name-bytes %d command-bytes %d existential-bytes %d\n\
     <data-proof-name>\n\
     <data-command>\n\
@@ -497,8 +497,8 @@ let parse_configure com_buf =
 
 (******************************************************************************
  ******************************************************************************
- * current-goals state %d current-sequent %s {cheated|not-cheated} \
- * {new-layer|current-layer}
+ * current-goals state %d current-sequent %s {cheated | not-cheated} \
+ * {new-layer | current-layer}
  * proof-name-bytes %d command-bytes %d sequent-text-bytes %d \
  * additional-id-bytes %d existential-bytes %d\n\
  * <data-proof-name>\n\
@@ -682,7 +682,7 @@ let parse_switch_goal com_buf =
 
 
 (******************************************************************************
- * branch-finished state %d {cheated|not-cheated} \
+ * branch-finished state %d {cheated | not-cheated} \
  * proof-name-bytes %d command-bytes %d existential-bytes %d\n\
  * <data-proof-name>\n\
  * <data-command>\n\

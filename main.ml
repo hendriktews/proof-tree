@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: main.ml,v 1.21 2013/08/10 20:59:38 tews Exp $
+ * $Id: main.ml,v 1.22 2016/01/17 16:55:49 tews Exp $
  *)
 
 
@@ -35,14 +35,15 @@
 (** Main --- Argument parsing and program start *)
 
 
-(**/**)
-module U = Unix
-(**/**)
 open Util
 open Gtk_ext
 open Configuration
 open Help_window
 open Input
+
+(**/**)
+module U = Unix
+(**/**)
 
 
 (** Master hook to be called when the configuration has been updated.
