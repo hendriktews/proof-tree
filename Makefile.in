@@ -19,7 +19,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
 ## 
-## $Id: Makefile.in,v 1.27 2013/08/01 21:56:45 tews Exp $
+## $Id: Makefile.in,v 1.28 2016/01/18 21:26:38 tews Exp $
 ## 
 ## Commentary: Makefile
 ## 
@@ -106,7 +106,7 @@ Makefile.deps : $(SOURCES)
 
 include Makefile.deps
 
-OCAMLFLAGS:=-w Aem -g -I $(LABLGTKDIR)
+OCAMLFLAGS:=-w Aem-48 -g -I $(LABLGTKDIR)
 
 %.cmx: %.ml
 	$(OCAMLC) -c $(OCAMLFLAGS) $<
