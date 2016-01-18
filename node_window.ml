@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: node_window.ml,v 1.19 2013/08/10 22:31:13 tews Exp $
+ * $Id: node_window.ml,v 1.20 2016/01/18 20:41:20 tews Exp $
  *)
 
 
@@ -132,7 +132,7 @@ object (self)
   (** Callback for key events. Deals only with 'Q' and 'q'. *)
   method key_pressed_callback ev =
     match GdkEvent.Key.keyval ev with 
-      | ks when (ks = GdkKeysyms._Q or ks = GdkKeysyms._q)  -> 
+      | ks when (ks = GdkKeysyms._Q || ks = GdkKeysyms._q)  -> 
 	self#delete_node_window_event ev
 
       | _ -> false

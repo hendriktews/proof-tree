@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: proof_window.ml,v 1.65 2013/08/10 22:31:13 tews Exp $
+ * $Id: proof_window.ml,v 1.66 2016/01/18 20:41:20 tews Exp $
  *)
 
 
@@ -467,11 +467,11 @@ object (self)
   method key_pressed_callback ev =
     match GdkEvent.Key.keyval ev with 
       | ks when 
-	  (ks = GdkKeysyms._Q or ks = GdkKeysyms._q) 
+	  (ks = GdkKeysyms._Q || ks = GdkKeysyms._q) 
 	  && (List.mem `CONTROL (GdkEvent.Key.state ev))
 	  -> 
 	exit 0
-      | ks when (ks = GdkKeysyms._Q or ks = GdkKeysyms._q)  -> 
+      | ks when (ks = GdkKeysyms._Q || ks = GdkKeysyms._q)  -> 
 	self#user_delete_proof_window (); true
       | ks when ks = GdkKeysyms._Left -> 
 	scroll_adjustment drawing_h_adjustment (-1); true
@@ -482,7 +482,7 @@ object (self)
       | ks when ks = GdkKeysyms._Down -> 
 	scroll_adjustment drawing_v_adjustment 1; true
 
-      | ks when (ks = GdkKeysyms._E or ks = GdkKeysyms._e)  -> 
+      | ks when (ks = GdkKeysyms._E || ks = GdkKeysyms._e)  -> 
       	self#show_existential_window (); true
 
       (* 

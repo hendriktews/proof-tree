@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: ext_dialog.ml,v 1.16 2013/08/04 22:21:32 tews Exp $
+ * $Id: ext_dialog.ml,v 1.17 2016/01/18 20:41:20 tews Exp $
  *)
 
 (** The Existential Variable Dialog *)
@@ -436,11 +436,11 @@ object (self)
   method key_pressed_callback ev =
     match GdkEvent.Key.keyval ev with 
       | ks when 
-	  (ks = GdkKeysyms._Q or ks = GdkKeysyms._q) 
+	  (ks = GdkKeysyms._Q || ks = GdkKeysyms._q) 
 	  && (List.mem `CONTROL (GdkEvent.Key.state ev))
 	  -> 
 	exit 0
-      | ks when (ks = GdkKeysyms._Q or ks = GdkKeysyms._q)  -> 
+      | ks when (ks = GdkKeysyms._Q || ks = GdkKeysyms._q)  -> 
 	self#destroy (); true
       | ks when ks = GdkKeysyms._Up -> 
 	scroll_adjustment table_v_adjustment (-1); true
