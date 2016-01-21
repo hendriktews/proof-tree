@@ -1,3 +1,7 @@
+2016-01-21  Hendrik Tews  <Hendrik.Tews@FireEye.com>
+
+	* update evar parsing for 8.5
+
 2016-01-18  Hendrik Tews  <Hendrik.Tews@FireEye.com>
 
 	* disable implicit optional argument elimination warning 48

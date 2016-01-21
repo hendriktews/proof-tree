@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  * 
- * $Id: coq.ml,v 1.3 2013/03/28 08:02:00 tews Exp $
+ * $Id: coq.ml,v 1.4 2016/01/21 16:30:51 tews Exp $
  *)
 
 
@@ -42,7 +42,7 @@ open Gtk_ext
 
 (** This function parses one evar uid without the question mark. *)
 let coq_parse_evar_without_question scan_buf =
-  Scanf.bscanf scan_buf " %[0-9] " (fun evar -> evar)
+  Scanf.bscanf scan_buf " %[A-Za-z0-9] " (fun evar -> evar)
 
 
 (** This function parses the dependency list that follows ``using'',
