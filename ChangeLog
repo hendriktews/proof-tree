@@ -1,3 +1,7 @@
+2016-01-22  Hendrik Tews  <Hendrik.Tews@FireEye.com>
+
+	* add tests for cycle/swap/revgoals, Grab Existentials/Unshelve, giveup
+
 2016-01-21  Hendrik Tews  <Hendrik.Tews@FireEye.com>
 
 	* update evar parsing for 8.5
