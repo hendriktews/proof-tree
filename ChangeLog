@@ -1,3 +1,7 @@
+2016-01-23  Hendrik Tews  <Hendrik.Tews@FireEye.com>
+
+	* update copyright
+
 2016-01-22  Hendrik Tews  <Hendrik.Tews@FireEye.com>
 
 	* add tests for cycle/swap/revgoals, Grab Existentials/Unshelve, giveup
