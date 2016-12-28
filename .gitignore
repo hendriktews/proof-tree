@@ -1,6 +1,8 @@
+*~
 *.cmi
 *.cmo
 *.cmx
+*.o
 Makefile
 Makefile.deps
 dump.odoc-dump
@@ -8,3 +10,5 @@ prooftree
 prooftree.man.html
 prooftree.man.txt
 version.ml
+TAGS
+doc

@@ -826,7 +826,7 @@ object (self)
   method config_changed () =
     (* Printf.printf "change config delay %b\n%!" delay_config_update; *)
     if not delay_config_update then begin
-      let app_start = U.gettimeofday () in
+      (* let app_start = U.gettimeofday () in *)
       let c = self#extract_configuration in
       self#toggle_tooltips c.display_doc_tooltips;
       (try
@@ -841,8 +841,10 @@ object (self)
 	     `WARNING;
 	   tee_file_box_check_box#set_active false
       );
-      let app_end = U.gettimeofday () in
-      Printf.printf "apply config %f ms\n%!" ((app_end -. app_start) *. 1000.)
+      (* 
+       * let app_end = U.gettimeofday () in
+       * Printf.printf "apply config %f ms\n%!" ((app_end -. app_start) *. 1000.)
+       *)
     end
 
   (** Update the current configuration record and all displayed values

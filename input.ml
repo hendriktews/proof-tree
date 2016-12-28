@@ -581,6 +581,15 @@ let parse_current_goals com_buf =
     (fun state current_sequent_id cheated_string layer_string 
       proof_name_bytes command_bytes sequent_text_bytes additional_id_bytes
       existential_bytes ->
+        (*
+         * Printf.fprintf (debugc())
+	 * 	       ("PCGs state %d current-sequent %s cheated %s layer %s "
+	 * 		^^ "proof-name-len %d command-len %d sequent-len %d "
+	 * 		^^ "id-len %d existential-len %d\n%!")
+	 * 	       state current_sequent_id cheated_string layer_string
+	 * 	       proof_name_bytes command_bytes sequent_text_bytes
+	 * 	       additional_id_bytes existential_bytes;
+         *)
 	get_string proof_name_bytes
 	  (fun proof_name ->
 	    get_string command_bytes
