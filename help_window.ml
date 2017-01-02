@@ -169,6 +169,16 @@ this variable ");
    (Background !existential_instantiate_gdk_color,
     "(with orange background, by default)");
    (Default, " in the proof-tree display.\n\
+\n\
+With ");
+   (Bold, "Coq");
+   (Default, " >= 8.5, existential variables are severely broken in ");
+   bold_proof_tree;
+   (Default, " because ");
+   (Bold, "Coq");
+   (Default, " does not provide the necessary information, see ");
+   (Bold, "Coq");
+   (Default, " bug 4504.
 \n");
    (*************************************************************************)
    (***************************** Menus *************************************)
