@@ -497,9 +497,9 @@ let read_config_file file_name : t =
 let try_load_config_file () =
   let copt =
     try
-      print_endline "before read";
+      (* print_endline "before read"; *)
       let res = Some(read_config_file config_file_location) in
-      print_endline "after read";
+      (* print_endline "after read"; *)
       res
     with
       | Failure "Incompatible configuration file version" ->
