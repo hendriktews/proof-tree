@@ -153,11 +153,11 @@ let rec search_char buf start stop c =
     [c2].
 *)
 let replace_char s c1 c2 =
-  let r = String.copy s in
-  for i = 0 to String.length r - 1 do
-    if r.[i] = c1 then r.[i] <- c2
+  let r = Bytes.of_string s in
+  for i = 0 to Bytes.length r - 1 do
+    if Bytes.get r i = c1 then Bytes.set r i c2
   done;
-  r
+  Bytes.to_string r
 
 (** Remove all trailing newlines (['\n']) from the argument. *)
 let chop_final_newlines s =
@@ -268,39 +268,17 @@ let utf8_string_length s =
     [Invalid_argument "utf8_string_sub"] if [len] is greater than the 
     number of characters in [s]. May raise [Invalid_argument] if the
     argument is not valid UTF-8.
-*)
+ *)
 let utf8_string_sub s len =
-  let rec iter s i s_len res j res_len len hangover = 
-    if len = 0 
-    then begin
-      assert(j = res_len);
-      res
-    end
+  let s_len = String.length s in
+  let rec iter i len =
+    if len <= 0
+    then String.sub s 0 i
     else if i < s_len
-    then
-      let s_i_len = utf8_sequence_length s i in
-      if j + s_i_len <= res_len
-      then begin
-	res.[j] <- s.[i];
-	for k = 1 to s_i_len - 1 do 
-	  res.[j + k] <- s.[i + k]
-	done;
-	iter s (i + s_i_len) s_len 
-	  res (j + s_i_len) res_len 
-	  (len - 1) (hangover + s_i_len - 1)
-      end
-      else
-	let n_res_len = res_len + hangover + s_i_len - 1 in
-	let n_res = String.create n_res_len in
-	String.blit res 0 n_res 0 j;
-	iter s i s_len n_res j n_res_len len (1 - s_i_len)
-    else
-      raise (Invalid_argument "utf8_string_sub")
+    then iter (i + utf8_sequence_length s i) (len - 1)
+    else raise (Invalid_argument "utf8_string_sub")
   in
-  iter s 0 (String.length s) 
-    (String.create len) 0 len 
-    len 0
-
+  iter 0 len
 
 
 (****************************************************************************)

@@ -178,7 +178,7 @@ With ");
    (Bold, "Coq");
    (Default, " does not provide the necessary information, see ");
    (Bold, "Coq");
-   (Default, " bug 4504.
+   (Default, " bug 4504.\n\
 \n");
    (*************************************************************************)
    (***************************** Menus *************************************)

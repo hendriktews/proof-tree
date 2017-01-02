@@ -475,9 +475,8 @@ let write_config_file file_name (config : t) =
 *)
 let read_config_file file_name : t =
   let header_len = String.length config_file_header in
-  let header = String.create header_len in
   let ic = open_in_bin file_name in
-  really_input ic header 0 header_len;
+  let header = really_input_string ic header_len in
   if header = config_file_header 
   then begin
     let c = (Marshal.from_channel ic : t) in 

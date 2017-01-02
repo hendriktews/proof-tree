@@ -428,7 +428,7 @@ let rec get_string_cont s i len continuation_fn () =
   if i = len
   then begin
     (* Printf.fprintf (debugc()) "GS %d yields %s\n%!" len s; *)
-    continuation_fn s
+    continuation_fn (Bytes.to_string s)
   end
   else get_string_cont s i len continuation_fn ()
 
@@ -444,7 +444,7 @@ let rec get_string_cont s i len continuation_fn () =
 *)
 let get_string len continuation_fn =
   (* Printf.fprintf (debugc()) "GS %d enter\n%!" len; *)
-  let s = String.create len in
+  let s = Bytes.create len in
   get_string_cont s 0 len continuation_fn ()
 
 
