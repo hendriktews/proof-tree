@@ -1,0 +1,4 @@
+debian export-ignore
+make-deb-package export-ignore
+make-release export-ignore
+.gitattributes export-ignore
