@@ -222,7 +222,7 @@ cp version.txt version.txt.$(date +%s)~
 echo 0.$pt_version > version.txt
 
 releasetime=$(TZ=UTC date '+%Y-%m-%d %H:%M:%S %Z')
-message="* release version 0.$pt_old_version on $releasetime"
+message="release version 0.$pt_old_version on $releasetime"
 
 cat - ChangeLog > newchangelog <<EOF
 $(date +%Y-%m-%d)  Hendrik Tews <prooftree@askra.de>
