@@ -6,6 +6,23 @@ set -e
 commit_changes="yes"
 #commit_changes="no"
 
+function usage(){
+    echo "usage: make-release [-nochanges]"
+    exit 1
+}
+
+
+while [ $# \!= 0 ]; do
+    case $1 in
+	-nochanges) 	commit_changes="no";
+	    		shift;;
+	*)		echo `basename $0` : unknown option $1;
+		        usage;
+			shift;;
+    esac;
+done
+
+
 timestamp=$(date '+%Y-%m-%d')
 
 dir="prooftree-$timestamp"
@@ -15,27 +32,39 @@ webdir=/home/tews/www/alfa-www/askra-root/software/prooftree
 version=$(cat version.txt)
 
 if [ $commit_changes = "yes" ] ; then
+    echo
+    echo recent change end marker in changes.html on the right spot??
+    echo Prepare changes.html for commit?
+    echo -n [Y/n]?
+    read answer
+    if [  ${answer:=y} = n -o $answer = N ] ; then
+	commit_changes="no"
+    fi
+fi
+
+if [ $commit_changes = "yes" ] ; then
 
     sed -i.$(date +%s)~ \
 	-e "s/^<DT>XXXX-XX-XX/<DT>$timestamp: Prooftree $version released/" \
 	changes.html
 
-    cvsmessage="* prepare changes.html for release"
+    message="prepare changes.html for release"
 
     cat - ChangeLog > newchangelog <<EOF
 $(date +%Y-%m-%d)  Hendrik Tews <prooftree@askra.de>
 
-	$cvsmessage
+	* $message
 
 EOF
 
     mv newchangelog ChangeLog
 
-    cvs update | grep -v '^?' | grep -v '^cvs update: Updating'
+    git status
+    git diff
 
     echo
     echo Commit and copy patched [recent-]changes.html : 
-    echo cvs commit -m "$cvsmessage" . ?
+    echo git commit -a -m "$message" ?
     echo -n [Y/n]?
     read answer
 
@@ -43,39 +72,76 @@ EOF
 	exit 0
     fi
 
-    cvs commit -m "$cvsmessage" .
+    git commit -a -m "$message"
     cp changes.html $webdir
 
     sed -n -e '/RECENT CHANGES START/,/RECENT CHANGES END/p' \
 	< changes.html > $webdir/recent-changes.html
 fi
 
+
 #######################################################################
 # make source and bin package
 
-subdir="prooftree-$version"
-
-echo start make-dep-package
-
-./make-deb-package
-
-pushd /tmp/tews/$dir
-
-pushd $subdir
-
-./configure
-
-make
-
+rm -f prooftree.man.html
 make prooftree.man.html
 
-popd
-# back in $dir
 
-tgzfile=$(ls prooftree-*.tar.gz)
+branch=$(git branch | awk  '/\*/ {print $2;}')
+if [ $branch = '(none)' ] ; then
+    branch=master
+fi
+
+echo using branch $branch
+
+tmpdir=/tmp/tews
+name="prooftree-$version"
+
+rm -rf $tmpdir/$name*
+
+git archive --format=tar --prefix=$name/ $branch | (cd $tmpdir; tar -xf - )
+
+filestocopy="prooftree.man.html"
+
+for f in $filestocopy ; do
+    cp $f $tmpdir/$name/$f
+done
+
+pushd $tmpdir
+
+tar -czf $name.tar.gz $name
+
+popd
+
+builddir="$tmpdir/test-prooftree"
+rm -rf $builddir
+mkdir -p $builddir
+
+pushd $builddir
+tar -xzf $tmpdir/$name.tar.gz
+cd $name
+
+set -x
+./configure --prefix $builddir/install
+set +x
+
+make
+if [ $? = 0 ] ; then
+    echo =====================================================================
+    echo ========= COMPILATION TEST PASSED
+    echo =====================================================================
+else
+    echo =====================================================================
+    echo ========= COMPILATION TEST FAILED
+    echo =====================================================================
+    exit 1
+fi
+
+popd
+
 
 echo
-echo copy prooftree.man.html $tgzfile
+echo copy prooftree.man.html $name.tar.gz
 echo to $webdir
 echo -n [Y/n]?
 read answer
@@ -84,11 +150,10 @@ if [  ${answer:=y} = n -o $answer = N ] ; then
     exit 0
 fi
 
-cp $subdir/prooftree.man.html $webdir
-cp $tgzfile $webdir/releases
+cp prooftree.man.html $webdir
+cp $tmpdir/$name.tar.gz $webdir/releases
 
-popd
-# back to startdir
+release_tag=prooftree-release-$(echo $version | sed -e 's/\./-/g')
 
 echo
 echo Fix source download links in website ?
@@ -107,6 +172,7 @@ oldlink=$(sed -n -e '/LATEST VERSION LINK/ {s/<![^>]*>//
 				           }' < $webdir/index.shtml)
 
 
+tgzfile="$name.tar.gz"
 newlink="<!-- LATEST VERSION LINK --><A HREF=\"releases/$tgzfile\">[$tgzfile]<\\/A>"
 
 cp $webdir/index.shtml $webdir/index.shtml.$(date +%s)~
@@ -125,6 +191,8 @@ sed -e "/LATEST VERSION LINK/ c$newlink" \
 mv $webdir/indexnew.shtml $webdir/index.shtml
 
 
+git tag $release_tag
+
 echo
 echo Upload website?
 echo -n [Y/n]?
@@ -136,18 +204,6 @@ fi
 
 /home/tews/www/update-sys -web
 
-release_tag=prooftree-release-$(echo $version | tr '.' '-')
-
-echo
-echo cvs tag $release_tag ?
-echo -n [Y/n]?
-read answer
-
-if [ ${answer:=y} = n -o $answer = N ] ; then
-    exit 0
-fi
-
-cvs tag $release_tag
 
 echo
 echo bump version number?
@@ -166,22 +222,22 @@ cp version.txt version.txt.$(date +%s)~
 echo 0.$pt_version > version.txt
 
 releasetime=$(TZ=UTC date '+%Y-%m-%d %H:%M:%S %Z')
-cvsmessage="* release version 0.$pt_old_version on $releasetime"
+message="* release version 0.$pt_old_version on $releasetime"
 
 cat - ChangeLog > newchangelog <<EOF
 $(date +%Y-%m-%d)  Hendrik Tews <prooftree@askra.de>
 
-	$cvsmessage
+	* $message
 
 EOF
 
 mv newchangelog ChangeLog
 
-cvs update | grep -v '^?' | grep -v '^cvs update: Updating'
-
+git status
+git diff
 
 echo
-echo cvs commit -m "$cvsmessage" . ??
+echo git commit -a -m "$message" ??
 echo -n [Y/n]?
 read answer
 
@@ -189,5 +245,5 @@ if [  ${answer:=y} = n -o $answer = N ] ; then
     exit 0
 fi
 
-cvs commit -m "$cvsmessage" .
+git commit -a -m "$message"
 
