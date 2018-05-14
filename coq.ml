@@ -106,6 +106,7 @@ and coq_parse_next_evar_info scan_buf uninst inst () =
   Scanf.bscanf scan_buf "%c" (function 
     | '?' -> coq_parse_one_evar_info scan_buf uninst inst
     | ')' -> (List.rev uninst, List.rev inst)
+    | '(' -> ([], []) (* workaround for Coq 8.6 *)
     | c ->
       raise (Scanf.Scan_failure
 	       (Printf.sprintf
@@ -134,6 +135,8 @@ and coq_parse_next_evar_info scan_buf uninst inst () =
     displayed.
 *)
 let coq_parse_existential_info ex_string =
+  if String.length ex_string <= 0 then ([], []) (* for Coq 8.7 *)
+  else
   let scan_buf = Scanf.Scanning.from_string ex_string in
   try
     Scanf.bscanf scan_buf "(dependent evars: " 
