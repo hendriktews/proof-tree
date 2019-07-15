@@ -93,6 +93,7 @@ ML_SOURCES:=\
 MLI_SOURCES:=\
 	version.mli \
 	proof_tree.mli \
+	coq.mli \
 	input.mli
 
 SOURCES:=$(MLI_SOURCES) $(ML_SOURCES)

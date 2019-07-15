@@ -138,7 +138,7 @@ elif ocamlfind query lablgtk2 > /dev/null ; then
     fi
 fi
 
-if [ $lablgtkdir = "" ] ; then
+if [ "$lablgtkdir" = "" ] ; then
     echo library LablGtk not found. Please install package liblablgtk2-ocaml-dev.
     exit 1
 fi

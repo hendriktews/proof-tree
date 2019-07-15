@@ -23,7 +23,7 @@
  *)
 
 
-(** Coq specific code *)
+(** Coq specific evar parsing code *)
 
 
 open Gtk_ext
@@ -38,6 +38,14 @@ open Gtk_ext
 (* (dependent evars:)
  * (dependent evars: ?35 open, ?36 using ?42 ?41 , ?42 open,) 
  * (dependent evars: ?35 open, ?36 using ?42 ?41 , ?42 using ,)
+
+(dependent evars: ?X5 open, ?X6 using ?X11 ?X12, ?X11 using ?X12, ?X12 open;
+mapping: ?X5 : ?P, ?X12 : ?Goal2)
+
+(dependent evars: ;
+mapping: )
+
+
  *)
 
 (** This function parses one evar uid without the question mark. *)
@@ -115,24 +123,7 @@ and coq_parse_next_evar_info scan_buf uninst inst () =
   )
 
 
-(** Parse the information display for existential variables of Coq.
-    This information can look like one of the folling lines:
-
-    [(dependent evars:)]
-
-    [(dependent evars: ?35 open, ?36 using ?42 ?41 , ?42 open,) ]
-
-    [(dependent evars: ?35 open, ?36 using ?42 ?41 , ?42 using ,)]
-
-    This function returns a tuple, where the first element is the list
-    of open, uninstantiated existential variables. The second element
-    is a list of pairs, where each pair contains an instantiated
-    existential variable and the list of variables that are used in its
-    instantiation.
-
-    If parsing dies with an exception, a suitable error dialog is 
-    displayed.
-*)
+(* See mli for doc *)
 let coq_parse_existential_info ex_string =
   let scan_buf = Scanf.Scanning.from_string ex_string in
   try
