@@ -18,8 +18,6 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
- * 
- * $Id: util.ml,v 1.26 2016/01/23 12:57:15 tews Exp $
  *)
 
 

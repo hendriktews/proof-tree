@@ -18,8 +18,6 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
- * 
- * $Id: configuration.ml,v 1.46 2016/01/23 12:57:13 tews Exp $
  *)
 
 

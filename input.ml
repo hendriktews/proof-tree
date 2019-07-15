@@ -18,8 +18,6 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
- * 
- * $Id: input.ml,v 1.43 2016/01/23 12:57:14 tews Exp $
  *)
 
 

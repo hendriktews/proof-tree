@@ -18,8 +18,6 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
- * 
- * $Id: gtk_ext.ml,v 1.19 2016/01/23 12:57:14 tews Exp $
  *)
 
 
