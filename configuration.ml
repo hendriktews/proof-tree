@@ -33,6 +33,17 @@ module U = Unix
 
 (*****************************************************************************
  *****************************************************************************)
+(** {2 Exceptions} *)
+
+(** Raised when the configuration file has an unexpected version tag. *)
+exception Config_file_wrong_version
+
+(** Raised when the configuration file cannot be read *)
+exception Config_file_invalid
+
+
+(*****************************************************************************
+ *****************************************************************************)
 (** {2 Configuration record and global variables} *)
 
 
@@ -482,8 +493,8 @@ let read_config_file file_name : t =
     c
   end
   else if string_starts header config_file_header_start
-  then raise(Failure "Incompatible configuration file version")
-  else raise(Failure "Invalid configuration file")
+  then raise Config_file_wrong_version
+  else raise Config_file_invalid
 
 (** Try to load the configuration file at {!config_file_location},
     ignoring all errors. If a valid configuration file is found, the
@@ -499,7 +510,7 @@ let try_load_config_file () =
       (* print_endline "after read"; *)
       res
     with
-      | Failure "Incompatible configuration file version" ->
+      | Config_file_wrong_version ->
 	print_endline "version error";
 	run_message_dialog
 	  ("File " ^ config_file_location ^ 
@@ -924,12 +935,12 @@ object (self)
 	run_message_dialog
 	  ("No configuration file at " ^ config_file_location ^ "!")
 	  `WARNING
-      | Failure "Incompatible configuration file version" ->
+      | Config_file_wrong_version ->
 	run_message_dialog
 	  ("File " ^ config_file_location ^ 
 	      " is not compatible with this version of Prooftree!")
 	  `WARNING
-      | Failure "Invalid configuration file" ->
+      | Config_file_invalid ->
 	run_message_dialog
 	  ("File " ^ config_file_location ^ " is not a valid Prooftree \
             configuration file!")
