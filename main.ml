@@ -37,6 +37,7 @@ open Util
 open Gtk_ext
 open Configuration
 open Help_window
+open Evar_types
 open Input
 
 (**/**)
@@ -54,6 +55,9 @@ let configuration_updated () =
   Input.configuration_updated ()
 
 let _ = configuration_updated_callback := configuration_updated
+
+(** Stores the string argument of option {[ -test-coq-evar_types ]} *)
+let coq_evar_parser_arg = (ref None : string option ref)
 
 (** Argument list for [Arg.parse] *)
 let arguments = Arg.align [
@@ -76,14 +80,24 @@ let arguments = Arg.align [
      current_config := {!current_config with debug_mode = true}
    ),
    " print more details on errors");
+  ("-test-coq-evar-parser",
+   Arg.String (fun s -> coq_evar_parser_arg := Some s),
+   "data test coq evar parser on data");
 ]
 
 (** Function for anonymous arguments. Terminates the program with 
     exit status 1.
 *)
-let anon_fun s = 
+let anon_fun s =
   Printf.eprintf "unrecognized argument %s\n" s;
   exit 1
+
+
+let test_coq_evar_parser data =
+  let (evar_info, current_evar_names) = coq_evar_parser data in
+  print_evar_info_list stdout evar_info;
+  print_current_evar_names stdout current_evar_names;
+  exit 0
 
 
 (** Main function without exception handling. Performs the following actions:
@@ -96,6 +110,11 @@ let anon_fun s =
 let main () =
   try_load_config_file ();
   Arg.parse arguments anon_fun "prooftree";
+  (match !coq_evar_parser_arg with
+     | None -> ()
+     (* test_coq_evar_parser does not return *)
+     | Some data -> test_coq_evar_parser data
+  );
   (try
      setup_input();
    with

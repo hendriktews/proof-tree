@@ -1,7 +1,7 @@
 (* 
  * prooftree --- proof tree display for Proof General
  * 
- * Copyright (C) 2011 - 2019 Hendrik Tews
+ * Copyright (C) 2019 Hendrik Tews
  * 
  * This file is part of "prooftree".
  * 
@@ -20,23 +20,25 @@
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  *)
 
+(** Ocamllex lexer for Coq existential variables info for Coq >= 8.10 *)
 
-(** Reading commands from nonblocking stdin *)
+{
+  open Coq_evar_parser
+}
 
-open Evar_types
+let letter = ['A'-'Z''a'-'z']
+let alphanum = ['0'-'9''A'-'Z''a'-'z']
 
-(* for documentation, see input.ml *)
+rule evar_token = parse
+    '('			{ Paren_open }
+  | ')'			{ Paren_close }
+  | ','			{ Comma }
+  | ';'			{ Semicolon }
+  | ':'			{ Colon }
+  | "dependent evars:"  { Dependent_evars }
+  | "using"		{ Using }
+  | "in current goal:"		{ In_current_goal }
+  | '?' letter alphanum*	{ Evar(Lexing.lexeme lexbuf) }
+  | [' ' '\t' '\n' ] +	{ evar_token lexbuf }
 
-(** Take the necessary actions when the configuration record changed.
-*)
-val configuration_updated : unit -> unit
-
-
-(** XXX *)
-val coq_evar_parser : string -> (evar_info list * string list)
-
-
-(** Initialize this module and setup the GTK main loop callback for
-    [stdin]. Puts [stdin] into non-blocking mode.
-*)
-val setup_input : unit -> unit
+{ }

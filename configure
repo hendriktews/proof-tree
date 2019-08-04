@@ -88,7 +88,7 @@ if [ $force_byte = "true" ] ; then
 fi
 
 if [ $native = "true" ] ; then
-    ocamldep=ocamldep.opt
+    ocamldep="ocamldep.opt -native"
     ocamlc=ocamlopt.opt
     prooftree=prooftree.opt
     ocamldoc=ocamldoc.opt

@@ -57,3 +57,8 @@ let emacs_callback_undo undo_state =
 (** Send a piece of proof script to Proof General. *)
 let emacs_send_proof_script script =
   emacs_long_callback "insert-proof-script" script
+
+
+(** Request Show Goal <ID> at <state> from PG *)
+let emacs_send_show_goal state goal_id =
+  emacs_callback (Printf.sprintf "show-goal %s at %d" goal_id state)

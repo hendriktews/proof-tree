@@ -23,6 +23,8 @@
 
 (** Internal representation of proof trees with undo info *)
 
+open Evar_types
+
 
 (** Process a current-goals command from Proof General, updating the
     proof-tree display in the right way. If the [layer_flag] is set,
@@ -63,13 +65,13 @@
     @param current_sequent_id ID of current sequent
     @param current_sequent_text the current sequent itself
     @param additional_ids ID's of the additionally open goals
-    @param uninstantiated existential variables
-    @param inst_deps instantiated existential variables with dependencies
+    @param evar_info open evar's and dependencies for instantiated evars
+    @param in_goal evar's in current goal (open or instantiated)
 *)
 val process_current_goals :
   int -> string -> string -> 
-  bool -> bool -> string -> string -> string list -> string list -> 
-  (string * string list) list -> unit
+  bool -> bool -> string -> string -> string list -> evar_info list ->
+  string list -> unit
 
 
 (** Process an [update-sequent] command. This function is a wrapper
@@ -101,11 +103,11 @@ val switch_to : int -> string -> string -> unit
     @param proof_name name of the proof
     @param proof_command last command
     @param cheated_flag is true if the command is a cheating one
-    @param uninstantiated existential variables
-    @param inst_deps instantiated existential variables with dependencies
+    @param evar_info open evar's and dependencies for instantiated evars
+    @param in_goal evar's in current goal (open or instantiated)
 *)
 val process_branch_finished : int -> string -> string -> bool -> 
-  string list -> (string * string list) list -> unit
+  evar_info list -> string list -> unit
 
 
 (** Display a "Complete" message and retire the current proof.

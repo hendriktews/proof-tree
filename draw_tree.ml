@@ -71,6 +71,22 @@ open Gtk_ext
 
 (*****************************************************************************)
 (*****************************************************************************)
+(** {3 turnstile interface} *)
+(*****************************************************************************)
+(*****************************************************************************)
+
+(** Abstract interface for class {!turnstile} for the existential variable
+    record. This class type is used to break the mutual dependency between
+    existential variable records and and the {!turnstile} class.
+ *)
+
+class type turnstile_interface =
+  object
+    method id : string
+  end
+
+(*****************************************************************************)
+(*****************************************************************************)
 (** {3 Existential variables} *)
 (*****************************************************************************)
 (*****************************************************************************)
@@ -110,37 +126,49 @@ type existential_status =
     lazily updated in {!Proof_tree.update_existential_status}.
     Therefore, a fully instantiated existential might have status
     {!existential_status.Partially_instantiated} for some time.
+    The external name should only be present for non-instantiated
+    evars. The code however does neither enforce nor rely on this
+    invariant.
 *)
 type existential_variable = {
-  existential_name : string;		(** The name *)
-  mutable status : existential_status;	(** instantiation status *)
-  mutable existential_mark : bool;	(** [true] if this existential should 
+  evar_internal_name : string;		(** The internal Coq ID *)
+  mutable evar_external_name : string option;
+					(** The external name if
+                                            not instantiated. *)
+  mutable evar_status : existential_status;
+					(** instantiation status *)
+  mutable evar_mark : bool;		(** [true] if this existential should
 					    be marked in the proof-tree
 					    display *)
-  mutable dependencies : existential_variable list;
+  mutable evar_deps : existential_variable list;
                                         (** The list of evars that are used 
 					    in the instantiation, 
 					    if instantiated *)
+  mutable evar_sequents : turnstile_interface list
+					(** Sequents that contain this evar
+                                            and need to be updated when this
+                                            evar is instantiated. Empty for
+                                            clones. *)
 }
 
 
 (** Filter the non-instantiated existentials from the argument. 
 *)
 let filter_uninstantiated exl =
-  list_filter_rev (fun ex -> ex.status = Uninstantiated) exl
+  list_filter_rev (fun ex -> ex.evar_status = Uninstantiated) exl
 
 (** Filter the partially instantiated existentials from the argument *)
 let filter_partially_instantiated exl =
-  list_filter_rev (fun ex -> ex.status = Partially_instantiated) exl
+  list_filter_rev (fun ex -> ex.evar_status = Partially_instantiated) exl
 
 
 (** Derive the existential status for drawing a node or a connection
     line in the proof tree. 
 *)
 let combine_existential_status_for_tree exl =
-  if List.for_all (fun ex -> ex.status = Fully_instantiated) exl
+  if List.for_all (fun ex -> ex.evar_status = Fully_instantiated) exl
   then Fully_instantiated
-  else if List.exists (fun ex -> ex.status = Uninstantiated) exl
+  else if List.exists (fun ex -> ex.evar_status = Uninstantiated) exl
   then Uninstantiated
   else Partially_instantiated
 
@@ -149,7 +177,7 @@ let combine_existential_status_for_tree exl =
     display purposes.
 *)
 let string_of_existential_list exl =
-  String.concat " " (List.map (fun ex -> ex.existential_name) exl)
+  String.concat " " (List.map (fun ex -> ex.evar_internal_name) exl)
 
 
 (*****************************************************************************)
@@ -441,7 +469,7 @@ end
     It's value is arbitrary for cloned proof trees.
 *)
 class virtual proof_tree_element drawable
-    undo_state debug_name inst_existentials fresh_existentials = 
+    undo_state debug_name new_evars inst_evars =
 object (self)
   inherit [proof_tree_element] doubly_linked_tree
 
@@ -460,12 +488,12 @@ object (self)
   (** The existentials created for this element. Only non-nil when
       this is a proof command.
   *)
-  method fresh_existentials = fresh_existentials
+  method fresh_existentials = new_evars
 
   (** The existentials instantiated by this element. Only non-nil when
       this is a proof command. 
   *)
-  method inst_existentials : existential_variable list = inst_existentials
+  method inst_existentials : existential_variable list = inst_evars
 
   (** Return the state for this sequent. *)
   method undo_state = (undo_state : int)
@@ -523,7 +551,7 @@ object (self)
   val mutable external_windows : external_node_window list = []
 
   (** The set of all existentials for this node. *)
-  val mutable existential_variables = fresh_existentials
+  val mutable existential_variables = new_evars
 
   (** Upward pointer to the layer containing this proof tree. Must be
       set for root nodes.
@@ -590,11 +618,11 @@ object (self)
   method existential_variables = existential_variables
 
   (** [inherit_existentials exl] sets this nodes {!attribute:
-      existential_variables} as union of {!fresh_existentials} and
+      existential_variables} as union of {!new_evars} and
       [exl].
   *)
   method inherit_existentials existentials =
-    existential_variables <- List.rev_append fresh_existentials existentials
+    existential_variables <- List.rev_append new_evars existentials
 
   (** The original text content associated with this element. For
       turnstiles this is the sequent text and for proof commands this is the
@@ -1454,10 +1482,10 @@ let make_layout context =
     It's value is arbitrary for cloned proof trees.
 *)
 class proof_command (drawable_arg : better_drawable) 
-  undo_state command debug_name inst_existentials fresh_existentials =
+  undo_state command debug_name new_evars inst_evars =
 object (self)
   inherit proof_tree_element drawable_arg undo_state debug_name 
-    inst_existentials fresh_existentials 
+    new_evars inst_evars
     as super
 
   (** The part of the proof command that is displayed inside the tree.
@@ -1490,7 +1518,7 @@ object (self)
   (** Height (in pixels) of the rendered proof command text. *)
   val mutable layout_height = 0
 
-                              (***************** inside proof_command_length *)
+                                      (***************** inside proof_command *)
   (** This is a [Proof_command] element, see {!node_kind}. *)
   method node_kind = Proof_command
 
@@ -1520,7 +1548,7 @@ object (self)
     layout_width <- w;
     layout_height <- h
 
-                              (***************** inside proof_command_length *)
+                                      (***************** inside proof_command *)
   (** Set {!displayed_command}. Called from the initializer and when
       the configuration has been changed.
   *)
@@ -1555,7 +1583,7 @@ object (self)
     layout <- make_layout drawable_arg#pango_context;
     super#configuration_updated
 
-                              (***************** inside proof_command_length *)
+                                      (***************** inside proof_command *)
   (** Override {!proof_tree_element.register_external_window} because
       the displayed proof command must be rerendered when an external
       window is registered.
@@ -1572,7 +1600,7 @@ object (self)
     super#delete_external_window win;
     self#render_proof_command
 
-                              (***************** inside proof_command_length *)
+                                      (***************** inside proof_command *)
   (** Draw just this command node.
 
       @param left x-coordinate of the left side of the bounding box of
@@ -1585,8 +1613,8 @@ object (self)
      * Printf.fprintf (debugc()) "DRAW TURN %s l %d t %d x %d y %d\n%!" 
      *   self#debug_name left top x y;
      *)
-    let crea = List.exists (fun e -> e.existential_mark) fresh_existentials in
-    let inst = List.exists (fun e -> e.existential_mark) inst_existentials in
+    let crea = List.exists (fun e -> e.evar_mark) new_evars in
+    let inst = List.exists (fun e -> e.evar_mark) inst_evars in
     if crea || inst
     then begin
       let w = layout_width + 1 * !current_config.subtree_sep in
@@ -1607,7 +1635,7 @@ object (self)
       drawable#rectangle 
 	~x:(x - w/2) ~y:(y - h/2) ~width:w ~height:h ();
 
-                              (***************** inside proof_command_length *)
+                                      (***************** inside proof_command *)
   (** Compute the line offsets for proof-command nodes, see
       {!proof_tree_element.line_offset}
   *)
@@ -1653,17 +1681,19 @@ end
     variable only one {!existential_variable} record is created.
 *)
 let rec clone_existentials ex_hash ex =
-  try Hashtbl.find ex_hash ex.existential_name
+  try Hashtbl.find ex_hash ex.evar_internal_name
   with
     | Not_found -> 
-      let deps = List.map (clone_existentials ex_hash) ex.dependencies in
-      let nex = { existential_name = ex.existential_name;
-		  status = ex.status;
-		  existential_mark = false;
-		  dependencies = deps;
+      let deps = List.map (clone_existentials ex_hash) ex.evar_deps in
+      let nex = { evar_internal_name = ex.evar_internal_name;
+                  evar_external_name = ex.evar_external_name;
+                  evar_sequents = [];
+		  evar_status = ex.evar_status;
+		  evar_mark = false;
+		  evar_deps = deps;
 		}
       in
-      Hashtbl.add ex_hash ex.existential_name nex;
+      Hashtbl.add ex_hash ex.evar_internal_name nex;
       nex
 
 (** Recursively clone all nodes in the given subtree, updating the
@@ -1679,8 +1709,8 @@ let rec clone_tree_node new_pc new_seq ex_hash
   let clone = match node#node_kind with
     | Proof_command -> 
       (new_pc node#content 
-	 (List.map (clone_existentials ex_hash) node#inst_existentials)
 	 (List.map (clone_existentials ex_hash) node#fresh_existentials)
+	 (List.map (clone_existentials ex_hash) node#inst_existentials)
 	 : proof_command :> proof_tree_element)
     | Turnstile -> 
       let ts = new_seq node#id (Some node#content)

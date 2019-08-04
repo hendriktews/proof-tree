@@ -34,6 +34,7 @@ open Draw_tree
     status of the existential changes. For memory management is makes
     also sense to destroy all widgets when a line gets deleted.
 
+    XXX - seems wrong!
     For easy access, these table line records are stored in the
     {!existential_variable_window.ext_hash} hash table with the name
     of the existential as key.
@@ -74,7 +75,8 @@ type ext_table_line = {
                         with their column
     - inner_vbars       the other vertical bars together with their column
     - start_row		first row in the table
-    - name_col		column for names
+    - id_col		column for internal evar name
+    - name_col          column for external evar name
     - status_col	column for status
     - button_col	column for buttons
     - last_col		last column
@@ -86,12 +88,12 @@ class existential_variable_window
   (table_v_adjustment : GData.adjustment)
   (border_vbars : (GObj.widget * int) array)
   (inner_vbars : (GObj.widget * int) array)
-  start_row name_col status_col using_col button_col last_col
+  start_row id_col name_col status_col using_col button_col last_col
   =
 object (self)
 
   (** "no" label text for the instantiated column. *)
-  val uninst_label = "no"
+  val uninst_label = "open"
 
   (** "partially" label text for the instantiated column. Contains
       pango markup for the color.
@@ -195,7 +197,7 @@ object (self)
   method private make_no_ext_label =
     let no_ext_label = GMisc.label 
       ~text:"There are no existential variables" ~ypad:8
-      ~packing:(ext_table#attach ~left:name_col ~right:last_col ~top:next_row)
+      ~packing:(ext_table#attach ~left:id_col ~right:last_col ~top:next_row)
       () in
     next_row <- next_row + 1;
     let hbar = GMisc.separator `HORIZONTAL 
@@ -242,7 +244,7 @@ object (self)
      * 	| Fully_instantiated -> "fully")
      *   crea_node#debug_name;
      *)
-    if existential.status <> Uninstantiated then
+    if existential.evar_status <> Uninstantiated then
       let inst_node =  
 	proof_window#find_node
 	  (fun n -> List.memq existential n#inst_existentials)
@@ -262,7 +264,7 @@ object (self)
     then begin
       self#release_pressed_button;
       pressed_mark_button <- Some button;
-      existential.existential_mark <- true;
+      existential.evar_mark <- true;
       (match self#get_ext_nodes existential with
 	| (crea, Some inst) ->
 	  proof_window#show_both_nodes crea inst
@@ -272,7 +274,7 @@ object (self)
       proof_window#invalidate_drawing_area;
     end
     else begin
-      existential.existential_mark <- false;
+      existential.evar_mark <- false;
       pressed_mark_button <- None;
       proof_window#invalidate_drawing_area;
     end
@@ -280,22 +282,22 @@ object (self)
   (** Update the information in the argument table line. *)
   method private set_ext_line_status tl =
     tl.ext_table_status_label#set_label
-      (match tl.ext_table_ext.status with
+      (match tl.ext_table_ext.evar_status with
 	| Uninstantiated -> uninst_label
 	| Partially_instantiated -> partially_inst_label
 	| Fully_instantiated -> fully_inst_label
       );
     let color_ex_name ex =
-      match ex.status with
-	| Uninstantiated -> ex.existential_name
+      match ex.evar_status with
+	| Uninstantiated -> ex.evar_internal_name
 	| Partially_instantiated -> 
-	  pango_markup_color ex.existential_name !proved_partial_gdk_color
+	  pango_markup_color ex.evar_internal_name !proved_partial_gdk_color
 	| Fully_instantiated -> 
-	  pango_markup_color ex.existential_name !proved_complete_gdk_color
+	  pango_markup_color ex.evar_internal_name !proved_complete_gdk_color
     in
     let colored_dep_names =
       String.concat ", " 
-	(List.map color_ex_name tl.ext_table_ext.dependencies) in
+	(List.map color_ex_name tl.ext_table_ext.evar_deps) in
     tl.ext_table_using_label#set_label colored_dep_names
       
 
@@ -305,8 +307,8 @@ object (self)
       (fun _ tl ->
 	(* We don't have to update every line. However, the test is
 	 * rather complicated, because we have to check whether the
-	 * status of any of the dependencies changes. For that one
-	 * would have to through ext_hash, in order to find the last
+	 * status of any of the dependencies changes. For that, one
+	 * would have to go through ext_hash, in order to find the last
 	 * status of the dependencies.
 	 *)
 	self#set_ext_line_status tl
@@ -320,10 +322,16 @@ object (self)
   method private process_fresh_existentials l =
     assert(l <> []);
     let doit ext =
-      assert(Hashtbl.mem ext_hash ext.existential_name = false);
+      assert(Hashtbl.mem ext_hash ext.evar_internal_name = false);
       let ext_row = next_row in
-      let name_label = GMisc.label ~text:ext.existential_name
-	~packing:(ext_table#attach ~left:name_col ~top:ext_row) () in
+      let id_label = GMisc.label ~text:ext.evar_internal_name
+	~packing:(ext_table#attach ~left:id_col ~top:ext_row) () in
+      let name_label_text = match ext.evar_external_name with
+          | Some name -> name
+          | None -> "—"
+      in
+      let name_label = GMisc.label ~text:name_label_text
+        ~packing:(ext_table#attach ~left:name_col ~top:ext_row) () in
       let status_label = GMisc.label (* ~xpad:7 *)
 	~packing:(ext_table#attach ~left:status_col ~top:ext_row) () in
       status_label#set_use_markup true;
@@ -340,14 +348,14 @@ object (self)
       let hbar = GMisc.separator `HORIZONTAL 
       	~packing:(ext_table#attach ~left:0 ~right:last_col ~top:next_row) () in
       next_row <- next_row + 1;
-      Hashtbl.add ext_hash ext.existential_name 
+      Hashtbl.add ext_hash ext.evar_internal_name
 	{ ext_table_ext = ext;
 	  ext_table_row = ext_row;
 	  ext_table_status_label = status_label;
 	  ext_table_using_label = using_label;
 	  ext_table_button = button;
 	  ext_table_other = 
-	    [| name_label#coerce; hbar#coerce; |]
+	    [| id_label#coerce; name_label#coerce; hbar#coerce; |]
 	};
       ()
     in
@@ -371,9 +379,9 @@ object (self)
       releases the "mark" button if necessary and updates {!ext_hash}.
   *)
   method private undo_delete ext =
-    let tl = Hashtbl.find ext_hash ext.existential_name in
+    let tl = Hashtbl.find ext_hash ext.evar_internal_name in
     self#destroy_ext_line tl;
-    Hashtbl.remove ext_hash ext.existential_name;
+    Hashtbl.remove ext_hash ext.evar_internal_name;
     if tl.ext_table_row < next_row
     then next_row <- tl.ext_table_row
 
@@ -399,10 +407,23 @@ object (self)
       all existentials in the proof tree of the given root node. This
       function can be called several times for different root nodes.
   *)
+  (* XXX this method, called when the existential dialog is initialized,
+   * does a left-to-right depth-first traversal through the tree. When the
+   * proof was build up in a different order there are probably strange
+   * effects with undo and redo, because undo sets the next free line
+   * pointer such that there are gaps in the table and redo will insert
+   * from that next line pointer, potentially overwriting other entries.
+   *)
   method fill_table_lines (nodes : proof_tree_element list) =
     let rec iter node =
-      if node#fresh_existentials <> [] then
-	self#process_fresh_existentials node#fresh_existentials;
+      if node#fresh_existentials <> [] then begin
+          (* Printf.fprintf (Util.debugc()) "EXTTAB node %s exts %s\n%!"
+           *   (node#debug_name)
+           *   (String.concat " " (List.map (fun e -> e.evar_internal_name)
+           *                         node#fresh_existentials));
+           *)
+	  self#process_fresh_existentials node#fresh_existentials;
+        end;
       List.iter iter node#children
     in
     List.iter iter nodes
@@ -526,10 +547,11 @@ let make_ext_dialog proof_window proof_name =
    ****************************************************************************)
   let ext_table = GPack.table ~border_width:5
     ~packing:table_scrolling#add_with_viewport () in
-  let name_col = 1 in
-  let status_col = 3 in
-  let using_col = 5 in
-  let button_col = 7 in 
+  let id_col = 1 in
+  let name_col = 3 in
+  let status_col = 5 in
+  let using_col = 7 in
+  let button_col = 9 in 
   let last_col = button_col + 2 in
   let xpadding = 7 in
   let ypadding = 3 in
@@ -539,22 +561,27 @@ let make_ext_dialog proof_window proof_name =
   let row = row + 1 in
   let bar_l = GMisc.separator `VERTICAL
     ~packing:(ext_table#attach ~left:0 ~top:row ~bottom:(row + 1)) () in
-  let _name_heading = GMisc.label ~markup:"<b>Name</b>" 
+  let _id_heading = GMisc.label ~markup:"<b>ID</b>" 
+    ~xpad:xpadding ~ypad:ypadding
+    ~packing:(ext_table#attach ~left:id_col ~top:row) () in
+  let bar_1 = GMisc.separator `VERTICAL
+    ~packing:(ext_table#attach ~left:(id_col + 1) ~top:row) () in
+  let _name_heading = GMisc.label ~markup:"<b>Name</b>"
     ~xpad:xpadding ~ypad:ypadding
     ~packing:(ext_table#attach ~left:name_col ~top:row) () in
-  let bar_1 = GMisc.separator `VERTICAL
-    ~packing:(ext_table#attach ~left:(name_col + 1) ~top:row) () in
-  let _status_heading = GMisc.label ~markup:"<b>Instantiated</b>"
+  let bar_2 = GMisc.separator `VERTICAL
+  ~packing:(ext_table#attach ~left:(name_col + 1) ~top:row) () in
+  let _status_heading = GMisc.label ~markup:"<b>Status</b>"
     ~xpad:xpadding ~ypad:ypadding
     ~packing:(ext_table#attach ~left:status_col ~top:row) () in
-  let bar_2 = GMisc.separator `VERTICAL
+  let bar_3 = GMisc.separator `VERTICAL
     ~packing:(ext_table#attach ~left:(status_col + 1) ~top:row) () in
   let _using_heading = GMisc.label ~markup:"<b>Using</b>"
     ~xpad:xpadding ~ypad:ypadding
     ~packing:(ext_table#attach ~left:using_col ~top:row) () in
-  let bar_3 = GMisc.separator `VERTICAL
+  let bar_4 = GMisc.separator `VERTICAL
     ~packing:(ext_table#attach ~left:(using_col + 1) ~top:row) () in
-  let _button_heading = GMisc.label ~markup:"<b>Mark Nodes</b>"
+  let _button_heading = GMisc.label ~markup:"<b>Mark</b>"
     ~xpad:xpadding ~ypad:ypadding
     ~packing:(ext_table#attach ~left:button_col ~top:row) () in
   let bar_r = GMisc.separator `VERTICAL
@@ -562,9 +589,10 @@ let make_ext_dialog proof_window proof_name =
 		~top:row ~bottom:(row + 1)) () in
   let border_vbars = [| (bar_l#coerce, 0); 
 			(bar_r#coerce, button_col + 1) |] in
-  let inner_vbars = [| (bar_1#coerce, name_col + 1);
-		       (bar_2#coerce, status_col + 1);
-		       (bar_3#coerce, using_col + 1); |] in
+  let inner_vbars = [| (bar_1#coerce, id_col + 1);
+                       (bar_2#coerce, name_col + 1);
+		       (bar_3#coerce, status_col + 1);
+		       (bar_4#coerce, using_col + 1); |] in
 
   let row = row + 1 in
   let _hbar = GMisc.separator `HORIZONTAL 
@@ -601,7 +629,7 @@ let make_ext_dialog proof_window proof_name =
   let ext_window = 
     new existential_variable_window proof_window top_window 
       ext_table table_v_adjustment border_vbars inner_vbars
-      row name_col status_col using_col button_col last_col
+      row id_col name_col status_col using_col button_col last_col
   in
 
   top_window#set_title "Existential Variables";

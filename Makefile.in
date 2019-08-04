@@ -47,6 +47,7 @@ OCAMLC:=@OCAMLC@
 
 # ocaml dependency analyzer
 # should be ``ocamldep.opt'' if available, ``ocamldep'' otherwise
+# for native compilation add option -native
 OCAMLDEP:=@OCAMLDEP@
 
 # ocaml documentation generator
@@ -83,15 +84,17 @@ ML_SOURCES:=\
 	ext_dialog.ml \
 	emacs_commands.ml \
 	proof_window.ml \
+	evar_types.ml \
 	proof_tree.ml \
-	coq.ml \
+	coq_evar_parser.ml \
+	coq_evar_lexer.ml \
 	input.ml \
 	main.ml
 
 MLI_SOURCES:=\
 	version.mli \
 	proof_tree.mli \
-	coq.mli \
+	coq_evar_parser.mli \
 	input.mli
 
 SOURCES:=$(MLI_SOURCES) $(ML_SOURCES)
@@ -128,6 +131,15 @@ prooftree.opt: $(CMX_OBJECTS)
 prooftree.byte: $(CMO_OBJECTS)
 	$(OCAMLC) -g -I $(LABLGTKDIR) -o prooftree \
 		unix.cma lablgtk.cma gtkInit.cmo $^
+
+TOCLEAN+=coq_evar_parser.ml coq_evar_parser.mli coq_evar_parser.output
+coq_evar_parser.ml coq_evar_parser.mli: coq_evar_parser.mly
+	ocamlyacc coq_evar_parser.mly
+
+TOCLEAN+=coq_evar_lexer.ml
+coq_evar_lexer.ml: coq_evar_lexer.mll
+	ocamllex coq_evar_lexer.mll
+
 
 TOCLEAN+=version.ml
 version.ml: version.txt

@@ -34,6 +34,7 @@ open Configuration
 open Draw_tree
 open Tree_layers
 open Proof_window
+open Evar_types
 open Emacs_commands
 
 
@@ -163,10 +164,11 @@ let configuration_updated () =
 (** Mark the given existential as instantiated and link it with its
     dependencies.
 *)
-let instantiate_existential ex_hash ex dependency_names =
-  assert(ex.dependencies = []);
-  ex.status <- Partially_instantiated;
-  ex.dependencies <- List.map (Hashtbl.find ex_hash) dependency_names
+let instantiate_existential state ex_hash ex dependency_names =
+  assert(ex.evar_deps = []);
+  ex.evar_status <- Partially_instantiated;
+  ex.evar_deps <- List.rev_map (Hashtbl.find ex_hash) dependency_names;
+  List.iter (fun s -> emacs_send_show_goal state s#id) ex.evar_sequents
 
 
 (** Reset the given list of existential variables to not being
@@ -175,8 +177,8 @@ let instantiate_existential ex_hash ex dependency_names =
 let undo_instantiate_existentials exl =
   List.iter
     (fun ex -> 
-      ex.status <- Uninstantiated;
-      ex.dependencies <- [];
+      ex.evar_status <- Uninstantiated;
+      ex.evar_deps <- [];
     )
     exl
 
@@ -184,14 +186,16 @@ let undo_instantiate_existentials exl =
 (** Create a new existential variable and add it to the hash of
     existentials. The newly created existential is returned.
 *)
-let make_new_existential ex_hash ex_name =
-  let ex = {existential_name = ex_name; 
-	    status = Uninstantiated; 
-	    existential_mark = false;
-	    dependencies = [];
+let make_new_existential ex_hash internal_name external_name_opt =
+  let ex = {evar_internal_name = internal_name;
+            evar_external_name = external_name_opt;
+	    evar_status = Uninstantiated;
+	    evar_mark = false;
+	    evar_deps = [];
+            evar_sequents = [];
 	   }
   in
-  Hashtbl.add ex_hash ex_name ex;
+  Hashtbl.add ex_hash internal_name ex;
   ex
 
 
@@ -204,19 +208,19 @@ let make_new_existential ex_hash ex_name =
 let update_existential_status ex_hash =
   let visited_hash = Hashtbl.create 251 in
   let rec collect ex = 
-    if Hashtbl.mem visited_hash ex.existential_name
+    if Hashtbl.mem visited_hash ex.evar_internal_name
     then ()
     else begin
-      if ex.status <> Uninstantiated
+      if ex.evar_status <> Uninstantiated
       then begin
-	List.iter collect ex.dependencies;
-	ex.status <-
-    	  if (List.for_all (fun dep -> dep.status = Fully_instantiated)
-		ex.dependencies)
+	List.iter collect ex.evar_deps;
+	ex.evar_status <-
+    	  if (List.for_all (fun dep -> dep.evar_status = Fully_instantiated)
+		ex.evar_deps)
     	  then Fully_instantiated
     	  else Partially_instantiated
       end;
-      Hashtbl.add visited_hash ex.existential_name ()
+      Hashtbl.add visited_hash ex.evar_internal_name ()
     end
   in
   Hashtbl.iter (fun _ ext -> collect ext) ex_hash
@@ -224,56 +228,91 @@ let update_existential_status ex_hash =
 
 
 (** Update the hash of existential variables and the existentials
-    themselves. First the list of uninstantiated existentials and the
-    one of instantiated existentials are scanned for new existentials.
+    themselves. The [evar_info] is scanned for new existentials.
     Note that new existentials can even be found in the dependencies
-    of instantiated existentials, if some complex strategy creates and
-    instantiates several existentials. Newly created existentials are
+    of instantiated existentials, because the order inside [evar_info] may 
+    be arbitrary and also because some complex strategy might create and
+    instantiate several existentials. Newly created existentials are
     registered in the hash of existential variables. Finally the state
     of those existentials that got instantiated is updated. 
 
-    This function returns the list of newly instantiated existentials
-    and the list of new existentials.
+    This function returns a triple containing the list of new existentials,
+    the list of newly instantiated existentials and the [current_goal_evars]
+    argument filtered for open evars.
+
+    Argument [state] is the proof assistant state from which the information
+    about existential variables was collected. It is needed for triggering
+    sequent updates for sequents containing newly instantiated evars.
 *)
-let update_existentials ex_hash uninst_ex inst_ex_deps =
-  let test_and_create_ex_list exl accu =
-    List.fold_left
-      (fun res ex_name ->
-	if Hashtbl.mem ex_hash ex_name
-	then res
-	else (make_new_existential ex_hash ex_name) :: res
-      )
-      accu exl
+let update_existentials state ex_hash evar_info current_goal_evars =
+  (* Create one existential_variable record for ex_name, if ex_name is new
+   * and append it to accumulator argument accu_new. We might see an evar
+   * in the dependency list, before we see that it is uninstantiated and
+   * see its external name. We therefore update the external name here.
+   *)
+  let test_and_create_ex accu_new int_name ex_name =
+    match Hashtbl.find_opt ex_hash int_name with
+      | Some ex ->
+         if ex_name <> None
+         then ex.evar_external_name <- ex_name;
+         accu_new
+      | None -> (make_new_existential ex_hash int_name ex_name) :: accu_new
   in
-  let new_ex = test_and_create_ex_list uninst_ex [] in
-  let new_ex =
-    List.fold_left
-      (fun res (ex_name, deps) ->
-	(* Complex stategies might create and instantiate several
-	 * existentials. It may therefore happen that some
-	 * instantiated existential and even some of its dependencies
-	 * are actually new.
-	 *)
-	test_and_create_ex_list (ex_name :: deps) res
-      )
-      new_ex inst_ex_deps
+  let process_evar_info (accu_new, accu_inst) = function
+    | Noninstantiated(int_name, ex_name)->
+        ((test_and_create_ex accu_new int_name (Some ex_name)), accu_inst)
+    | Instantiated(int_name, deps) ->
+        (* Complex stategies might create and instantiate several
+         * existentials. It may therefore happen that some
+         * instantiated existential and even some of its dependencies
+         * are actually new.
+         *)
+        let accu_new =
+          List.fold_left
+            (fun accu_new int_name -> test_and_create_ex accu_new int_name None)
+            accu_new
+            (int_name :: deps)
+        in
+        let ex = Hashtbl.find ex_hash int_name in
+        let accu_inst =
+          if ex.evar_status = Uninstantiated
+          then begin
+            instantiate_existential state ex_hash ex deps;
+            ex :: accu_inst
+          end
+          else accu_inst
+        in
+        (accu_new, accu_inst)
   in
-  let ex_got_instatiated =
-    List.fold_left
-      (fun res (ex_name, deps) ->
-	let ex = Hashtbl.find ex_hash ex_name in
-	if ex.status = Uninstantiated
-	then begin
-	  instantiate_existential ex_hash ex deps;
-	  ex :: res
-	end
-	else res
-      )
-      [] inst_ex_deps
+  (* XXX update mappings in evar records? Check that nothing changed? *)
+  (* XXX sort the new evars? With a coq specific comparison function? *)
+  let (evar_new, evar_inst) =
+    List.fold_left process_evar_info ([], []) evar_info
   in
-  (* XXX use a coq specific comparison function for sorting *)
-  (ex_got_instatiated, List.sort compare new_ex)
-	 
+  let current_open =
+    List.fold_left
+      (fun current_open int_name ->
+        let ex = Hashtbl.find ex_hash int_name in
+        match ex.evar_status with
+          | Uninstantiated ->  ex :: current_open
+          | Partially_instantiated
+          | Fully_instantiated -> current_open)
+      []
+      current_goal_evars
+  in
+  (evar_new, evar_inst, current_open)
+
+
+(*** XXX *)
+let evar_register_sequent sequent evar =
+  let old_sequents = evar.evar_sequents in
+  evar.evar_sequents <- sequent :: old_sequents;
+  (evar, old_sequents)
+
+
+(*** XXX *)
+let reset_evar_sequents (evar, sequents) =
+  evar.evar_sequents <- sequents
 
 
 (** Local convenience function for changing the current node. Sets the
@@ -526,19 +565,18 @@ let start_new_proof state proof_name =
     no open subgoal. The information about existential variables is
     processed, but there must be no new and no newly instantiated
     existential variables. If this is the first layer in the display,
-    a warning is displayed, if there are more than 1 root nodes.
+    a warning is displayed, if there is more than 1 root node.
 *)
 let create_new_layer pt state current_sequent_id current_sequent_text
-    additional_ids uninstantiated_existentials instantiated_ex_deps =
+    additional_ids evar_info current_evar_names =
   assert(List.for_all (fun id -> Hashtbl.mem pt.sequent_hash id = false)
 	   (current_sequent_id :: additional_ids));
   assert(pt.open_goals_count = 0);
-  let (ex_got_instantiated, new_existentials) =
-    update_existentials pt.existential_hash 
-      uninstantiated_existentials instantiated_ex_deps in
+  let (new_evars, inst_evars, _) =
+    update_existentials state pt.existential_hash evar_info current_evar_names in
   (* schedule an existential status update when this assert goes away *)
-  assert (ex_got_instantiated = [] && new_existentials = []);
-  let first_sw = 
+  assert (new_evars = [] && inst_evars = [] && current_evar_names = []);
+  let first_sw =
     pt.window#new_turnstile state current_sequent_id 
       (Some current_sequent_text) in
   Hashtbl.add pt.sequent_hash current_sequent_id first_sw;
@@ -605,25 +643,21 @@ let create_new_layer pt state current_sequent_id current_sequent_text
     that a cheating command solves the current subgoal.
 *)
 let add_new_goal pt state proof_command cheated_flag current_sequent_id
-    current_sequent_text additional_ids 
-    uninstantiated_existentials instantiated_ex_deps =
+    current_sequent_text additional_ids evar_info current_evar_names =
   assert(cheated_flag = false);
-  let (ex_got_instantiated, new_existentials) =
-    update_existentials pt.existential_hash
-      uninstantiated_existentials instantiated_ex_deps
-  in
+  let (new_evars, inst_evars, current_open_evars) =
+    update_existentials state pt.existential_hash evar_info current_evar_names in
   (* Update the existentials early, to have correct info in the 
    * current sequent.
    *)
-  if ex_got_instantiated <> [] then
+  if inst_evars <> [] then
     update_existential_status pt.existential_hash;
   let parent = match pt.current_sequent with
     | Some s -> s
     | None -> assert false
   in
   let pc = 
-    pt.window#new_proof_command 
-      state proof_command ex_got_instantiated new_existentials
+    pt.window#new_proof_command state proof_command new_evars inst_evars
   in
   let pc = (pc :> proof_tree_element) in
   set_children parent [pc];
@@ -636,6 +670,7 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
     list_filter_rev 
       (fun id -> not (Hashtbl.mem pt.sequent_hash id))
       additional_ids in
+  List.iter (emacs_send_show_goal state) new_goal_ids_rev;
   let new_goals =
     List.fold_left
       (fun res id ->
@@ -654,6 +689,11 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   in
   let all_subgoals = sw :: new_goals in
   set_children pc all_subgoals;
+  let evar_sequents_to_reset =
+    List.rev_map
+      (evar_register_sequent (sw :> turnstile_interface))
+      current_open_evars
+  in
   let unhash_sequent_ids = current_sequent_id :: new_goal_ids_rev in
   let old_current_sequent_id = pt.current_sequent_id in
   let old_current_sequent = parent in
@@ -668,7 +708,7 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
    * sequent. Therefore, if some existential got instantiated we have
    * to update all those sequent displays.
    *)
-  if ex_got_instantiated <> [] then begin
+  if inst_evars <> [] then begin
     pt.window#update_sequent_existentials_info;
     pt.sequent_area_needs_refresh <- true;
   end;
@@ -681,10 +721,11 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
 	pt.open_goals_count (if pt.open_goals_count > 1 then "s" else "") n
   in
   pt.window#message message;
-  pt.window#ext_dialog_add new_existentials;
+  pt.window#ext_dialog_add new_evars;
   let undo () =
     pc#delete_non_sticky_external_windows;
     List.iter (fun s -> s#delete_non_sticky_external_windows) all_subgoals;
+    List.iter reset_evar_sequents evar_sequents_to_reset;
     clear_children old_current_sequent;
     old_current_sequent#mark_current;
     List.iter (fun id -> Hashtbl.remove pt.sequent_hash id) unhash_sequent_ids;
@@ -695,15 +736,16 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
     pt.current_sequent_id <- old_current_sequent_id;
     pt.current_sequent <- Some old_current_sequent;
     pt.open_goals_count <- old_open_goals_count;
-    List.iter (fun ex -> Hashtbl.remove pt.existential_hash ex.existential_name)
-      new_existentials;
-    if ex_got_instantiated <> [] then begin
-      undo_instantiate_existentials ex_got_instantiated;
+    List.iter
+      (fun ex -> Hashtbl.remove pt.existential_hash ex.evar_internal_name)
+      new_evars;
+    if inst_evars <> [] then begin
+      undo_instantiate_existentials inst_evars;
       update_existential_status pt.existential_hash;
       pt.window#update_sequent_existentials_info;
       pt.sequent_area_needs_refresh <- true;
     end;
-    pt.window#ext_dialog_undo new_existentials;
+    pt.window#ext_dialog_undo new_evars;
   in
   add_undo_action pt state undo;
   pt.need_redraw <- true
@@ -715,19 +757,21 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
     branch, moving to the next open subgoal (if necessary) is done by
     {!internal_switch_to}.
 *)
-let finish_branch pt state proof_command cheated_flag 
-    uninstantiated_existentials instantiated_ex_deps =
-  let (ex_got_instantiated, new_existentials) =
-    update_existentials pt.existential_hash 
-      uninstantiated_existentials instantiated_ex_deps
+let finish_branch pt state proof_command cheated_flag evar_info
+                  current_evar_names =
+  (* Ignore the current open evars returned here. They might actually
+   * contain something if this function is called as part of
+   * finish_branch_and_switch_to.
+   *)
+  let (new_evars, inst_evars, _) =
+    update_existentials state pt.existential_hash evar_info current_evar_names
   in
   let parent = match pt.current_sequent with
     | Some s -> s
     | None -> assert false
   in
   let pc = 
-    pt.window#new_proof_command 
-      state proof_command ex_got_instantiated new_existentials
+    pt.window#new_proof_command state proof_command new_evars inst_evars
   in
   let pc = (pc :> proof_tree_element) in
   parent#unmark_current;
@@ -747,15 +791,16 @@ let finish_branch pt state proof_command cheated_flag
     pt.current_sequent_id <- old_current_sequent_id;
     pt.open_goals_count <- old_open_goals_count;
     pt.cheated <- old_cheated;
-    List.iter (fun ex -> Hashtbl.remove pt.existential_hash ex.existential_name)
-      new_existentials;
-    if ex_got_instantiated <> [] then begin
-      undo_instantiate_existentials ex_got_instantiated;
+    List.iter
+      (fun ex -> Hashtbl.remove pt.existential_hash ex.evar_internal_name)
+      new_evars;
+    if inst_evars <> [] then begin
+      undo_instantiate_existentials inst_evars;
       update_existential_status pt.existential_hash;
       pt.window#update_sequent_existentials_info;
       pt.sequent_area_needs_refresh <- true;
     end;
-    pt.window#ext_dialog_undo new_existentials;
+    pt.window#ext_dialog_undo new_evars;
   in
   add_undo_action pt state undo;
   if cheated_flag then pt.cheated <- true;
@@ -764,12 +809,12 @@ let finish_branch pt state proof_command cheated_flag
   pt.current_sequent_id <- None;
   pt.window#clear_position_hints;
   set_current_node_wrapper pt None;
-  if ex_got_instantiated <> [] then begin
+  if inst_evars <> [] then begin
     update_existential_status pt.existential_hash;
     pt.window#update_sequent_existentials_info;
     pt.sequent_area_needs_refresh <- true;
   end;
-  pt.window#ext_dialog_add new_existentials;
+  pt.window#ext_dialog_add new_evars;
   pt.need_redraw <- true
 
 
@@ -800,11 +845,9 @@ let internal_switch_to pt state new_current_sequent_id =
     [current_sequent] as next current sequent.
 *)
 let finish_branch_and_switch_to pt state proof_command cheated_flag
-    current_sequent_id additional_ids 
-    uninstantiated_existentials instantiated_ex_deps =
+    current_sequent_id additional_ids evar_info current_evar_names =
   assert(not (List.mem current_sequent_id additional_ids));
-  finish_branch pt state proof_command cheated_flag 
-    uninstantiated_existentials instantiated_ex_deps;
+  finish_branch pt state proof_command cheated_flag evar_info current_evar_names;
   internal_switch_to pt state current_sequent_id;
   let message = 
     Printf.sprintf "%s (%d goal%s remaining)" 
@@ -822,7 +865,7 @@ let finish_branch_and_switch_to pt state proof_command cheated_flag
 (* See mli for doc *)
 let process_current_goals state proof_name proof_command cheated_flag
     layer_flag current_sequent_id current_sequent_text additional_ids 
-    uninstatiated_existentials instantiated_ex_deps =
+    evar_info current_evar_names =
   (match !current_proof_tree with
     | Some pt -> 
       if pt.proof_name <> proof_name 
@@ -840,18 +883,16 @@ let process_current_goals state proof_name proof_command cheated_flag
   then begin
     assert (cheated_flag = false);
     create_new_layer pt state current_sequent_id current_sequent_text
-      additional_ids uninstatiated_existentials instantiated_ex_deps
+      additional_ids evar_info current_evar_names
   end else
     if pt.current_sequent_id <> (Some current_sequent_id) &&
       Hashtbl.mem pt.sequent_hash current_sequent_id
     then
       finish_branch_and_switch_to pt state proof_command cheated_flag
-	current_sequent_id additional_ids 
-	uninstatiated_existentials instantiated_ex_deps
+	current_sequent_id additional_ids evar_info current_evar_names
     else
       add_new_goal pt state proof_command cheated_flag current_sequent_id 
-	current_sequent_text additional_ids 
-	uninstatiated_existentials instantiated_ex_deps
+	current_sequent_text additional_ids evar_info current_evar_names
 
 
 (** Udate the sequent text for some sequent text and set an
@@ -944,7 +985,7 @@ let switch_to state proof_name new_current_sequent_id =
 
 (* See mli for doc *)
 let process_branch_finished state proof_name proof_command cheated_flag
-    uninstatiated_existentials instantiated_ex_deps =
+      evar_info current_evar_names =
   match !current_proof_tree with
     | None -> 
       raise (Proof_tree_error "branch-finished without current proof tree")
@@ -952,13 +993,14 @@ let process_branch_finished state proof_name proof_command cheated_flag
       if pt.proof_name <> proof_name
       then raise (Proof_tree_error "Branch finish in other proof");
       assert (pt.current_sequent <> None && pt.current_sequent_id <> None);
-      finish_branch pt state proof_command cheated_flag
-	uninstatiated_existentials instantiated_ex_deps;
+      finish_branch pt state proof_command cheated_flag evar_info
+        current_evar_names;
       let message = 
 	if pt.open_goals_count = 0
 	then begin
 	  let all_ex_inst = 
-	    Hashtbl.fold (fun _ ex res -> res && ex.status <> Uninstantiated)
+	    Hashtbl.fold
+              (fun _ ex res -> res && ex.evar_status <> Uninstantiated)
 	      pt.existential_hash true
 	  in
 	  let message_text =

@@ -1314,11 +1314,10 @@ object (self)
     new turnstile drawable undo_state sequent_id sequent_text_option
 
   (** Create a new proof command node. *)
-  method new_proof_command undo_state command 
-                           inst_existentials new_existentials =
+  method new_proof_command undo_state command new_evars inst_evars =
     new proof_command drawable undo_state command command 
-      (inst_existentials : existential_variable list)
-      (new_existentials : existential_variable list)
+      (new_evars : existential_variable list)
+      (inst_evars : existential_variable list)
 end
 
 

@@ -287,6 +287,7 @@ let protocol_version = 3
 open Configuration
 open Util
 open Gtk_ext
+open Evar_types
 
 (**/**)
 module U = Unix
@@ -314,7 +315,7 @@ exception Protocol_error of string * (exn * string) option
     variables.
 *)
 let parse_existential_info =
-  ref(fun _ -> ([], []) : string -> (string list * (string * string list) list))
+  ref(fun _ -> ([], []) : string -> (evar_info list * string list))
 
 (** Forward pointer to {!message_start}. Initialized in 
     {!setup_input}. The forward pointer is needed, because various 
@@ -448,6 +449,19 @@ let get_string len continuation_fn =
 
 (******************************************************************************
  ******************************************************************************
+ * Build Coq evar parser
+ *)
+
+(** {3 Build Coq existential variable info parser} *)
+
+let coq_evar_parser (input_string : string)
+    : (evar_info list * string list) =
+  Coq_evar_parser.coq_evar_info Coq_evar_lexer.evar_token
+    (Lexing.from_string input_string)
+
+
+(******************************************************************************
+ ******************************************************************************
  * configure for "PA" and protocol version NN
  *)
 
@@ -471,7 +485,7 @@ let configure_prooftree proof_assistant pg_protocol_version =
     raise (Protocol_error ("Received a second configure message", None));
   (match proof_assistant with
     | "Coq" -> 
-      parse_existential_info := Coq.coq_parse_existential_info
+      parse_existential_info := coq_evar_parser
     | "HOL Light" -> ()
     | _ -> 
       raise (Protocol_error ("Unknown proof assistant " ^ proof_assistant,
@@ -556,11 +570,11 @@ let parse_current_goals_finish state current_sequent_id cheated_string
   let current_sequent_text = chop_final_newlines current_sequent_text in
   let additional_ids_string = chop_final_newlines additional_ids_string in
   let additional_ids = string_split ' ' additional_ids_string in
-  let existentials_string = chop_final_newlines existentials_string in
-  let (ex_uninst, ex_inst) = !parse_existential_info existentials_string in
+  let (evar_info, current_evar_names) =
+    !parse_existential_info existentials_string in
   Proof_tree.process_current_goals state proof_name proof_command cheated_flag
     layer_flag current_sequent_id current_sequent_text additional_ids 
-    ex_uninst ex_inst;
+    evar_info current_evar_names;
   current_parser := !message_start_parser
 
     
@@ -721,10 +735,10 @@ let parse_branch_finished_finish
   in
   let proof_name = chop_final_newlines proof_name in
   let proof_command = chop_final_newlines proof_command in
-  let existentials_string = chop_final_newlines existentials_string in
-  let (ex_uninst, ex_inst) = !parse_existential_info existentials_string in
+  let (evar_info, current_evar_names) =
+    !parse_existential_info existentials_string in
   Proof_tree.process_branch_finished 
-    state proof_name proof_command cheated_flag ex_uninst ex_inst;
+    state proof_name proof_command cheated_flag evar_info current_evar_names;
   current_parser := !message_start_parser
 
 
