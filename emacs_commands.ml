@@ -59,6 +59,10 @@ let emacs_send_proof_script script =
   emacs_long_callback "insert-proof-script" script
 
 
-(** Request Show Goal <ID> at <state> from PG *)
-let emacs_send_show_goal state goal_id =
-  emacs_callback (Printf.sprintf "show-goal %s at %d" goal_id state)
+(** Request Show Goal <ID> at <state> from PG. The proof name is
+    needed to associate the output with a proof, because the command
+    can be delayed arbitrarily.
+*)
+let emacs_send_show_goal proof_name state goal_id =
+  emacs_callback (Printf.sprintf "show-goal \"%s\" at %d for \"%s\""
+                    goal_id state proof_name)

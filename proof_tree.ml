@@ -164,11 +164,13 @@ let configuration_updated () =
 (** Mark the given existential as instantiated and link it with its
     dependencies.
 *)
-let instantiate_existential state ex_hash ex dependency_names =
+let instantiate_existential proof_name state ex_hash ex dependency_names =
   assert(ex.evar_deps = []);
   ex.evar_status <- Partially_instantiated;
   ex.evar_deps <- List.rev_map (Hashtbl.find ex_hash) dependency_names;
-  List.iter (fun s -> emacs_send_show_goal state s#id) ex.evar_sequents
+  List.iter
+    (fun s -> emacs_send_show_goal proof_name state s#id)
+    ex.evar_sequents
 
 
 (** Reset the given list of existential variables to not being
@@ -244,7 +246,7 @@ let update_existential_status ex_hash =
     about existential variables was collected. It is needed for triggering
     sequent updates for sequents containing newly instantiated evars.
 *)
-let update_existentials state ex_hash evar_info current_goal_evars =
+let update_existentials proof_name state ex_hash evar_info current_goal_evars =
   (* Create one existential_variable record for ex_name, if ex_name is new
    * and append it to accumulator argument accu_new. We might see an evar
    * in the dependency list, before we see that it is uninstantiated and
@@ -277,7 +279,7 @@ let update_existentials state ex_hash evar_info current_goal_evars =
         let accu_inst =
           if ex.evar_status = Uninstantiated
           then begin
-            instantiate_existential state ex_hash ex deps;
+            instantiate_existential proof_name state ex_hash ex deps;
             ex :: accu_inst
           end
           else accu_inst
@@ -491,15 +493,10 @@ let undo pa_state =
   current_proof_tree := !new_current
 
 
-(** Try to find an old proof window for [proof_name]. 
+(** Try to find a proof window for [proof_name].
 *)
-let get_surviver proof_name =
-  try
-    Some(
-      List.find (fun pt -> pt.proof_name = proof_name) !original_proof_trees
-    )
-  with
-    | Not_found -> None
+let find_proof_tree_by_name proof_name =
+  List.find_opt (fun pt -> pt.proof_name = proof_name) !original_proof_trees
 
 
 (** Create a new proof-tree state (containing an empty proof tree
@@ -549,7 +546,7 @@ let reinit_surviver pt state =
 *)
 let start_new_proof state proof_name =
   let pt =
-    match get_surviver proof_name with
+    match find_proof_tree_by_name proof_name with
       | None -> 
 	let pt = create_new_proof_tree proof_name state in
 	original_proof_trees := pt :: !original_proof_trees;
@@ -575,7 +572,8 @@ let create_new_layer pt state current_sequent_id current_sequent_text
 	   (current_sequent_id :: additional_ids));
   assert(pt.open_goals_count = 0);
   let (new_evars, inst_evars, _) =
-    update_existentials state pt.existential_hash evar_info current_evar_names in
+    update_existentials pt.proof_name state
+      pt.existential_hash evar_info current_evar_names in
   (* schedule an existential status update when this assert goes away *)
   assert (new_evars = [] && inst_evars = [] && current_evar_names = []);
   let first_sw =
@@ -648,7 +646,8 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
     current_sequent_text additional_ids evar_info current_evar_names =
   assert(cheated_flag = false);
   let (new_evars, inst_evars, current_open_evars) =
-    update_existentials state pt.existential_hash evar_info current_evar_names in
+    update_existentials pt.proof_name state
+      pt.existential_hash evar_info current_evar_names in
   (* Update the existentials early, to have correct info in the 
    * current sequent.
    *)
@@ -672,7 +671,7 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
     list_filter_rev 
       (fun id -> not (Hashtbl.mem pt.sequent_hash id))
       additional_ids in
-  List.iter (emacs_send_show_goal state) new_goal_ids_rev;
+  List.iter (emacs_send_show_goal pt.proof_name state) new_goal_ids_rev;
   let new_goals =
     List.fold_left
       (fun res id ->
@@ -766,7 +765,8 @@ let finish_branch pt state proof_command cheated_flag evar_info
    * finish_branch_and_switch_to.
    *)
   let (new_evars, inst_evars, _) =
-    update_existentials state pt.existential_hash evar_info current_evar_names
+    update_existentials pt.proof_name state
+      pt.existential_hash evar_info current_evar_names
   in
   let parent = match pt.current_sequent with
     | Some s -> s
@@ -914,18 +914,31 @@ let update_sequent_element pt state sw sequent_text =
 
 (* See mli for doc *)
 let update_sequent state proof_name sequent_id sequent_text =
-  match !current_proof_tree with
-    | None ->
-      raise (Proof_tree_error "Update sequent without current proof tree")
+  (* show goal commands might get arbitrarily delayed, even until
+   * after the proof
+   *)
+  let pt_opt =
+    match !current_proof_tree with
+      | None -> None
+      | Some pt ->
+         if pt.proof_name = proof_name
+         then Some pt
+         else None
+  in
+  let pt_opt = match pt_opt with
+      | Some _ -> pt_opt
+      | None -> find_proof_tree_by_name proof_name
+  in
+  match pt_opt with
     | Some pt ->
-      if pt.proof_name <> proof_name
-      then raise (Proof_tree_error "Update sequent on other non-current proof");
-      try
-	update_sequent_element pt state 
-	  (Hashtbl.find pt.sequent_hash sequent_id) sequent_text
-      with
-	| Not_found ->
-	  raise (Proof_tree_error "Update unknown sequent")
+       update_sequent_element pt state
+	 (Hashtbl.find pt.sequent_hash sequent_id) sequent_text
+    | None ->
+       run_message_dialog
+         (Printf.sprintf
+            "Received update sequent command for non-existing proof %s."
+             proof_name)
+         `WARNING
 
 
 (** Leave current branch as is to prepare for switching to a different
