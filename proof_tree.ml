@@ -50,6 +50,10 @@ open Emacs_commands
 *)
 exception Proof_tree_error of string
 
+(** Applicative [int] map for undo actions. This is used with elements
+    of type [(unit -> unit) list] for storing undo actions.
+ *)
+module Undo_map = Map.Make(struct type t = int let compare = compare end)
 
 type proof_tree = {
   window : proof_window;
@@ -109,7 +113,7 @@ type proof_tree = {
       sequent area refreshs.
   *)
 
-  mutable undo_actions : (int * (unit -> unit) list) list;
+  mutable undo_actions : (unit -> unit) list Undo_map.t
 (** List of undo actions for this proof tree. Each element has the
     form [(state, action_list)], where [action_list] is the list of
     undo actions that must be performed if the user retracts to a
@@ -133,16 +137,12 @@ type proof_tree = {
     equal or lesser than [pa_state].
 *)
 let add_undo_action pt pa_state undo_fun =
-  match pt.undo_actions with
-    | [] -> pt.undo_actions <- [(pa_state, [undo_fun])]
-    | (prev_pa_state, prev_undos) :: undo_tail ->
-      assert(pa_state >= prev_pa_state);
-      if pa_state = prev_pa_state 
-      then
-	pt.undo_actions <- (prev_pa_state, undo_fun :: prev_undos) :: undo_tail
-      else
-	pt.undo_actions <- (pa_state, [undo_fun]) :: pt.undo_actions
-
+  pt.undo_actions <-
+    Undo_map.update pa_state
+      (function
+       | None -> Some [undo_fun]
+       | Some fs -> Some (undo_fun :: fs))
+      pt.undo_actions
 
 (** Contains all non-cloned proof trees managed in this module.
     Cloned proof trees are in {!Proof_window.cloned_proof_windows}.
@@ -347,7 +347,7 @@ let stop_proof_tree pt pa_state =
    * numbers might get out of sync with retired proof trees. Undo into
    * the middle of a proof is therefore impossible.
    *)
-  pt.undo_actions <- [];
+  pt.undo_actions <- Undo_map.empty;
   pt.pa_end_state <- pa_state;
   pt.window#disconnect_proof;
   pt.window#clear_current_node;
@@ -384,20 +384,22 @@ type proof_tree_undo_result =
   | PT_undo_keep      (** Argument proof tree should be kept non-current *)
 
 
-(** Process all undo actions with a state greater than [undo_state].
-    Return the list of unprocessed undo actions (with state strictly
-    less than [undo_state]).
-*)
-let rec fire_undo_actions undo_state = function
-  | [] -> []
-  | ((state, undos) :: undo_rest) as undo_list ->
-    if state > undo_state 
-    then begin
-      List.iter (fun f -> f()) undos;
-      fire_undo_actions undo_state undo_rest
-    end else
-      undo_list
-
+(** Process all undo actions with a state strictly greater than
+   [undo_state]. Return the map of unprocessed undo actions (with
+   state less than or equal to [undo_state]).
+ *)
+let fire_undo_actions undo_state undo_map =
+  let (undos_less, undos_equal, undos_greater) =
+    Undo_map.split undo_state undo_map in
+  let undos_left = match undos_equal with
+      | None -> undos_less
+      | Some fs -> Undo_map.add undo_state fs undos_less
+  in
+  (* Need to process the undo actions in descending order, but the map
+     only iterates in ascending order. *)
+  List.iter (fun fs -> List.iter (fun f -> f()) fs)
+    (Undo_map.fold (fun _ fs fss -> fs :: fss) undos_greater []);
+  undos_left
 
 (** Perform undo actions in proof tree [pt] to reach state [pa_state].
     This means that either 
@@ -517,7 +519,7 @@ let create_new_proof_tree proof_name state =
     existential_hash = Hashtbl.create 251;
     need_redraw = true;
     sequent_area_needs_refresh = true;
-    undo_actions = [];
+    undo_actions = Undo_map.empty;
   }
 
 
@@ -536,7 +538,7 @@ let reinit_surviver pt state =
   pt.open_goals_count <- 0;
   pt.need_redraw <- true;
   pt.sequent_area_needs_refresh <- true;
-  pt.undo_actions <- [];
+  pt.undo_actions <- Undo_map.empty;
   pt.window#message ""
 
 
