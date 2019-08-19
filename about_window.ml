@@ -48,7 +48,7 @@ let about_button = function
 
 (** Text for the about dialog. *)
 let about_comment =
-  "Prooftree displays proof trees for Coq and HOL Light under control of \
+  "Prooftree displays proof trees for Coq under control of \
    the Proof General user interface. Prooftree has been developed by \
    Hendrik Tews and is published under GPL version 3. For more information \
    visit http://askra.de/software/prooftree/."

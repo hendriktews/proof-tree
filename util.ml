@@ -43,6 +43,16 @@ let access_option = function
 
 
 (****************************************************************************)
+(** {2 Maps} *)
+(****************************************************************************)
+
+(** Applicative [int] map. This is used with different types for
+    storing undo actions.
+ *)
+module Int_map = Map.Make(struct type t = int let compare = ( - ) end)
+
+
+(****************************************************************************)
 (** {2 Missing from the List module} *)
 (****************************************************************************)
 
@@ -285,6 +295,8 @@ let utf8_string_sub s len =
 
 (** Return the filehandle for debugmessages. Only used during
     debugging sessions. 
+
+    Use as [Printf.fprintf (debugc()) ...]
 *)
 let debugc =
   let copt = ref None in

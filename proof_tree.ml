@@ -50,10 +50,11 @@ open Emacs_commands
 *)
 exception Proof_tree_error of string
 
-(** Applicative [int] map for undo actions. This is used with elements
-    of type [(unit -> unit) list] for storing undo actions.
- *)
-module Undo_map = Map.Make(struct type t = int let compare = compare end)
+
+(******************************************************************************
+ *****************************************************************************)
+(** {2 Record for managing proof trees} *)
+(*****************************************************************************)
 
 type proof_tree = {
   window : proof_window;
@@ -113,7 +114,7 @@ type proof_tree = {
       sequent area refreshs.
   *)
 
-  mutable undo_actions : (unit -> unit) list Undo_map.t
+  mutable undo_actions : (unit -> unit) list Int_map.t
 (** List of undo actions for this proof tree. Each element has the
     form [(state, action_list)], where [action_list] is the list of
     undo actions that must be performed if the user retracts to a
@@ -131,45 +132,82 @@ type proof_tree = {
     }
 *)
 
-
-(** Add an undo action to the current state [pa_state] of the proof
-    [pt]. This action is performed if the user retracts to a state
-    equal or lesser than [pa_state].
-*)
-let add_undo_action pt pa_state undo_fun =
-  pt.undo_actions <-
-    Undo_map.update pa_state
-      (function
-       | None -> Some [undo_fun]
-       | Some fs -> Some (undo_fun :: fs))
-      pt.undo_actions
-
 (** Contains all non-cloned proof trees managed in this module.
     Cloned proof trees are in {!Proof_window.cloned_proof_windows}.
 *)
 let original_proof_trees = ref []
 
-
-(** Take the necessary actions when the configuration record changed.
-    Calls the {!Proof_window.proof_window.configuration_updated}
-    method on all live proof windows.
+(** Holds the state for the currently active proof window, if any.
+    Mainly used for {!finish_drawing} to delay redrawing.
 *)
-let configuration_updated () =
-  List.iter (fun pt -> pt.window#configuration_updated) 
-    !original_proof_trees;
-  List.iter (fun ptw -> ptw#configuration_updated)
-    !cloned_proof_windows
+let current_proof_tree = ref None
 
 
-(** Mark the given existential as instantiated and link it with its
-    dependencies.
+(** Try to find a proof window for [proof_name].
+*)
+let find_proof_tree_by_name proof_name =
+  List.find_opt (fun pt -> pt.proof_name = proof_name) !original_proof_trees
+
+
+(** Create a new proof-tree state (containing an empty proof tree
+    window) for [proof_name] with starting state [state].
+*)
+let create_new_proof_tree proof_name state =
+  {
+    window = make_proof_window proof_name !geometry_string;
+    proof_name = proof_name;
+    pa_start_state = state;
+    pa_end_state = -1;
+    cheated = false;
+    sequent_hash = Hashtbl.create 503;
+    current_sequent_id = None;
+    current_sequent = None;
+    open_goals_count = 0;
+    existential_hash = Hashtbl.create 251;
+    need_redraw = true;
+    sequent_area_needs_refresh = true;
+    undo_actions = Int_map.empty;
+  }
+
+
+(** Initialize a surviver proof-tree state (and window) for reuse with
+    the initial sequent [current_sequent] and start state [state].
+*)
+let reinit_surviver pt state =
+  pt.window#clear_for_reuse;
+  Hashtbl.clear pt.sequent_hash;
+  Hashtbl.clear pt.existential_hash;
+  pt.pa_start_state <- state;
+  pt.pa_end_state <- -1;
+  pt.cheated <- false;
+  pt.current_sequent_id <- None;
+  pt.current_sequent <- None;
+  pt.open_goals_count <- 0;
+  pt.need_redraw <- true;
+  pt.sequent_area_needs_refresh <- true;
+  pt.undo_actions <- Int_map.empty;
+  pt.window#message ""
+
+
+(******************************************************************************
+ *****************************************************************************)
+(** {2 Evar Record treatment} *)
+(*****************************************************************************)
+
+(** Mark the given existential as instantiated, link it with its
+   dependencies and initiate sequents updates for all sequents
+   containing the existential.
 *)
 let instantiate_existential proof_name state ex_hash ex dependency_names =
+  (* Printf.fprintf (debugc()) "inst %s at state %d\n%!"
+   *   ex.evar_internal_name state;
+   *)
   assert(ex.evar_deps = []);
   ex.evar_status <- Partially_instantiated;
+  ex.evar_inst_state <- state;
   ex.evar_deps <- List.rev_map (Hashtbl.find ex_hash) dependency_names;
-  List.iter
-    (fun s -> emacs_send_show_goal proof_name state s#id)
+  Int_map.iter
+    (fun _ -> List.iter (fun s -> emacs_send_show_goal proof_name state s#id))
     ex.evar_sequents
 
 
@@ -180,6 +218,7 @@ let undo_instantiate_existentials exl =
   List.iter
     (fun ex -> 
       ex.evar_status <- Uninstantiated;
+      ex.evar_inst_state <- -1;
       ex.evar_deps <- [];
     )
     exl
@@ -193,8 +232,9 @@ let make_new_existential ex_hash internal_name external_name_opt =
             evar_external_name = external_name_opt;
 	    evar_status = Uninstantiated;
 	    evar_mark = false;
+            evar_inst_state = -1;
 	    evar_deps = [];
-            evar_sequents = [];
+            evar_sequents = Int_map.empty;
 	   }
   in
   Hashtbl.add ex_hash internal_name ex;
@@ -304,18 +344,50 @@ let update_existentials proof_name state ex_hash evar_info current_goal_evars =
   in
   (evar_new, evar_inst, current_open)
 
+(** XXX *)
+let filter_current_open_existentials ex_hash evar_info goal_evars =
+  let open_evars = Hashtbl.create 57 in
+  List.iter
+    (function
+     | Noninstantiated(int_name, _) -> Hashtbl.add open_evars int_name true
+     | Instantiated _ -> ())
+    evar_info;
+  List.rev_map
+    (Hashtbl.find ex_hash)
+    (list_filter_rev (Hashtbl.mem open_evars) goal_evars)
 
-(*** XXX *)
-let evar_register_sequent sequent evar =
-  let old_sequents = evar.evar_sequents in
-  evar.evar_sequents <- sequent :: old_sequents;
-  (evar, old_sequents)
+
+(** XXX *)
+let evar_register_sequent proof_name state sequent evar =
+  (* Printf.fprintf (debugc()) "register %s at %s\n%!"
+   *   sequent#id evar.evar_internal_name;
+   *)
+  evar.evar_sequents <-
+    Int_map.update state
+      (function
+       | None -> Some [sequent]
+       | Some seqs -> Some (sequent :: seqs))
+      evar.evar_sequents;
+  match evar.evar_status with
+    | Uninstantiated -> ()
+    | Partially_instantiated
+    | Fully_instantiated ->
+       emacs_send_show_goal proof_name evar.evar_inst_state sequent#id
+
+(** XXX *)
+let undo_evar_sequents undo_state ex =
+  let (seq_less, seq_equal, _) =
+    Int_map.split undo_state ex.evar_sequents in
+  ex.evar_sequents <-
+    match seq_equal with
+      | None -> seq_less
+      | Some s -> Int_map.add undo_state s seq_less
 
 
-(*** XXX *)
-let reset_evar_sequents (evar, sequents) =
-  evar.evar_sequents <- sequents
-
+(******************************************************************************
+ *****************************************************************************)
+(** {2 Undo} *)
+(*****************************************************************************)
 
 (** Local convenience function for changing the current node. Sets the
     current node in the proof-tree window and schedules an update for the
@@ -335,11 +407,17 @@ let mark_current_sequent_maybe = function
   | None -> ()
 
 
-(** Holds the state for the currently active proof window, if any.
-    Mainly used for {!finish_drawing} to delay redrawing.
+(** Add an undo action to the current state [pa_state] of the proof
+    [pt]. This action is performed if the user retracts to a state
+    equal or lesser than [pa_state].
 *)
-let current_proof_tree = ref None
-
+let add_undo_action pt pa_state undo_fun =
+  pt.undo_actions <-
+    Int_map.update pa_state
+      (function
+       | None -> Some [undo_fun]
+       | Some fs -> Some (undo_fun :: fs))
+      pt.undo_actions
 
 (** Closes the proof tree [pt] by leaving the current branch open.
     Additionally clear {!current_proof_tree}.
@@ -349,7 +427,7 @@ let stop_proof_tree pt pa_state =
    * numbers might get out of sync with retired proof trees. Undo into
    * the middle of a proof is therefore impossible.
    *)
-  pt.undo_actions <- Undo_map.empty;
+  pt.undo_actions <- Int_map.empty;
   pt.pa_end_state <- pa_state;
   pt.window#disconnect_proof;
   pt.window#clear_current_node;
@@ -392,16 +470,23 @@ type proof_tree_undo_result =
  *)
 let fire_undo_actions undo_state undo_map =
   let (undos_less, undos_equal, undos_greater) =
-    Undo_map.split undo_state undo_map in
+    Int_map.split undo_state undo_map in
   let undos_left = match undos_equal with
       | None -> undos_less
-      | Some fs -> Undo_map.add undo_state fs undos_less
+      | Some fs -> Int_map.add undo_state fs undos_less
   in
   (* Need to process the undo actions in descending order, but the map
      only iterates in ascending order. *)
   List.iter (fun fs -> List.iter (fun f -> f()) fs)
-    (Undo_map.fold (fun _ fs fss -> fs :: fss) undos_greater []);
+    (Int_map.fold (fun _ fs fss -> fs :: fss) undos_greater []);
   undos_left
+
+(** XXX *)
+let undo_inside_tree pt pa_state =
+  pt.undo_actions <- fire_undo_actions pa_state pt.undo_actions;
+  Hashtbl.iter
+    (fun _ ex -> undo_evar_sequents pa_state ex)
+    pt.existential_hash
 
 (** Perform undo actions in proof tree [pt] to reach state [pa_state].
     This means that either 
@@ -439,7 +524,7 @@ let undo_tree pt pa_state =
       pt.window#delete_proof_window;
       PT_undo_delete
     end
-  end 
+  end
   else if pt.pa_end_state >= 0 && pa_state >= pt.pa_end_state 
   then begin
     assert(pt_is_current = false);
@@ -449,7 +534,7 @@ let undo_tree pt pa_state =
     if pt_is_current 
     then
       begin
-	pt.undo_actions <- fire_undo_actions pa_state pt.undo_actions;
+        undo_inside_tree pt pa_state;
 	mark_current_sequent_maybe pt.current_sequent;
 	set_current_node_wrapper pt pt.current_sequent;
 	pt.window#message (Printf.sprintf "Retract to %d" pa_state);
@@ -493,51 +578,10 @@ let undo pa_state =
   current_proof_tree := !new_current
 
 
-(** Try to find a proof window for [proof_name].
-*)
-let find_proof_tree_by_name proof_name =
-  List.find_opt (fun pt -> pt.proof_name = proof_name) !original_proof_trees
-
-
-(** Create a new proof-tree state (containing an empty proof tree
-    window) for [proof_name] with starting state [state].
-*)
-let create_new_proof_tree proof_name state =
-  {
-    window = make_proof_window proof_name !geometry_string;
-    proof_name = proof_name;
-    pa_start_state = state;
-    pa_end_state = -1;
-    cheated = false;
-    sequent_hash = Hashtbl.create 503;
-    current_sequent_id = None;
-    current_sequent = None;
-    open_goals_count = 0;
-    existential_hash = Hashtbl.create 251;
-    need_redraw = true;
-    sequent_area_needs_refresh = true;
-    undo_actions = Undo_map.empty;
-  }
-
-
-(** Initialize a surviver proof-tree state (and window) for reuse with
-    the initial sequent [current_sequent] and start state [state].
-*)
-let reinit_surviver pt state =
-  pt.window#clear_for_reuse;
-  Hashtbl.clear pt.sequent_hash;
-  Hashtbl.clear pt.existential_hash;
-  pt.pa_start_state <- state;
-  pt.pa_end_state <- -1;
-  pt.cheated <- false;
-  pt.current_sequent_id <- None;
-  pt.current_sequent <- None;
-  pt.open_goals_count <- 0;
-  pt.need_redraw <- true;
-  pt.sequent_area_needs_refresh <- true;
-  pt.undo_actions <- Undo_map.empty;
-  pt.window#message ""
-
+(******************************************************************************
+ *****************************************************************************)
+(** {2 Proof tree manipulations} *)
+(*****************************************************************************)
 
 (** Start a new proof [proof_name] which is initially empty, that is
     contains no proof tree layers. If a surviver proof tree is found
@@ -574,6 +618,13 @@ let create_new_layer pt state current_sequent_id current_sequent_text
   let (new_evars, inst_evars, _) =
     update_existentials pt.proof_name state
       pt.existential_hash evar_info current_evar_names in
+  (* Printf.fprintf (debugc())
+   *   "new layer %s at state %d, inst %s, this goal open none\n%!"
+   *   current_sequent_id
+   *   state
+   *   (String.concat " "
+   *      (List.rev_map (fun e -> e.evar_internal_name) inst_evars));
+   *)
   (* schedule an existential status update when this assert goes away *)
   assert (new_evars = [] && inst_evars = [] && current_evar_names = []);
   let first_sw =
@@ -648,6 +699,15 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   let (new_evars, inst_evars, current_open_evars) =
     update_existentials pt.proof_name state
       pt.existential_hash evar_info current_evar_names in
+  (* Printf.fprintf (debugc())
+   *   "new goal %s at state %d, inst %s, this goal open %s\n%!"
+   *   current_sequent_id
+   *   state
+   *   (String.concat " "
+   *      (List.rev_map (fun e -> e.evar_internal_name) inst_evars))
+   *   (String.concat " "
+   *      (List.rev_map (fun e -> e.evar_internal_name) current_open_evars));
+   *)
   (* Update the existentials early, to have correct info in the 
    * current sequent.
    *)
@@ -690,11 +750,9 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   in
   let all_subgoals = sw :: new_goals in
   set_children pc all_subgoals;
-  let evar_sequents_to_reset =
-    List.rev_map
-      (evar_register_sequent (sw :> turnstile_interface))
-      current_open_evars
-  in
+  List.iter
+    (evar_register_sequent pt.proof_name state (sw :> turnstile_interface))
+    current_open_evars;
   let unhash_sequent_ids = current_sequent_id :: new_goal_ids_rev in
   let old_current_sequent_id = pt.current_sequent_id in
   let old_current_sequent = parent in
@@ -726,7 +784,6 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   let undo () =
     pc#delete_non_sticky_external_windows;
     List.iter (fun s -> s#delete_non_sticky_external_windows) all_subgoals;
-    List.iter reset_evar_sequents evar_sequents_to_reset;
     clear_children old_current_sequent;
     old_current_sequent#mark_current;
     List.iter (fun id -> Hashtbl.remove pt.sequent_hash id) unhash_sequent_ids;
@@ -768,6 +825,11 @@ let finish_branch pt state proof_command cheated_flag evar_info
     update_existentials pt.proof_name state
       pt.existential_hash evar_info current_evar_names
   in
+  (* Printf.fprintf (debugc()) "branch at %d, inst %s\n%!"
+   *   state
+   *   (String.concat " "
+   *      (List.rev_map (fun e -> e.evar_internal_name) inst_evars));
+   *)
   let parent = match pt.current_sequent with
     | Some s -> s
     | None -> assert false
@@ -900,7 +962,19 @@ let process_current_goals state proof_name proof_command cheated_flag
 (** Udate the sequent text for some sequent text and set an
     appropriate undo action.
 *)
-let update_sequent_element pt state sw sequent_text =
+let update_sequent_element pt state sw sequent_text evar_info
+      current_evar_names =
+  let current_open_evars =
+    filter_current_open_existentials
+      pt.existential_hash evar_info current_evar_names in
+  (* Printf.fprintf (debugc()) "update %s for %d, this goal open %s\n%!"
+   *   sw#id state
+   *   (String.concat " "
+   *      (List.rev_map (fun e -> e.evar_internal_name) current_open_evars));
+   *)
+  List.iter
+    (evar_register_sequent pt.proof_name state (sw :> turnstile_interface))
+    current_open_evars;
   sw#update_sequent sequent_text;
   if sw#is_selected then 
     pt.sequent_area_needs_refresh <- true;
@@ -913,7 +987,8 @@ let update_sequent_element pt state sw sequent_text =
 
 
 (* See mli for doc *)
-let update_sequent state proof_name sequent_id sequent_text =
+let update_sequent state proof_name sequent_id sequent_text
+      evar_info current_evar_names =
   (* show goal commands might get arbitrarily delayed, even until
    * after the proof
    *)
@@ -933,6 +1008,7 @@ let update_sequent state proof_name sequent_id sequent_text =
     | Some pt ->
        update_sequent_element pt state
 	 (Hashtbl.find pt.sequent_hash sequent_id) sequent_text
+         evar_info current_evar_names
     | None ->
        run_message_dialog
          (Printf.sprintf
@@ -1105,3 +1181,12 @@ let finish_drawing () = match !current_proof_tree with
     pt.need_redraw <- false
       
 
+(** Take the necessary actions when the configuration record changed.
+    Calls the {!Proof_window.proof_window.configuration_updated}
+    method on all live proof windows.
+*)
+let configuration_updated () =
+  List.iter (fun pt -> pt.window#configuration_updated)
+    !original_proof_trees;
+  List.iter (fun ptw -> ptw#configuration_updated)
+    !cloned_proof_windows

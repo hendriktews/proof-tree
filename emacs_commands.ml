@@ -23,6 +23,8 @@
 
 (** Generate and output emacs callback requests *)
 
+open Util
+
 
 (** Print [cmd] as emacs callback command. *)
 let emacs_callback cmd =
@@ -64,5 +66,6 @@ let emacs_send_proof_script script =
     can be delayed arbitrarily.
 *)
 let emacs_send_show_goal proof_name state goal_id =
+  (* Printf.fprintf (debugc()) "request %s at state %d\n%!" goal_id state; *)
   emacs_callback (Printf.sprintf "show-goal \"%s\" at %d for \"%s\""
                     goal_id state proof_name)

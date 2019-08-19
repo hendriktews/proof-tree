@@ -148,6 +148,7 @@
     <data-proof-name>\n\
     <data-sequent>\n v}
     
+XXXXXXXXXXXXXX
     The update sequent command updates the text of some 
     known sequent. Such updates are necessary for newly spawned 
     subgoals. But also when existential variables get instantiated.
@@ -255,7 +256,7 @@
 (** Version number of the communication protocol described and
     implemented by this module.
 *)
-let protocol_version = 3
+let protocol_version = 4
 
 
 
@@ -621,9 +622,10 @@ let parse_current_goals com_buf =
 
 (******************************************************************************
  * update-sequent state %d sequent %s proof-name-bytes %d \
- * sequent-text-bytes %d\n\
+ * sequent-text-bytes %d existential-bytes %d\n
  * <data-proof-name>\n
  * <data-sequent>\n
+ * <data-existentials>\n
  *)
 
 (** {3 Update-sequent command parser} *)
@@ -638,10 +640,14 @@ let parse_current_goals com_buf =
     @param proof_name full proof name (as raw data section string)
     @param sequent_text new sequent text (as raw data section string)
 *)
-let parse_update_sequent_finish state sequent_id proof_name sequent_text =
+let parse_update_sequent_finish state sequent_id proof_name sequent_text
+      existentials_string =
   let proof_name = chop_final_newlines proof_name in
   let sequent_text = chop_final_newlines sequent_text in
-  Proof_tree.update_sequent state proof_name sequent_id sequent_text;
+  let (evar_info, current_evar_names) =
+    !parse_existential_info existentials_string in
+  Proof_tree.update_sequent state proof_name sequent_id sequent_text
+    evar_info current_evar_names;
   current_parser := !message_start_parser
 
 
@@ -654,14 +660,18 @@ let parse_update_sequent_finish state sequent_id proof_name sequent_text =
 let parse_update_sequent com_buf =
   check_if_configured ();
   Scanf.bscanf com_buf
-    " state %d sequent %s proof-name-bytes %d sequent-text-bytes %d"
-    (fun state sequent_id proof_name_bytes sequent_text_bytes ->
+    (" state %d sequent %s proof-name-bytes %d sequent-text-bytes %d "
+     ^^ "existential-bytes %d")
+    (fun state sequent_id proof_name_bytes sequent_text_bytes
+         existential_bytes ->
       get_string proof_name_bytes
 	(fun proof_name ->
 	  get_string sequent_text_bytes
 	    (fun sequent_text ->
-	      parse_update_sequent_finish state sequent_id 
-		proof_name sequent_text)))
+              get_string existential_bytes
+                (fun existentials_string ->
+	             parse_update_sequent_finish state sequent_id
+		     proof_name sequent_text existentials_string))))
 
 
 

@@ -82,8 +82,11 @@ val process_current_goals :
     @param proof_name name of proof
     @param sequent_id ID of sequent to update
     @param sequent_text new sequent text
+    @param evar_info open evar's and dependencies for instantiated evars
+    @param in_goal evar's in current goal (open or instantiated)
 *)
-val update_sequent : int -> string -> string -> string -> unit
+val update_sequent :
+  int -> string -> string -> string -> evar_info list -> string list -> unit
 
 
 (** Switch to a different open goal.

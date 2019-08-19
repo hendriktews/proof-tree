@@ -140,15 +140,24 @@ type existential_variable = {
   mutable evar_mark : bool;		(** [true] if this existential should
 					    be marked in the proof-tree
 					    display *)
+  mutable evar_inst_state : int;
+  				(** State in which the evar got instantiated
+                                    or -1, also -1 for clones. Needed when a
+                                    sequent is registered for an instantiated
+                                    evar. *)
   mutable evar_deps : existential_variable list;
                                         (** The list of evars that are used 
 					    in the instantiation, 
 					    if instantiated *)
-  mutable evar_sequents : turnstile_interface list
-					(** Sequents that contain this evar
-                                            and need to be updated when this
-                                            evar is instantiated. Empty for
-                                            clones. *)
+  mutable evar_sequents : turnstile_interface list Int_map.t
+			(** Sequents that contain this evar and need to be
+                            updated when this evar is instantiated. Empty for
+                            clones and retired proof trees. The map key (int)
+                            is an undo state, it is mapped to all turnstiles
+                            that started to contain this evar in this state.
+                            Thus for undo, one can chop off some upper
+                            portion of this map.To get all turnstiles to
+                            be updated, one has to iterate over all keys. *)
 }
 
 
@@ -1685,12 +1694,13 @@ let rec clone_existentials ex_hash ex =
   with
     | Not_found -> 
       let deps = List.map (clone_existentials ex_hash) ex.evar_deps in
-      let nex = { evar_internal_name = ex.evar_internal_name;
-                  evar_external_name = ex.evar_external_name;
-                  evar_sequents = [];
-		  evar_status = ex.evar_status;
-		  evar_mark = false;
-		  evar_deps = deps;
+      let nex = {evar_internal_name = ex.evar_internal_name;
+                 evar_external_name = ex.evar_external_name;
+	         evar_status = ex.evar_status;
+	         evar_mark = false;
+                 evar_inst_state = -1;
+	         evar_deps = deps;
+                 evar_sequents = Int_map.empty;
 		}
       in
       Hashtbl.add ex_hash ex.evar_internal_name nex;
