@@ -576,6 +576,9 @@ object (self)
       reference is also used for proof commands. There, it holds just
       one element, the proof command with existentials info.
 
+      XXX reconsider including existential info everywhere, because 
+      Coq delivers the information now, I believe.
+
       The existential info is omitted from old versions of the sequent
       text, because this info is incorrect for sequents that get
       updated. The problem is that the exisitentials change already

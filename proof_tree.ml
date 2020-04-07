@@ -270,7 +270,7 @@ let update_existential_status ex_hash =
 
 
 (** Update the hash of existential variables and the existentials
-    themselves. The [evar_info] is scanned for new existentials.
+    themselves. XXX The [evar_info] is scanned for new existentials.
     Note that new existentials can even be found in the dependencies
     of instantiated existentials, because the order inside [evar_info] may 
     be arbitrary and also because some complex strategy might create and
@@ -372,6 +372,11 @@ let evar_register_sequent proof_name state sequent evar =
     | Uninstantiated -> ()
     | Partially_instantiated
     | Fully_instantiated ->
+       (* XXX this may get called twice for the same goal, if two
+          existentials get instantiated in the same state. Maybe
+          remember in the sequent, for which states a show goal was
+          issued already?
+        *)
        emacs_send_show_goal proof_name evar.evar_inst_state sequent#id
 
 (** XXX *)
@@ -697,6 +702,11 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
     current_sequent_text additional_ids evar_info current_evar_names =
   assert(cheated_flag = false);
   let (new_evars, inst_evars, current_open_evars) =
+    (* XXX the show goal command sent out here for instantiated
+       existentials might get processed only after the proof has been
+       finished and after printing existentials has been switched off
+       with Unset Printing Dependent Evars Line. Then, prooftree will
+       crash with a parsing error on the missing existential info. *)
     update_existentials pt.proof_name state
       pt.existential_hash evar_info current_evar_names in
   (* Printf.fprintf (debugc())
@@ -975,6 +985,17 @@ let update_sequent_element pt state sw sequent_text evar_info
   List.iter
     (evar_register_sequent pt.proof_name state (sw :> turnstile_interface))
     current_open_evars;
+  (* XXX Imagine 
+     - the initial version of sw contains two existentials
+     - the first one is instantiated using a third one
+     - the third one is instantiated before the second one
+     then, if Coq is quick enough, prooftree might issue show goal
+     commands for the first and the second, before the sequent update
+     cause by the first arrives and prooftree. Therefore, when
+     prooftree issues the show goal command for the third one, the
+     updated sequent text for the second one is in flight already and
+     the sequent text will appear out of order in the sequent history.
+   *)
   sw#update_sequent sequent_text;
   if sw#is_selected then 
     pt.sequent_area_needs_refresh <- true;
