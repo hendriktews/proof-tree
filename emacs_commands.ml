@@ -23,8 +23,9 @@
 
 (** Generate and output emacs callback requests *)
 
-open Util
-
+(* needed only for debug printing
+ * open Util
+ *)
 
 (** Print [cmd] as emacs callback command. *)
 let emacs_callback cmd =

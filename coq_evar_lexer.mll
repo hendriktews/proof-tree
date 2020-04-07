@@ -26,8 +26,8 @@
   open Coq_evar_parser
 }
 
-let letter = ['A'-'Z''a'-'z']
-let alphanum = ['0'-'9''A'-'Z''a'-'z']
+let letter = ['A'-'Z''a'-'z''_']
+let alphanum = ['0'-'9''A'-'Z''a'-'z''_']
 
 rule evar_token = parse
     '('			{ Paren_open }
