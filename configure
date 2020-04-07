@@ -73,6 +73,16 @@ else
     echo ocamlc version $ocbv found.
 fi
 
+# Check that ocamlc version is 4.06 at least.
+# prooftree uses Map.update, that was added in 4.06
+if [ $ocbv \< '4.06.0' ] ; then
+    echo Prooftree requires OCaml 4.06.0 or later.
+    echo Please install a more recent version of OCaml.
+    exit 1
+else
+    echo OCaml 4.06.0 or newer found. Good.
+fi
+
 # check for ocamlopt.opt
 ocvo=$(ocamlopt.opt -version)
 if [ $? -eq 0 ] ; then
@@ -137,14 +147,15 @@ elif ocamlfind query lablgtk2 > /dev/null ; then
 fi
 
 if [ "$lablgtkdir" = "" ] ; then
-    echo library LablGtk not found. Please install package liblablgtk2-ocaml-dev.
+    echo library LablGtk not found.
+    echo "Please install package liblablgtk2-ocaml-dev (Debian) or lablgtk (opam)."
     exit 1
 fi
 
 
 # Summary of the configuration
 echo
-echo "  Configuration summary:"
+echo "  Configuration successful. Summary:"
 echo "    binaries   will be copied to $bindir"
 echo "    man pages  will be copied to $mandir"
 if [ $native = "true" ] ; then
