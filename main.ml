@@ -56,7 +56,7 @@ let configuration_updated () =
 
 let _ = configuration_updated_callback := configuration_updated
 
-(** Stores the string argument of option {[ -test-coq-evar_types ]} *)
+(** Stores the string argument of option {[ -test-coq-evar-parser ]} *)
 let coq_evar_parser_arg = (ref None : string option ref)
 
 (** Argument list for [Arg.parse] *)

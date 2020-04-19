@@ -457,9 +457,19 @@ let get_string len continuation_fn =
 
 let coq_evar_parser (input_string : string)
     : (evar_info list * string list) =
-  Coq_evar_parser.coq_evar_info Coq_evar_lexer.evar_token
-    (Lexing.from_string input_string)
-
+  try
+    Coq_evar_parser.coq_evar_info Coq_evar_lexer.evar_token
+      (Lexing.from_string input_string)
+  with
+    | e ->
+       if !current_config.debug_mode then
+         Printf.eprintf
+           "Coq evar parser error on \"%s\"\nParser aborts with exception %s\n%!"
+           input_string (Printexc.to_string e);
+       run_message_dialog
+         "Coq evar parser error.\nExistential info might be wrong."
+         `WARNING;
+       ([], [])
 
 (******************************************************************************
  ******************************************************************************
@@ -910,15 +920,7 @@ let message_start () =
    * where the number gives the bytes in the next line
    *)
   (* Printf.fprintf (debugc()) "message start\n%!"; *)
-  try
-    get_string 16 read_second_line
-  with
-    | Scanf.Scan_failure _
-    | Failure _ 
-    | End_of_file as e 
-      ->
-      let bt = Printexc.get_backtrace() in
-      raise (Protocol_error ("Parse error", Some(e, bt)))
+  get_string 16 read_second_line
 
 
 (** {3 Main parsing loop, GTK callback and initialization} *)

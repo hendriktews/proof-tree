@@ -519,8 +519,9 @@ let try_load_config_file () =
 	  `WARNING;
 	None
       | _ -> 
-	print_endline "other error";
-	None
+         Printf.printf "Configuration file %s cannot be read.\n"
+           config_file_location;
+	 None
   in
   match copt with
     | None -> ()
