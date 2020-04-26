@@ -32,7 +32,7 @@ open Evar_types
 val configuration_updated : unit -> unit
 
 
-(** XXX *)
+(** Parse Coq existential variable information. *)
 val coq_evar_parser : string -> (evar_info list * string list)
 
 

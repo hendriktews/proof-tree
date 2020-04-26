@@ -34,9 +34,9 @@ open Draw_tree
     status of the existential changes. For memory management is makes
     also sense to destroy all widgets when a line gets deleted.
 
-    XXX - seems wrong!
     For easy access, these table line records are stored in the
-    {!existential_variable_window.ext_hash} hash table with the name
+    {!existential_variable_window.ext_hash} hash table with the
+    internal name
     of the existential as key.
 *)
 type ext_table_line = {

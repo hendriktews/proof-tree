@@ -144,11 +144,11 @@
     [update-sequent] command.
     }
     {- {v update-sequent state %d sequent %s proof-name-bytes %d \
-    sequent-text-bytes %d\n\
+    sequent-text-bytes %d existential-bytes %d\n\
     <data-proof-name>\n\
-    <data-sequent>\n v}
+    <data-sequent>\n
+    <data-existentials>\n v}
     
-XXXXXXXXXXXXXX
     The update sequent command updates the text of some 
     known sequent. Such updates are necessary for newly spawned 
     subgoals. But also when existential variables get instantiated.
@@ -158,6 +158,7 @@ XXXXXXXXXXXXXX
     {ol
     {- Full name of the proof}
     {- new sequent text}
+    {- Prover specific information about existential variables.}
     }
     }
     {- {v switch-goal state %d sequent %s proof-name-bytes %d\n
@@ -455,6 +456,13 @@ let get_string len continuation_fn =
 
 (** {3 Build Coq existential variable info parser} *)
 
+(** Parse Coq existential variable information. Returns a pair. The
+   first element is a list of {!Evar_types.evar_info} describing open
+   evars with their external name and instantiated ones with their
+   dependencies. The second element is the list of internal evar names
+   occuring in the current goal. Uses an OCamllex and OCamlyacc
+   generated parser internally. All parsing exceptions are cought and
+   converted into warning messages. *)
 let coq_evar_parser (input_string : string)
     : (evar_info list * string list) =
   try

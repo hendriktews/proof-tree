@@ -102,8 +102,9 @@ type proof_tree = {
 
   existential_hash : (string, existential_variable) Hashtbl.t;
   (** Mapping containing all existential variables in the proof tree.
+      Maps internal evar names to existential records.
       Needed to establish the dependency links in instantiated
-      existentials. 
+      existentials, for sequent updates on instantiation and more.
   *)
 
   mutable need_redraw : bool;
@@ -196,7 +197,11 @@ let reinit_surviver pt state =
 
 (** Mark the given existential as instantiated, link it with its
    dependencies and initiate sequents updates for all sequents
-   containing the existential.
+   containing the existential. Argument proof_name makes a round trip
+   to PG, in order to identify the proof tree window when it comes
+   back. Argument state is the undo state und dependency_names is the
+   list of internal evar names occuring in the instantiation of evar
+   ex.
 *)
 let instantiate_existential proof_name state ex_hash ex dependency_names =
   (* Printf.fprintf (debugc()) "inst %s at state %d\n%!"
@@ -270,23 +275,28 @@ let update_existential_status ex_hash =
 
 
 (** Update the hash of existential variables and the existentials
-    themselves. XXX The [evar_info] is scanned for new existentials.
-    Note that new existentials can even be found in the dependencies
-    of instantiated existentials, because the order inside [evar_info] may 
-    be arbitrary and also because some complex strategy might create and
-    instantiate several existentials. Newly created existentials are
-    registered in the hash of existential variables. Finally the state
-    of those existentials that got instantiated is updated. 
-
-    This function returns a triple containing the list of new existentials,
-    the list of newly instantiated existentials and the [current_goal_evars]
-    argument filtered for open evars.
-
-    Argument [state] is the proof assistant state from which the information
-    about existential variables was collected. It is needed for triggering
-    sequent updates for sequents containing newly instantiated evars.
-*)
-let update_existentials proof_name state ex_hash evar_info current_goal_evars =
+   themselves. Returns three list of
+   {!Draw_tree.existential_variable}, the newly created evars, the
+   instantiated ones and those open in the current goal. Arguments
+   [evar_info] and [current_goal_evars] are the evar information as
+   returned from the evar information parser. They are scanned for new
+   existentials and newly instantiated ones. Note that new
+   existentials can even be found in the dependencies of instantiated
+   existentials, because the order inside [evar_info] may be arbitrary
+   and also because some complex strategy might create and instantiate
+   several existentials. Newly created existentials are registered in
+   the hash of existential variables. Instantiated existentials are
+   updated and for all goals that contain a newly instantiated
+   existential, a show goal command is sent to Coq. Argument [state]
+   is the proof assistant state from which the information about
+   existential variables was collected. It is needed for triggering
+   sequent updates for sequents containing newly instantiated evars.
+   Argument [proof_name] makes a round trip to Proof General in show
+   goal commands to identify the proof tree window in the sequent
+   update. *)
+let update_existentials proof_name state ex_hash evar_info current_goal_evars
+                    : (existential_variable list * existential_variable list *
+                                                   existential_variable list) =
   (* Create one existential_variable record for ex_name, if ex_name is new
    * and append it to accumulator argument accu_new. We might see an evar
    * in the dependency list, before we see that it is uninstantiated and
@@ -300,6 +310,10 @@ let update_existentials proof_name state ex_hash evar_info current_goal_evars =
          accu_new
       | None -> (make_new_existential ex_hash int_name ex_name) :: accu_new
   in
+  (* Process evar info, create and instantiate evars as needed, return
+   * the list of new evars and the list of instantiated evars (both
+   * for undo)
+   *)
   let process_evar_info (accu_new, accu_inst) = function
     | Noninstantiated(int_name, ex_name)->
         ((test_and_create_ex accu_new int_name (Some ex_name)), accu_inst)
@@ -331,6 +345,8 @@ let update_existentials proof_name state ex_hash evar_info current_goal_evars =
   let (evar_new, evar_inst) =
     List.fold_left process_evar_info ([], []) evar_info
   in
+  (* Filter the open evars from the list of evars in the current goal.
+     Coq reports all evars, also the instantiated ones. *)
   let current_open =
     List.fold_left
       (fun current_open int_name ->
@@ -344,7 +360,14 @@ let update_existentials proof_name state ex_hash evar_info current_goal_evars =
   in
   (evar_new, evar_inst, current_open)
 
-(** XXX *)
+(** Filter the list of open existentals in the current goal from
+   argument [goal_evars] for a previous state. Argument [ex_hash] is
+   the existential hash of the current state, while [evar_info] and
+   [goals_evar] are from an update sequent command for a previous
+   state. Therefore, existentials open in the sequent at that state
+   might already be instantiated in [ex_hash] and the information
+   about open existentials must be taken from [evar_info].
+ *)
 let filter_current_open_existentials ex_hash evar_info goal_evars =
   let open_evars = Hashtbl.create 57 in
   List.iter
@@ -357,7 +380,15 @@ let filter_current_open_existentials ex_hash evar_info goal_evars =
     (list_filter_rev (Hashtbl.mem open_evars) goal_evars)
 
 
-(** XXX *)
+(** Register sequent in evar, such that a show goal command can be
+   scheduled when evar is instantiated. Argument [state] might be an
+   old state, because [sequent] and [evar] might themselves come from
+   an update sequent command. If [evar] has been instantiated since
+   state [state], then the show goal command is sent immediately here.
+   Argument [proof_name] identifies the proof tree window and makes a
+   round trip to Proof General. Argument [state] is also used for undo
+   in the {!Util.Int_map} in
+   {!Draw_tree.existential_variable.evar_sequents}. *)
 let evar_register_sequent proof_name state sequent evar =
   (* Printf.fprintf (debugc()) "register %s at %s\n%!"
    *   sequent#id evar.evar_internal_name;
@@ -379,7 +410,9 @@ let evar_register_sequent proof_name state sequent evar =
         *)
        emacs_send_show_goal proof_name evar.evar_inst_state sequent#id
 
-(** XXX *)
+(** Delete all sequents registered after state [undo_state] in the map
+   for registered sequents of evar [ex]. Used for undo in the current
+   proof tree. *)
 let undo_evar_sequents undo_state ex =
   let (seq_less, seq_equal, _) =
     Int_map.split undo_state ex.evar_sequents in
@@ -486,7 +519,9 @@ let fire_undo_actions undo_state undo_map =
     (Int_map.fold (fun _ fs fss -> fs :: fss) undos_greater []);
   undos_left
 
-(** XXX *)
+(** Perform undo to [pa_state] inside the current proof tree [pt]. For
+   this, the undo actions must be executed and some sequents must be
+   unregistered at some evars. *)
 let undo_inside_tree pt pa_state =
   pt.undo_actions <- fire_undo_actions pa_state pt.undo_actions;
   Hashtbl.iter
@@ -732,6 +767,7 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   in
   let pc = (pc :> proof_tree_element) in
   set_children parent [pc];
+                                      (***************** inside add_new_goal *)
   let sw =
     pt.window#new_turnstile state current_sequent_id 
       (Some current_sequent_text) in
@@ -767,6 +803,7 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   let old_current_sequent_id = pt.current_sequent_id in
   let old_current_sequent = parent in
   let old_open_goals_count = pt.open_goals_count in
+                                      (***************** inside add_new_goal *)
   pt.current_sequent_id <- Some current_sequent_id;
   pt.current_sequent <- Some sw;
   pt.open_goals_count <- pt.open_goals_count + List.length new_goals;
@@ -791,6 +828,7 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   in
   pt.window#message message;
   pt.window#ext_dialog_add new_evars;
+                                      (***************** inside add_new_goal *)
   let undo () =
     pc#delete_non_sticky_external_windows;
     List.iter (fun s -> s#delete_non_sticky_external_windows) all_subgoals;
