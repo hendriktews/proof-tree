@@ -1421,7 +1421,7 @@ let rec make_proof_window name geometry_string =
      `I("Show selected", proof_window#show_selected_node);
      `I("Existentials", proof_window#show_existential_window);
      `I("Configuration", show_config_window);
-     `I("Help", show_help_window);
+     `I("Help", show_help_window "");
      `I("About", show_about_window);
      `I("Exit", (fun _ -> exit 0));
     ] in

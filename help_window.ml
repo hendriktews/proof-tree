@@ -295,11 +295,23 @@ let fill_help_buffer (buffer : GText.buffer) =
 let start_help_dialog = ref false
 
 
+let key_pressed_callback help_win ev =
+  match GdkEvent.Key.keyval ev with 
+    | ks when 
+	   (ks = GdkKeysyms._Q || ks = GdkKeysyms._q) 
+	   && (List.mem `CONTROL (GdkEvent.Key.state ev))
+      -> 
+       exit 0
+    | ks when (ks = GdkKeysyms._Q || ks = GdkKeysyms._q)  -> 
+       help_win#destroy(); true
+    | _ -> false
+  
+
 (** Create and display a new help window. This function creates a new
     {xref lablgtk class GWindow.dialog} that contains the formatted
     help text inside a {xref lablgtk class GText.view}.
 *)
-let show_help_window () =
+let show_help_window geometry_string () =
   let help_win = 
     GWindow.dialog
       ~no_separator:true
@@ -333,7 +345,12 @@ let show_help_window () =
   fill_help_buffer help_view#buffer;
   ignore(help_win#connect#destroy ~callback:close_fun);
   ignore(help_win#connect#response ~callback:close_fun);
-  help_win#set_default_size ~width:400 ~height:300;
-  (* help_win#set_default_size ~width:800 ~height:800; *)
-  help_win#show ()
+  ignore(help_win#event#connect#key_press 
+	   ~callback:(key_pressed_callback help_win));
+  if geometry_string <> "" then
+    ignore(help_win#parse_geometry geometry_string)
+  else
+    help_win#set_default_size ~width:700 ~height:500;
+  help_win#show ();
+  ()
 

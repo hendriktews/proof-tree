@@ -135,7 +135,7 @@ let main () =
   if !start_config_dialog then
     Configuration.show_config_window ();
   if !start_help_dialog then
-    show_help_window ();
+    show_help_window !Configuration.geometry_string ();
   GMain.Main.main ()
 
 
