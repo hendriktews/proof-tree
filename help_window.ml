@@ -60,7 +60,8 @@ type tags_symbols =
 (** The help text *)
 let help_text = 
   let bold_proof_tree = (Bold, "Prooftree") in
-  let bold_proof_general = (Bold, "Proof General")
+  let bold_proof_general = (Bold, "Proof General") in
+  let bold_coq = (Bold, "Coq")
   in
   (**************************************************************************)
   (***************************** Colors *************************************)
@@ -70,11 +71,14 @@ let help_text =
    (Color !proved_complete_gdk_color, 
     "completely proved branches (green by default), ");
    (Color !proved_incomplete_gdk_color,
-    "proved branches with some not (yet) instantiated existential variables \
+    "proved branches that created some not (yet) instantiated existential \
+variables \
 (cyan by default), ");
    (Color !proved_partial_gdk_color,
-    "proved branches with all their own existential variables instantiated \
+    "proved branches where all existential variables that have been created \
+in the same branch are instantiated and \
 that nevertheless depend on some not (yet) instantiated existential variable \
+from a different branch \
 (dark green by default), ");
    (Color !current_gdk_color, "branch to the current goal (blue by default), ");
    (Default, "currently open branches (default foreground color) and ");
@@ -145,14 +149,17 @@ mouse stays long enough above it (and if command tool tips are enabled).\n\
    (Default, " keeps track of existential variables, whether they \
 have been instantiated and whether they depend on some other, \
 not (yet) instantiated existential. \
-It uses different colors for proved branches that contain non-instantiated \
+It uses different colors for proved branches that created currently not \
+instantiated \
 existential variables and branches that only depend on some not instantiated \
-existential. Displays with sequents \
+existential created in different branches. Displays with sequents \
 or proof commands (in tool-tips and in additional windows) list those \
 existential variables that are currently not (yet) instantiated.\n\
 \n\
 The menu item ");
    (Italic, "Existentials");
+   (Default, " or keyboard shortcut ");
+   (Italic, "e");
    (Default, " opens the dialog for existential variables, which contains \
 a table with all existential variables of the current proof and their \
 dependencies. \
@@ -168,15 +175,12 @@ this variable ");
     "(with orange background, by default)");
    (Default, " in the proof-tree display.\n\
 \n\
-With ");
-   (Bold, "Coq");
-   (Default, " >= 8.5, existential variables are severely broken in ");
+This version of ");
    bold_proof_tree;
-   (Default, " because ");
-   (Bold, "Coq");
-   (Default, " does not provide the necessary information, see ");
-   (Bold, "Coq");
-   (Default, " bug 4504.\n\
+   (Default, " only works with ");
+   bold_coq;
+   (Default, " version 8.11 or newer because of the structure of the \
+dependent evars line.\n\
 \n");
    (*************************************************************************)
    (***************************** Menus *************************************)
@@ -236,13 +240,18 @@ the state before starting the configuration dialog.\n\
 \n\
 The ");
    (Italic, "Exit");
-   (Default, " item terminates ");
+   (Default, " item or keyboard shortcut ");
+   (Italic, "Control-Q");
+   (Default, " terminates ");
    bold_proof_tree;
-   (Default, " and closes all proof windows. (Closing all windows does ");
+   (Default, " and closes all proof windows. Closing all windows via the \
+window manager or keyboard shortcut ");
+   (Italic, "q");
+   (Default, " does ");
    (Italic, "not");
    (Default, " terminate ");
    bold_proof_tree;
-   (Default, ".)\n\
+   (Default, ".\n\
 \n");
    (*************************************************************************)
    (***************************** Customization *****************************)
@@ -266,6 +275,7 @@ To visit a customization group, type ");
    (Italic, "M-x customize-group");
    (Default, " followed by the name of the customization group inside ");
    bold_proof_general;
+   (Default, ".");
   ]
 
 

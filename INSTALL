@@ -2,9 +2,8 @@
   PREREQUISITES
 ============================================================================
 
-Make sure you have Proof General >= 4.3pre130327 and Coq 8.4beta or better.
-For installation instructions see http://proofgeneral.inf.ed.ac.uk/devel
-and http://coq.inria.fr/coq-84
+Make sure you have Proof General later than June 2020 and Coq 8.11 or
+better.
 
 If you want to install Prooftree from sources you need OCaml with the Gtk
 bindings from the LablGtk2 library installed. The configure script checks
@@ -14,7 +13,8 @@ if
 
 runs without errors. For Debian, installing the packages ocaml-nox and
 liblablgtk2-ocaml-dev suffice (but the package ocaml-native-compilers is
-strongly recommended for binary compilation).
+strongly recommended for binary compilation). For opam, package lablgtk
+must be installed.
 
 
 ============================================================================

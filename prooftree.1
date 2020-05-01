@@ -1,6 +1,6 @@
 .\" groff -man -Tascii prooftree.1
 .\"
-.TH PROOFTREE 1 "August 2011" PROOFTREE "User Manuals"
+.TH PROOFTREE 1 "April 2020" PROOFTREE "User Manuals"
 .SH NAME
 prooftree \- proof-tree display for Proof General
 .SH SYNOPSIS
@@ -111,7 +111,8 @@ branch are not (yet) instantiated.
 .IP "proved partially (dark green by default)"
 In a partially proved branch all existential variables of the
 branch itself are instantiated, but some of those instantiations
-contain existential variables that are not (yet) instantiated.
+contain existential variables from other branches
+that are not (yet) instantiated.
 .IP "proved complete (green by default)"
 A branch is proved complete if all its existential variables are
 instantiated with terms that themselves do not contain any
@@ -174,8 +175,9 @@ updated nor automatically deleted.
 keeps track of existential variables, whether they have been
 instantiated and whether they depend on some other, not (yet)
 instantiated existential. It uses different colors for proved
-branches that contain non-instantiated existential variables and
-branches that only depend on some not instantiated existential.
+branches that created currently not instantiated existential
+variables and branches that only depend on some not instantiated
+existential created in different branches.
 The list of currently not (yet) instantiated existential
 variables is appended to proof commands and sequents in tool-tips
 and the other displays.
@@ -216,7 +218,9 @@ item terminates
 and closes all proof-tree displays.
 .\" ==========================================================================
 .P
-The remaining three items display, respectively, the
+The remaining four items display, respectively, the
+.B Existential Variable Dialog\fR,
+the
 .B Prooftree Configuration Dialog\fR,
 and the 
 .B Help
@@ -251,6 +255,10 @@ subtree, to Proof General, which inserts them at point.
 .\"
 .SH CONFIGURATION
 .SS Prooftree Configuration Dialog
+The configuration dialog permits to change fonts, colors, layout
+parameters for proof tree drawing, to configure tool tips,
+initial window sizes and some other points. Changes in the
+configuration dialog take immediate effect.
 The 
 .I Save 
 button stores the current configuration (as marshaled 
@@ -293,25 +301,6 @@ followed by the name of the customization group inside
 .\" ==========================================================================
 .\"
 .SH LIMITATIONS
-For
-.B Coq
->= 8.5, existential variables in
-.B Prooftree
-are severely broken because
-.B Coq
-does not provide the necessary information, see
-.B Coq
-bug 4504.
-.\" ==========================================================================
-.P
-In
-.B Coq\fR,
-proofs must be started with command 
-.I Proof\fR,
-which is the recommended practice anyway (see Coq problem report
-2776).
-.\" ==========================================================================
-.P
 In additional sequent displays, the information about existential
 variables is only shown for the latest version of the sequent and
 not for older versions in the instantiation history. The current
@@ -330,10 +319,10 @@ This version of
 .B Prooftree
 requires
 .B Coq
-8.4beta or better
+8.11 or better
 and 
 .B Proof General
-4.3pre130327 or better.
+from June 2020 or later.
 .\"
 .\" ==========================================================================
 .\" ================ Files ===================================================
@@ -358,10 +347,59 @@ The \fBProoftree\fR web page, \fIhttp://askra.de/software/prooftree/\fR
 
 .TP
 The \fBProof General Adapting Manual\fR
-contains information about adapting 
+contains now partially outdated information about adapting 
 .B Prooftree
 for a new proof assistant (see
-.I http://proofgeneral.inf.ed.ac.uk/adaptingman-latest.html\fR).
+.I https://proofgeneral.github.io/doc/master/adaptingman/\fR).
+.\"
+.\" ==========================================================================
+.\" ================ History =================================================
+.\" ==========================================================================
+.\"
+.SH HISTORY
+.B Prooftree
+was developed in 2011 to help to keep orientation in larger
+.B Coq
+proofs. The first versions required patches for
+.B Coq\fR.
+After a meeting with the
+.B Coq
+development team at the third
+.B Coq
+workshop in Nijmegen, the Netherlands, in 2011, Arnaud Spiwack
+added the necessary support for
+.B Prooftree
+to
+.B Coq
+and
+.B Prooftree
+version 0.8 was the first version that worked with
+.B Coq
+8.4beta and the
+.B Proof General
+development version. 
+.\" ==========================================================================
+.P
+The user friendly names for existential variables, introduced in
+.B Coq
+8.6 broke many
+.B Prooftree
+features for existential variables and the removal of the
+.I Show Goal "id"
+command in
+.B Coq
+8.7 broke
+.B Prooftree
+completely. In 2019, Jim Fehrle added the necessary support for
+.B Prooftree
+again to
+.B Coq
+8,11. The existential variable printout and the
+.I Show Goal
+command were slightly generalized, making it possible to simplify
+the proof tree code in
+.B Proof General
+quite a bit.
 .\"
 .\" ==========================================================================
 .\" ================ Credits =================================================

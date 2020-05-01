@@ -4,27 +4,25 @@
 
 
 Prooftree is a program for proof tree visualization during interactive
-proof development in a theorem prover. It is currently being developed for
-Coq and Proof General. See http://askra.de/software/prooftree/ for more
-information.
+proof development in Proof General. Currently, it only supports Coq. See
+http://askra.de/software/prooftree/ for more information.
 
-Prooftree requires Proof General >= 4.3pre130327 and 
-Coq version >= 8.4beta. These versions of Proof General and Coq must be
-installed separately. Binary packages are available Debian Jessie, for
-instance.
+This version of prooftree requires Proof General later than June 2020 and
+Coq version >= 8.11. These versions of Proof General and Coq must be
+installed separately.
 
 
 ============================================================================
   USAGE
 ============================================================================
 
-Start Emacs and load any Coq file. Proof display with prooftree is
-initially disabled. To enable it, hit the prooftree tool-bar icon, select
-menu Proof-General -> Start/Stop Prooftree or type C-c C-d. If you are
-inside a proof any of these actions will launch a proof-tree display for
-the current proof. Otherwise prooftree will be launched as soon as you
-start the next proof. Comprehensive usage information is provided by the
-help menu item inside Prooftree and by the Prooftree man page.
+Start Emacs/Proof General and load any Coq file. Proof display with
+prooftree is initially disabled. To enable it, hit the prooftree tool-bar
+icon, select menu Proof-General -> Start/Stop Prooftree or type C-c C-d. If
+you are inside a proof any of these actions will launch a proof-tree
+display for the current proof. Otherwise prooftree will be launched as soon
+as you start the next proof. Comprehensive usage information is provided by
+the help menu item inside Prooftree and by the Prooftree man page.
 
 
 ============================================================================
@@ -32,9 +30,9 @@ CREDITS / CONTACT / COPYRIGHT
 ============================================================================
 
 Prooftree is more or less a reimplementation of the graphical proof display
-of Pvs. The Pvs version is implemented in Tcl/Tk and controlled directly by
-the Pvs prover process, which has some advantages over the prooftree
-approach. 
+of Pvs with a number of enhancements for Coq. The Pvs version is
+implemented in Tcl/Tk and controlled directly by the Pvs prover process,
+which has some advantages over the prooftree approach.
 
 Please send bug reports, comments, patches, donations to 
 Hendrik Tews <prooftree@askra.de>
@@ -43,7 +41,7 @@ Instructions about adding support for a new proof assistant is contained in
 the Proof General Adapting manual.
 
 Prooftree is distributed under GPL version 3.
-Copyright (C) 2011 - 2019 Hendrik Tews
+Copyright (C) 2011 - 2020 Hendrik Tews
 
 
 ============================================================================
