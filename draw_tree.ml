@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  *)
-
+(* XXXX continue doc reading here *)
 
 (** Layout and drawing of the elements of the proof tree.
 

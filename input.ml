@@ -27,16 +27,17 @@
  *****************************************************************************)
 (** {2 Communition Protocol with Proof General}
 
-    The communication protocol with Proof General is mostly one-way:
-    Proof General sends display messages to Prooftree and Prooftree
-    never requests information for the proof-tree display from Proof
-    General. Prooftree sends a notification to Proof General when the
-    proof-tree window is closed. It also sends proof commands to Proof
-    General on request of the user.
+   The communication protocol between Proof General and Prooftree is
+   text based and bidirectional. Proof General sends display messages
+   to Prooftree and Prooftree sends user requests and requests for
+   additional display messages to Proof General. Prooftree sends
+   requests for additional display messages for newly created subgoals
+   and for goals that should be updated, because an existential
+   variable was instantiated.
 
     The communication protocol between Proof General and Prooftree is
     split into two parts: The display messages, which are sent from
-    Proof General to Prooftree and the notification messages, which
+    Proof General to Prooftree and the request messages, which
     are sent from Prooftree to Proof General.
 
     {3 Display Messages}
@@ -53,20 +54,20 @@
     {- a second line containing the display command and the length of
     the additional data sections, if the command has data sections.}
     {- the data sections (if any), where the last character of each
-    data sections is a newline.}
+    data section is a newline.}
     }
 
     All data is UTF-8 encoded. 
 
     Some data sections have a prover specific format. Currently, 
-    [prooftree] only supports Coq.
+    Prooftree only supports Coq.
 
     In the following list 
-    of commands, ``%d'' stands for a positive integer and %s for a string
+    of commands, ``%d'' stands for a positive integer and ``%s'' for a string
     which contains no white space. ``\{cheated | not-cheated\}'' denotes
     the alternative of either ``cheated'' or ``not-cheated''. An
     integer following the keyword state is a state number. An integer
-    following some xxx-bytes denotes the number of bytes of the next
+    following some ``xxx-bytes'' denotes the number of bytes of the next
     <data> section, including the final newline of that <data> section.
     A ``[ \ ]'' at the end of a line denotes line continuation without 
     newline.
@@ -82,6 +83,7 @@
     protocol version NN. If proof assistant PA or version NN is not
     supported, Prooftree displays an error message and exits. The name
     PA might contain arbitrary characters but no quotation mark ( '"' ).
+    {%html: <p> %}
 
     There must always be exectly one configure message, which must be
     the first message. 
@@ -96,7 +98,7 @@
     <data-additional-ids>\n\
     <data-existentials>\n v}
 
-    The [current-goals] command tells [prooftree] about a new proof 
+    The [current-goals] command tells Prooftree about a new proof 
     state with a new set of open goals. This corresponds to either of
     the following cases:
     {ol
@@ -114,34 +116,47 @@
     }
     
     For case 1 or case 4 [new-layer] must be given. Otherwise,
-    [current-layer] must be specified and [prooftree] decides with the
+    [current-layer] must be specified and Prooftree decides with the
     help of its internal state whether case 2 or 3 applies.
+    {%html: <p> %}
     
-    For the second and the third case, the set of open goals does not
+    For the second and the third case, the set of open goals in the 4th
+    data section (additional-ids, see below) does not
     need to represent the total set of all open subgoals, but it must
     contain all newly spawned subgoals.
+    {%html: <p> %}
     
     The state number in the [current-goals] command is for undo. It 
     is interpreted as the state that has been reached after processing 
     the current command. 
     [current-sequent %s] denotes the ID of the current sequent. The 
-    cheated flag tells [prooftree] whether the new proof state was 
+    cheated flag tells Prooftree whether the new proof state was 
     obtained by a cheating command such as [admit] or [sorry]. 
-    The data sections are :
+    The data sections are:
     {ol
     {- Full name of the proof}
     {- The proof command that yielded this proof state}
     {- Text of the current sequent}
     {- ID's of additionally open sequents (as space separated 
-    list of strings)}
+    list of strings), containing at least all newly spawned subgoals}
     {- Prover specific information about existential variables.}
     }
     
-    The second data section is ignored for initial proof states.
+    The second data section is ignored for initial proof states (case 1)
+    and new root goal nodes (case 4).
+    {%html: <p> %}
 
-    The text of newly created additional goals other then the 
-    current goal is expected to arrive separately with an 
-    [update-sequent] command.
+    For newly spawned subgoals of this command, Prooftree knows only
+    their sequent ID, but cannot display any sequent text. Therefore,
+    for each newly spawned subgoal, Prooftree sends a show-goal request
+    to Proof General. Additionally, also for sequents that contain an
+    existential variable that was instantiated by this proof command
+    command, Prooftree sends a show-goal command to Proof General in
+    order to update the display of the affected sequent. Because Proof
+    General and Prooftree progress asynchronously, it may happen, that
+    Proof General processes all these show-goal requests only
+    subtabtially later. Each show-goal request will be answered by an
+    update-sequent display command (see below) by Proof General.
     }
     {- {v update-sequent state %d sequent %s proof-name-bytes %d \
     sequent-text-bytes %d existential-bytes %d\n\
@@ -151,8 +166,12 @@
     
     The update sequent command updates the text of some 
     known sequent. Such updates are necessary for newly spawned 
-    subgoals. But also when existential variables get instantiated.
-    
+    subgoals and for sequents that contain an existantial variable that was
+    instantiated. Update sequent commands are always a response to
+    a show goal request. Update sequent commands may arrive long after
+    the first display command with the same state was processed.
+    {%html: <p> %}
+
     The state number is for undo and the sequent ID denotes the 
     sequent to update. The data sections are:
     {ol
@@ -164,9 +183,10 @@
     {- {v switch-goal state %d sequent %s proof-name-bytes %d\n
     <data-proof-name>\n v}
     
-    Switch goal tells [proftree] that the current goal has changed 
+    Switch goal tells Prooftree that the current goal has changed 
     without changing or solving the old current goal.
-    
+    {%html: <p> %}
+
     The state number is for undo and the only data section is:
     {ol
     {- Full name of the proof}
@@ -178,10 +198,10 @@
     <data-command>\n\
     <data-existentials>\n v}
     
-    [branch-finished] tells [prooftree] the last proof command that 
+    [branch-finished] tells Prooftree the last proof command that 
     closed the current branch. If there are still open subgoals, the 
     proof will hopefully continue with one of them, which is not yet 
-    known. The cheated flag tells [prooftree]
+    known. The cheated flag tells Prooftree
     whether the new proof state was obtained by a cheating command 
     such as [admit] or [sorry]. The data sections are :
     {ol
@@ -202,14 +222,16 @@
     {- {v undo-to state %d\n v}
     
     The state number here is not for undo, it is the undo-state.
-    Undo tells [prooftree] to change the display to the state before 
+    Undo tells Prooftree to change the display to the state before 
     the first command with a state strictly greater than [undo-state]
     has been processed.
     }
     {- {v quit-proof proof-name-bytes %d\n\
     <data-proof-name>\n v}
     
-    Quit closes the window for the indicated proof. 
+    This command tells Prooftree that the user stoped the proof-tree
+    display in Proof General. Prooftree will close the main window for
+    that proof.
     Cloned windows are not closed.
     The only data section is:
     {ol
@@ -218,19 +240,47 @@
     }
     }
 
-    {3 Notification Messages}
+    {3 Request Messages}
 
-    The notification messages are sent from Prooftree to Proof General
-    as a consequence of certain user interactions. There are 3
-    different notification messages: for stopping the proof-tree
-    display, for undo and for sending proof scripts. All notification
+    The request messages are sent from Prooftree to Proof General to
+    request updates of sequents and certain reactions for user
+    interactions. The protocol relies on the fact that [PIPE_BUF] bytes
+    (512 required by POSIX, 4096 on Linux) are transmitted atomically
+    in a pipe. On the receiver side, in Proof General, there are no
+    precautions against not completely transferred first lines
+    (including both newlines) of request messages. 
+
+    All request
     messages are preceeded with a newline and the string 
-    [emacs exec:], followed by a space, for easy recognition in Proof
+    [emacs exec:], followed by a space, and terminated with an additional
+    newline for easy recognition in Proof
     General.
 
-    The remaining part of the messages have the following format.
-
+    The variable parts of the request messages are as follows.
     {ul
+    {- {v show-goal "%s" at %d for "%s" v}
+
+    The first string is the goal id, the number after [at] is a state and
+    the last string is a name of a proof.
+    {%html: <p> %}
+
+    This command requests Proof General to send an [update-sequent] display
+    message for the specified goal in the specified state. All data, the goal
+    id, the state and the proof name actually makes a round trip to Proof
+    General and comes back in the [update-sequent] command. Note that the
+    state might be an arbitrary previous state of the current proof,
+    occurring in a preceding [current-goals] command.
+    {%html: <p> %}
+
+    Prooftree sends a [show-goal] command for each newly spawned subgoal
+    from a [current-goals] command and for each goal that contains an
+    existential variable that was reported to have gotten instantiated
+    in a [current-goals] command. For the latter case, it may happen that
+    Prooftree finds out about the existential only because of an
+    [update-sequent] command, such that it possibly sends [show-goal]
+    much later than receiving the [current-goals] command that reported the
+    instantiation.
+    }
     {- {v stop-displaying v}
     
     Prooftree sends this message to Proof General when the user closed
@@ -254,12 +304,8 @@
     }
 *)
 
-(** Version number of the communication protocol described and
-    implemented by this module.
-*)
-let protocol_version = 4
-
-
+(*****************************************************************************
+ *****************************************************************************)
 
 (** {2 General remarks}
 
@@ -282,9 +328,9 @@ let protocol_version = 4
     [current_parser]. 
 *)
 
+
 (*****************************************************************************
  *****************************************************************************)
-
 
 open Configuration
 open Util
@@ -296,12 +342,18 @@ module U = Unix
 (**/**)
 
 
-(** {2 Module Documentation} 
-    {3 General parsing utilities and parser state}
+(** {2 Module Documentation} *)
+
+(** Version number of the communication protocol described and
+    implemented by this module.
 *)
+let protocol_version = 4
 
 
-(** Exception raised if [prooftree] encounters an unknown or malformed command.
+(** {3 General parsing utilities and parser state} *)
+
+
+(** Exception raised if Prooftree encounters an unknown or malformed command.
     The first argument is a description of the error. If the error was caused 
     by an exception, the second argument carries this exception and the 
     execption backtrace until the point where [Protocol_error] was raised.
@@ -380,7 +432,7 @@ let setup_input_backup_channel () =
 (** Input function for reading from the input channel. To make the
     input backup feature work (see option [-tee]) input must always be
     read with this function. Arguments are the same as for {xref
-    stdlib val Pervasives.input}, [local_input buf start len] reads at
+    stdlib val Stdlib.input}, [local_input buf start len] reads at
     most [len] bytes from [stdin] into buffer [buf], starting at
     position [start]. Any material read is immediately written to
     {!Input.input_backup_oc}. Before calling this function,
@@ -392,7 +444,7 @@ let setup_input_backup_channel () =
     {!Input.parse_input} continues parsing with the function stored in
     [current_parser].
 
-    @raise Sys_blocked_io when no more input is available currently
+    @raise Sys_blocked_io when no more input is available currently.
 *)
 let local_input buf start len =
   let read_len = input stdin buf start len in
@@ -657,6 +709,8 @@ let parse_current_goals com_buf =
     @param sequent_id ID of sequent to update
     @param proof_name full proof name (as raw data section string)
     @param sequent_text new sequent text (as raw data section string)
+    @param existentials_string prover specific information about 
+    existentials
 *)
 let parse_update_sequent_finish state sequent_id proof_name sequent_text
       existentials_string =
@@ -916,7 +970,7 @@ let read_second_line first_line =
     to {!read_second_line} to process the complete display command.
     This function is the entry point into the display-command parser.
     All command parsing functions set {!Input.current_parser} to
-    [read_command_line] when they are finished with their work. This
+    [message_start] when they are finished with their work. This
     way, this function is called again to parse the next command by
     the main parsing loop in {!Input.parse_input}.
 

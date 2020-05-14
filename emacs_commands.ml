@@ -27,6 +27,16 @@
  * open Util
  *)
 
+(* sends 14 chars + cmd *)
+(* XXX assert that the whole command, including both newlines, are
+   less than PIPE_BUF bytes, get the latter from configure and getconf
+   -a, getconf PIPE_BUF does not work.
+
+   Similarly for the complete first line, including both newlines, of
+   emacs_long_callback.
+
+   Neet to include both newlines, because PG pattern matches on both.
+ *)
 (** Print [cmd] as emacs callback command. *)
 let emacs_callback cmd =
   Printf.printf "\nemacs exec: %s\n%!" cmd
@@ -62,6 +72,7 @@ let emacs_send_proof_script script =
   emacs_long_callback "insert-proof-script" script
 
 
+(* 23 chars + goal_id + state + proof_name *)
 (** Request Show Goal <ID> at <state> from PG. The proof name is
     needed to associate the output with a proof, because the command
     can be delayed arbitrarily.

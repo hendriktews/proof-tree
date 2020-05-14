@@ -21,7 +21,7 @@
  *)
 
 
-(** Reading commands from nonblocking stdin *)
+(* Reading commands from nonblocking stdin *)
 
 open Evar_types
 

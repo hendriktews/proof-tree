@@ -63,8 +63,8 @@ LABLGTKDIR:=@LABLGTKDIR@
 ##
 #############################################################################
 
-ODOC_CHECK:=/home/tews/src/odoc_check/odoc_check.cmxs
-ODOC_XREF:=/home/tews/src/odoc_xref/odoc_xref.cmxs
+ODOC_CHECK:=/home/tews/src/odoc-check/odoc_check.cmxs
+ODOC_XREF:=/home/tews/src/odoc-xref/odoc_xref.cmxs
 LABLGTKURL:=/usr/share/doc/liblablgtk2-ocaml-doc/html/api
 
 
@@ -156,7 +156,7 @@ install:
 
 
 TOCLEAN+=dump.odoc-dump
-dump.odoc-dump: $(SOURCES)
+dump.odoc-dump: $(CMX_OBJECTS)
 	$(OCAMLDOC) -I $(LABLGTKDIR) -d doc \
 		-inv-merge-ml-mli -m A -dump $@ $(SOURCES)
 
@@ -169,7 +169,7 @@ doc: dump.odoc-dump
 		-inv-merge-ml-mli -m A -load dump.odoc-dump
 	$(OCAMLDOC) -I $(LABLGTKURL) -dot -dot-reduce \
 		-o doc/dependencies.dot -load dump.odoc-dump
-	dot -Tps doc/dependencies.dot > doc/dependencies.ps
+	dot -Tpdf doc/dependencies.dot > doc/dependencies.pdf
 
 .PHONY: check-doc
 check-doc: dump.odoc-dump
