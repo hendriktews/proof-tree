@@ -305,7 +305,7 @@ let fill_help_buffer (buffer : GText.buffer) =
 let start_help_dialog = ref false
 
 
-(* XXX doc *)
+(** Key event callback, handles C-Q, Q and q. *)
 let key_pressed_callback help_win ev =
   match GdkEvent.Key.keyval ev with 
     | ks when 

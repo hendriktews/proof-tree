@@ -116,17 +116,17 @@ type proof_tree = {
   *)
 
   mutable undo_actions : (unit -> unit) list Int_map.t
-(** List of undo actions for this proof tree. Each element has the
-    form [(state, action_list)], where [action_list] is the list of
-    undo actions that must be performed if the user retracts to a
-    state equal or lesser than [state].
-*)
+(** {!Util.Int_map} of undo actions mapping undo states to lists of undo
+    actions. Such a list is executed, if an undo to a state stricly less
+    than the one associated to the list occurs. Asynchronous sequent 
+    updates require adding undo actions to states long before the last one.
+ *)
 }
 (** State record for displayed proof trees. The code maintains the
     following invariants.
     {ul 
     {- Each displayed proof tree is in precisely one the lists
-    {!original_proof_trees} or
+    {!original_proof_trees} or inside a proof window in
     {!Proof_window.cloned_proof_windows}.}
     {- {!proof_tree.current_sequent_id} = [None] iff
     {!proof_tree.current_sequent} = [None]}
@@ -144,7 +144,7 @@ let original_proof_trees = ref []
 let current_proof_tree = ref None
 
 
-(** Try to find a proof window for [proof_name].
+(** Try to find a original (non-cloned) proof tree for [proof_name].
 *)
 let find_proof_tree_by_name proof_name =
   List.find_opt (fun pt -> pt.proof_name = proof_name) !original_proof_trees
@@ -447,7 +447,7 @@ let mark_current_sequent_maybe = function
 
 (** Add an undo action to the current state [pa_state] of the proof
     [pt]. This action is performed if the user retracts to a state
-    equal or lesser than [pa_state].
+    less than [pa_state].
 *)
 let add_undo_action pt pa_state undo_fun =
   pt.undo_actions <-

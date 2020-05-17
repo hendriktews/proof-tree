@@ -19,7 +19,6 @@
  * You should have received a copy of the GNU General Public License
  * along with "prooftree". If not, see <http://www.gnu.org/licenses/>.
  *)
-(* XXXX continue doc reading here *)
 
 (** Layout and drawing of the elements of the proof tree.
 
@@ -33,7 +32,7 @@
     module is completely ignorant. For instance, the root node is
     always a proof goal; proof goal nodes have zero or more successor
     nodes, all of which are proof commands; and, finally, every proof
-    command has precisely one proof-goal successor. These properties
+    command has at most one proof-goal successor. These properties
     are neither assumed nor checked, they hopefully hold, because the
     tree is created in the right way.
 
@@ -79,9 +78,10 @@ open Gtk_ext
     record. This class type is used to break the mutual dependency between
     existential variable records and and the {!turnstile} class.
  *)
-
 class type turnstile_interface =
   object
+    (** Sequent ID, debugging name for sequent elements.
+    *)
     method id : string
   end
 

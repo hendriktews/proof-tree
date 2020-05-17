@@ -123,7 +123,8 @@ val process_proof_complete : int -> string -> unit
 
 (** Undo all changes to reach state [state]. That is, all changes with
     a strictly greater state number are undone. Proof trees started
-    later than [state] will be deleted. Those finished earlier than
+    later than [state] will be deleted or kept as surviver.
+    Those finished earlier than
     [state] remain untouched. All proof trees will be identical to the
     point in time before the first action with a state strictly
     greater than [state] has been processed.

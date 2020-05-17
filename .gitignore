@@ -5,7 +5,8 @@
 *.o
 Makefile
 Makefile.deps
-dump.odoc-dump
+gen_dump.odoc-dump
+hand_dump.odoc-dump
 prooftree
 prooftree.man.html
 prooftree.man.txt

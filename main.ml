@@ -92,7 +92,9 @@ let anon_fun s =
   Printf.eprintf "unrecognized argument %s\n" s;
   exit 1
 
-
+(** Test Coq evar parser. Parse argument [data], pretty print the result
+    and exit.
+ *)
 let test_coq_evar_parser data =
   let (evar_info, current_evar_names) = coq_evar_parser data in
   print_evar_info_list stdout evar_info;
