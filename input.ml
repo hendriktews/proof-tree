@@ -214,7 +214,15 @@
     <data-proof-name>\n v}
 
     [proof-complete] tells Prooftree that the current proof has been
-    completed and will further not be updated. The only data section is:
+    completed and will further not be updated. After sending
+    [proof-complete] Proof General blocks processing the queue region 
+    until it receives a [confirm-proof-complete] request message. This
+    way, Proof General will process all pending [show-goal] request
+    messages before continuing with the queue region and before
+    disableing the dependent evar line in Coq.
+    {%html: <p> %}
+
+    The only data section of [proof-complete] is:
     {ol
     {- Full name of the proof}
     }
@@ -300,6 +308,13 @@
     command or Insert subproof items from the context menu. The
     integer is the length of [<script data>] without the enclosing
     newlines.
+    }
+    {- {v confirm-proof-complete "%s" v}
+
+    This message confirms that processing the named proof is complete and
+    that all [show-goal] request messages for this proof have been sent
+    before. This message is required after receiving a [proof-complete]
+    display message.
     }
     }
 *)

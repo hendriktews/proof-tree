@@ -81,3 +81,9 @@ let emacs_send_show_goal proof_name state goal_id =
   (* Printf.fprintf (debugc()) "request %s at state %d\n%!" goal_id state; *)
   emacs_callback (Printf.sprintf "show-goal \"%s\" at %d for \"%s\""
                     goal_id state proof_name)
+
+(** Send [confirm-proof_complete] that tells PG that no more show goal
+    commands will follow.
+*)
+let emacs_confirm_proof_complete proof_name =
+  emacs_callback (Printf.sprintf "confirm-proof-complete \"%s\"" proof_name)

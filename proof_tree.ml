@@ -315,6 +315,7 @@ let update_existentials proof_name state ex_hash evar_info current_goal_evars
    * for undo)
    *)
   let process_evar_info (accu_new, accu_inst) = function
+                                       (********** inside update_existentials *)
     | Noninstantiated(int_name, ex_name)->
         ((test_and_create_ex accu_new int_name (Some ex_name)), accu_inst)
     | Instantiated(int_name, deps) ->
@@ -337,6 +338,7 @@ let update_existentials proof_name state ex_hash evar_info current_goal_evars
             ex :: accu_inst
           end
           else accu_inst
+                                       (********** inside update_existentials *)
         in
         (accu_new, accu_inst)
   in
@@ -359,6 +361,7 @@ let update_existentials proof_name state ex_hash evar_info current_goal_evars
       current_goal_evars
   in
   (evar_new, evar_inst, current_open)
+
 
 (** Filter the list of open existentals in the current goal from
    argument [goal_evars] for a previous state. Argument [ex_hash] is
@@ -473,6 +476,9 @@ let stop_proof_tree pt pa_state =
   update_existential_status pt.existential_hash;
   pt.window#refresh_and_position;
   pt.window#update_ext_dialog;
+  (* XXX check that the confirmation message is only sent when PG waits
+     for it and not, for instance, when the user kills prooftree *)
+  emacs_confirm_proof_complete pt.proof_name;
   pt.need_redraw <- false;
   pt.sequent_area_needs_refresh <- false;
   current_proof_tree := None
