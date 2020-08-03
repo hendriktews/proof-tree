@@ -484,8 +484,9 @@ let stop_proof_tree pt pa_state =
   current_proof_tree := None
 
 
-(** Same as {!stop_proof_tree} but make the current sequent the
-    selected one, if there is no selected sequent.
+(** Same as {!stop_proof_tree} but if there is no selected sequent,
+   select the original proof obligation (the root node of the proof
+   tree) as selected sequent.
 *)
 let stop_proof_tree_last_selected pt pa_state =
   (match pt.window#get_selected_node with

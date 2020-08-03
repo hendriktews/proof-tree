@@ -66,7 +66,7 @@ open Evar_types
     @param current_sequent_text the current sequent itself
     @param additional_ids ID's of the additionally open goals
     @param evar_info open evar's and dependencies for instantiated evars
-    @param in_goal evar's in current goal (open or instantiated)
+    @param current_evar_names evar's in current goal (open or instantiated)
 *)
 val process_current_goals :
   int -> string -> string -> 
@@ -75,15 +75,16 @@ val process_current_goals :
 
 
 (** Process an [update-sequent] command. This function is a wrapper
-    around {!update_sequent_element}, which looks up the right sequent
-    object and produces appropriate errors, if something goes wrong.
+    around {!update_sequent_element}. It looks up the right proof
+    tree and sequent objects and produces appropriate errors, if
+    something goes wrong.
 
     @param state state for undo
     @param proof_name name of proof
     @param sequent_id ID of sequent to update
     @param sequent_text new sequent text
     @param evar_info open evar's and dependencies for instantiated evars
-    @param in_goal evar's in current goal (open or instantiated)
+    @param current_evar_names evar's in current goal (open or instantiated)
 *)
 val update_sequent :
   int -> string -> string -> string -> evar_info list -> string list -> unit
@@ -107,13 +108,14 @@ val switch_to : int -> string -> string -> unit
     @param proof_command last command
     @param cheated_flag is true if the command is a cheating one
     @param evar_info open evar's and dependencies for instantiated evars
-    @param in_goal evar's in current goal (open or instantiated)
+    @param current_evar_names evar's in current goal (open or instantiated)
 *)
 val process_branch_finished : int -> string -> string -> bool -> 
   evar_info list -> string list -> unit
 
 
-(** Display a "Complete" message and retire the current proof.
+(** Display a "Complete" message, retire the current proof and sent a 
+    confirmation message to Proof General.
 
     @param state state for undo
     @param proof_name name of the completed proof
