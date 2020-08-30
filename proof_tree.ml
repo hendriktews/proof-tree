@@ -28,6 +28,74 @@
     {!proof_tree}) for all proof trees currently displayed. 
 *)
 
+(*****************************************************************************
+ *****************************************************************************)
+(** {2 Updating sequents for instantiated existential variables}
+
+    Coq prior to 8.11 can only print sequents for the current state.
+   Therefore for prooftree prior to 0.14 the Proof General
+   preprocessing code kept track of the instantiation status of
+   existential variables and issued [Show Goal] commands synchronously
+   before the next proof command in the proof was processed.
+
+   Coq 8.11 can print sequents for older states and I removed a lot of
+   preprocessing code from Proof General for prooftree 0.14. Now only
+   prooftree tracks the instantiation status of existential variables
+   and requests update sequent commands from Proof General via
+   [show-goal] request messages when an existential appearing in some
+   sequent gets instantiated. In the first design, implemented in
+   August 2019, I completely relied on the information Coq provides in
+   the dependent evar line. The existential variables appearing in a
+   sequent were always extracted from that line. Assume that the term
+   that instantiates evar [?a] uses evar [?b]. In this first design
+   update sequent commands for the instantiation of [?b] can only be
+   sent out for sequents for which the update sequent command for [?a]
+   has been processed. It can therefore happen that some update
+   sequent commands can only be issued after some round trips to Proof
+   General and Coq after the current proof has been finished. This
+   conflicts with the design decision to switch off the dependend evar
+   line with Proof General immediately after the proof has been
+   finished. The conflict produced evar parsing errors and missing
+   evar information because of the missing evar line in update sequent
+   commands produced after the proof has been finished.
+
+   I therefore revised the design on the assumption that an
+   existential can only occur in a sequent because it
+   {ul
+   {- occurs already in the initial version of the sequent, or it}
+   {- occurs in the instantiation of some existential that is known
+      to occur in this sequent alredy.}
+   }
+
+   Under this assumption it is sufficient to keep the dependency tree
+   of existential variables downward closed on registered sequents to
+   maintain the following invariant: For all complete sequents and all
+   known existentian variables,
+   {ul
+   {- the [show goal] request message for all instantiated existentials 
+      has been sent, and}
+   {- all sequents are registered on all open existential variables that
+      appear in them}
+   }
+
+   Here, complete sequents are sequents that have at least some
+   version of sequent text. Only additionally spawned subgoals, still
+   waiting for their first update sequent command, are incomplete.
+
+   With the above invariant an update sequent command for a complete
+   sequent does not trigger any [show goal] messages. These messages
+   are only necessary when an existential is instantiated, when a new
+   complete sequent arrives or when the first sequent text arrives for
+   an incomplete seqent. Therefore, prooftree only has to delay the
+   [confirm-proof-complete] message until all sequents are complete.
+ *)
+
+(*****************************************************************************
+ *****************************************************************************)
+(** {2 Module Code}
+
+ *)
+
 open Util
 open Gtk_ext
 open Configuration
@@ -195,6 +263,53 @@ let reinit_surviver pt state =
 (** {2 Evar Record treatment} *)
 (*****************************************************************************)
 
+(** Propagate sequents registered for receiving updates on evar
+   instanciation downward in the dependency tree of existential
+   variables. This must be done on instantiating existential variables
+   to ensure that all complete sequents are registered at all their
+   evars such that an update sequent command can be triggered
+   immediately when one of these evars is instantiated.
+
+   Note that complex strategies might create and instatiate several
+   evars at once and that these are processed in no particular order.
+   It may therefore happen that evars used in the instantiation of a
+   particular existental are instantiated themselves already. The
+   downward propagation must therefore be continued recursively on all
+   instantiated dependencies.
+
+   Note further, that it is not necessary to issue update sequent
+   commands for sequents added to already instantiated evars for the
+   following reason. First, {instantiate_existential} triggers update
+   sequent commands for all existentials that get instantiated in a
+   particular state. Second, Coq does not permit to instantiate an
+   existential with a term containing an instantiated existential
+   (this is actually an assumption here, that I validated with some
+   [instanciate] commands). Therefore, if we see here that evar [?a]
+   was instanciated with a term containing evar [?b] and [?b] is
+   instantiated as well, then it must have been a complex strategy
+   that first instanciated [?a] and later [?b]. And it appears as if
+   [?a] and [?b] have been instanciated in the same state. Now, the
+   sequents registed with [?a] are in general not registered with [?b]
+   (especially not when [?b] is new). But all sequents registered with
+   [?a] receive already an update for this state, because [?a] is
+   instantiated here. Therefore we don't need to trigger another
+   update for the same state for [?b].
+ *)
+let rec propagate_registered_sequents ex =
+  List.iter
+    (fun dep ->
+      dep.evar_sequents <-
+        Int_map.union
+          (fun _ seqs1 seqs2 -> Some (seqs1 @ seqs2))
+          ex.evar_sequents dep.evar_sequents)
+    ex.evar_deps;
+  List.iter
+    (fun dep ->
+      if dep.evar_status <> Uninstantiated
+      then
+        propagate_registered_sequents dep)
+    ex.evar_deps      
+
 (** Mark the given existential as instantiated, link it with its
    dependencies and initiate sequents updates for all sequents
    containing the existential. Argument proof_name makes a round trip
@@ -213,8 +328,8 @@ let instantiate_existential proof_name state ex_hash ex dependency_names =
   ex.evar_deps <- List.rev_map (Hashtbl.find ex_hash) dependency_names;
   Int_map.iter
     (fun _ -> List.iter (fun s -> emacs_send_show_goal proof_name state s#id))
-    ex.evar_sequents
-
+    ex.evar_sequents;
+  propagate_registered_sequents ex
 
 (** Reset the given list of existential variables to not being
     instantiated.
@@ -387,12 +502,13 @@ let filter_current_open_existentials ex_hash evar_info goal_evars =
    scheduled when evar is instantiated. Argument [state] might be an
    old state, because [sequent] and [evar] might themselves come from
    an update sequent command. If [evar] has been instantiated since
-   state [state], then the show goal command is sent immediately here.
+   state [state], then the show goal command is sent immediately here
+   and the register process is done recursively on the dependencies.
    Argument [proof_name] identifies the proof tree window and makes a
    round trip to Proof General. Argument [state] is also used for undo
    in the {!Util.Int_map} in
    {!Draw_tree.existential_variable.evar_sequents}. *)
-let evar_register_sequent proof_name state sequent evar =
+let rec evar_register_sequent proof_name state sequent evar =
   (* Printf.fprintf (debugc()) "register %s at %s\n%!"
    *   sequent#id evar.evar_internal_name;
    *)
@@ -411,7 +527,10 @@ let evar_register_sequent proof_name state sequent evar =
           remember in the sequent, for which states a show goal was
           issued already?
         *)
-       emacs_send_show_goal proof_name evar.evar_inst_state sequent#id
+       emacs_send_show_goal proof_name evar.evar_inst_state sequent#id;
+       List.iter
+         (evar_register_sequent proof_name evar.evar_inst_state sequent)
+         evar.evar_deps
 
 (** Delete all sequents registered after state [undo_state] in the map
    for registered sequents of evar [ex]. Used for undo in the current
@@ -1015,21 +1134,38 @@ let process_current_goals state proof_name proof_command cheated_flag
 
 
 (** Udate the sequent text for some sequent text and set an
-    appropriate undo action.
+   appropriate undo action. For incomplete sequents (i.e.,
+   additionally spawned subgoals that now receive their initial
+   sequent text) the dependent evars info comming from the evar parser
+   (arguments [evar_info] and [current_evar_names]) is processed to
+   register this sequent for sequent updates on all evars that were
+   open in state [state] where sequent [sw] was created.
 *)
 let update_sequent_element pt state sw sequent_text evar_info
       current_evar_names =
-  let current_open_evars =
-    filter_current_open_existentials
-      pt.existential_hash evar_info current_evar_names in
-  (* Printf.fprintf (debugc()) "update %s for %d, this goal open %s\n%!"
-   *   sw#id state
-   *   (String.concat " "
-   *      (List.rev_map (fun e -> e.evar_internal_name) current_open_evars));
-   *)
-  List.iter
-    (evar_register_sequent pt.proof_name state (sw :> turnstile_interface))
-    current_open_evars;
+  if sw#is_incomplete then begin
+      (* This is the first update sequent command arriving for an
+       * additionally spawned subgoal. In this case we must register
+       * this sequent in all its existentials.
+       *)
+      let current_open_evars =
+        filter_current_open_existentials
+          pt.existential_hash evar_info current_evar_names in
+      (* Printf.fprintf (debugc()) "update %s for %d, this goal open %s\n%!"
+       *   sw#id state
+       *   (String.concat " "
+       *      (List.rev_map (fun e -> e.evar_internal_name) current_open_evars));
+       *)
+      List.iter
+        (evar_register_sequent pt.proof_name state (sw :> turnstile_interface))
+        current_open_evars;
+    end
+  else
+    (* This is an update sequent command caused by some instantiation
+     * of some existential in the sequent. This sequent is already
+     * registered in all existentials.
+     *)
+    ();
   (* XXX Imagine 
      - the initial version of sw contains two existentials
      - the first one is instantiated using a third one
@@ -1055,8 +1191,10 @@ let update_sequent_element pt state sw sequent_text evar_info
 (* See mli for doc *)
 let update_sequent state proof_name sequent_id sequent_text
       evar_info current_evar_names =
-  (* show goal commands might get arbitrarily delayed, even until
-   * after the proof
+  (* update sequent commands should arrive now before the current is
+   * closed, therefore the code path for looking up an arbitrarily old
+   * proof tree should never be taken any more. But it doesn't really
+   * hurt, so keep it.
    *)
   let pt_opt =
     match !current_proof_tree with

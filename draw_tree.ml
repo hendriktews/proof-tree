@@ -573,8 +573,18 @@ object (self)
       the sequent text without existential information, except for the
       head, with contains the current sequent {b with} existential
       info. For uniform treatment of external node windows, the
-      reference is also used for proof commands. There, it holds just
+      field is also used for proof commands. There, it just holds
       one element, the proof command with existentials info.
+
+      This field holds the empty list for additionally spawned subgoals
+      for which the first update sequent command with their initial sequent
+      text has not arrived yet. These sequents are called incomplete.
+      Complete sequents can also receive update sequent commands, but these
+      only update the sequent text with respect to instantiated existential
+      variables. The distinction between complete/incomplete sequents is
+      necessary, because for an update sequent command for a complete sequent,
+      some actions on existential variables are not necessary any more. See
+      {Proof_tree.update_sequent_element}.
 
       XXX reconsider including existential info everywhere, because 
       Coq delivers the information now, I believe.
@@ -1358,6 +1368,14 @@ object (self)
     );
     List.iter (fun ew -> ew#update_content sequent_text_history)
       external_windows
+
+  (** Returns true, if this sequent is complete, i.e., it either is a
+     primary sequent that was sent to prooftree initially with full
+     sequent text or it is a sequent of an additionally spawned
+     subgoal for which the initial update sequent command with the
+     initial sequent text was received already.
+   *)
+  method is_incomplete = sequent_text_history = []
 
   (** Return the pango layout object of {!layout}. Create one if there
       is none.
