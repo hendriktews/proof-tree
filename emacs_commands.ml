@@ -39,6 +39,7 @@
  *)
 (** Print [cmd] as emacs callback command. *)
 let emacs_callback cmd =
+  (* Printf.fprintf (debugc()) "<- %s\n%!" cmd; *)
   Printf.printf "\nemacs exec: %s\n%!" cmd
 
 (** Print [cmd] as emacs callback command with a long data section. *)

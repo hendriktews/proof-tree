@@ -168,12 +168,21 @@ type proof_tree = {
       current sequent.
   *)
 
+  mutable incomplete_sequents_count : int;
+  (** Counter for the number of incomplete sequents *)
+
   existential_hash : (string, existential_variable) Hashtbl.t;
   (** Mapping containing all existential variables in the proof tree.
       Maps internal evar names to existential records.
       Needed to establish the dependency links in instantiated
       existentials, for sequent updates on instantiation and more.
   *)
+
+  mutable proof_complete_confirmation_pending : bool;
+  (** [true] after receiving a proof complete message until
+     {open_goals_count} becomes zero and the confirmation message is
+     sent
+   *)
 
   mutable need_redraw : bool;
   (** [true] if the tree display needs a redraw. Used to delay redrawing. *)
@@ -232,7 +241,9 @@ let create_new_proof_tree proof_name state =
     current_sequent_id = None;
     current_sequent = None;
     open_goals_count = 0;
+    incomplete_sequents_count = 0;
     existential_hash = Hashtbl.create 251;
+    proof_complete_confirmation_pending = false;
     need_redraw = true;
     sequent_area_needs_refresh = true;
     undo_actions = Int_map.empty;
@@ -252,6 +263,8 @@ let reinit_surviver pt state =
   pt.current_sequent_id <- None;
   pt.current_sequent <- None;
   pt.open_goals_count <- 0;
+  pt.incomplete_sequents_count <- 0;
+  pt.proof_complete_confirmation_pending <- false;
   pt.need_redraw <- true;
   pt.sequent_area_needs_refresh <- true;
   pt.undo_actions <- Int_map.empty;
@@ -595,9 +608,6 @@ let stop_proof_tree pt pa_state =
   update_existential_status pt.existential_hash;
   pt.window#refresh_and_position;
   pt.window#update_ext_dialog;
-  (* XXX check that the confirmation message is only sent when PG waits
-     for it and not, for instance, when the user kills prooftree *)
-  emacs_confirm_proof_complete pt.proof_name;
   pt.need_redraw <- false;
   pt.sequent_area_needs_refresh <- false;
   current_proof_tree := None
@@ -806,12 +816,17 @@ let create_new_layer pt state current_sequent_id current_sequent_text
 	(sw :> proof_tree_element) :: res)
       additional_ids []
   in
+                                                  (* inside create_new_layer *)
+  let new_incomplete_sequents_count = List.length other_sw in
   let all_roots = first_sw :: other_sw in
   let layer = new tree_layer all_roots in
   let layer_undo_pos = pt.window#layer_stack#add_layer layer in
+  let old_incomplet_sequents_count = pt.incomplete_sequents_count in
   pt.current_sequent_id <- Some current_sequent_id;
   pt.current_sequent <- Some first_sw;
-  pt.open_goals_count <- List.length all_roots;
+  pt.open_goals_count <- new_incomplete_sequents_count + 1;
+  pt.incomplete_sequents_count <-
+    pt.incomplete_sequents_count + new_incomplete_sequents_count;
   first_sw#mark_current;
   set_current_node_wrapper pt (Some first_sw);
   pt.window#clear_position_hints;
@@ -834,7 +849,11 @@ let create_new_layer pt state current_sequent_id current_sequent_text
     pt.current_sequent_id <- None;
     pt.current_sequent <- None;
     pt.open_goals_count <- 0;
+    pt.incomplete_sequents_count <- old_incomplet_sequents_count;
   in
+                                                  (* inside create_new_layer *)
+  (* Printf.fprintf (debugc()) "new layer incomp count %d\n%!"
+   *   pt.incomplete_sequents_count; *)
   add_undo_action pt state undo;
   pt.need_redraw <- true;
   pt.sequent_area_needs_refresh <- true;
@@ -925,14 +944,18 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   List.iter
     (evar_register_sequent pt.proof_name state (sw :> turnstile_interface))
     current_open_evars;
+  let new_incomplete_sequents_count = List.length new_goals in
   let unhash_sequent_ids = current_sequent_id :: new_goal_ids_rev in
   let old_current_sequent_id = pt.current_sequent_id in
   let old_current_sequent = parent in
   let old_open_goals_count = pt.open_goals_count in
+  let old_incomplet_sequents_count = pt.incomplete_sequents_count in
                                       (***************** inside add_new_goal *)
   pt.current_sequent_id <- Some current_sequent_id;
   pt.current_sequent <- Some sw;
-  pt.open_goals_count <- pt.open_goals_count + List.length new_goals;
+  pt.open_goals_count <- pt.open_goals_count + new_incomplete_sequents_count;
+  pt.incomplete_sequents_count <-
+    pt.incomplete_sequents_count + new_incomplete_sequents_count;
   sw#mark_current;
   set_current_node_wrapper pt (Some sw);
   pt.window#set_position_hints position_hints;
@@ -955,6 +978,8 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   pt.window#message message;
   pt.window#ext_dialog_add new_evars;
                                       (***************** inside add_new_goal *)
+  Printf.fprintf (debugc()) "new goal %s incomp count %d\n%!"
+    sw#id pt.incomplete_sequents_count;
   let undo () =
     pc#delete_non_sticky_external_windows;
     List.iter (fun s -> s#delete_non_sticky_external_windows) all_subgoals;
@@ -968,6 +993,7 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
     pt.current_sequent_id <- old_current_sequent_id;
     pt.current_sequent <- Some old_current_sequent;
     pt.open_goals_count <- old_open_goals_count;
+    pt.incomplete_sequents_count <- old_incomplet_sequents_count;
     List.iter
       (fun ex -> Hashtbl.remove pt.existential_hash ex.evar_internal_name)
       new_evars;
@@ -1097,6 +1123,8 @@ let finish_branch_and_switch_to pt state proof_command cheated_flag
       pt.open_goals_count
       (if pt.open_goals_count > 1 then "s" else "")
   in
+  (* Printf.fprintf (debugc()) "finish branch incomp count %d\n%!"
+   *   pt.incomplete_sequents_count; *)
   pt.window#message message
 
 
@@ -1143,6 +1171,9 @@ let process_current_goals state proof_name proof_command cheated_flag
 *)
 let update_sequent_element pt state sw sequent_text evar_info
       current_evar_names =
+  (* Printf.fprintf (debugc()) "!! update %s sequent %s incomp count %d\n%!"
+   *   (if sw#is_incomplete then "incomplete" else "complete")
+   *   sw#id pt.incomplete_sequents_count; *)
   if sw#is_incomplete then begin
       (* This is the first update sequent command arriving for an
        * additionally spawned subgoal. In this case we must register
@@ -1159,6 +1190,11 @@ let update_sequent_element pt state sw sequent_text evar_info
       List.iter
         (evar_register_sequent pt.proof_name state (sw :> turnstile_interface))
         current_open_evars;
+      pt.incomplete_sequents_count <- pt.incomplete_sequents_count - 1;
+      if pt.incomplete_sequents_count = 0
+         && pt.proof_complete_confirmation_pending
+      then
+        emacs_confirm_proof_complete pt.proof_name;
     end
   else
     (* This is an update sequent command caused by some instantiation
@@ -1191,7 +1227,7 @@ let update_sequent_element pt state sw sequent_text evar_info
 (* See mli for doc *)
 let update_sequent state proof_name sequent_id sequent_text
       evar_info current_evar_names =
-  (* update sequent commands should arrive now before the current is
+  (* update sequent commands should arrive now before the current proof is
    * closed, therefore the code path for looking up an arbitrarily old
    * proof tree should never be taken any more. But it doesn't really
    * hurt, so keep it.
@@ -1210,6 +1246,18 @@ let update_sequent state proof_name sequent_id sequent_text
   in
   match pt_opt with
     | Some pt ->
+       (* XXX A quick undo might overtake show goal requests. The
+        * upate sequent command might arrive here, after the undo
+        * deleted the sequent already.
+        *)
+       (* if sequent_id = "552" then
+        *   List.iter
+        *     (fun sw ->
+        *       Printf.fprintf (debugc()) "!! sw#id %s -> [%s]\n%!"
+        *         sw#id
+        *         (String.concat " | " (sw#sequent_text_history)))
+        *     (Hashtbl.find_all pt.sequent_hash sequent_id); 
+        *)
        update_sequent_element pt state
 	 (Hashtbl.find pt.sequent_hash sequent_id) sequent_text
          evar_info current_evar_names
@@ -1338,7 +1386,11 @@ let process_proof_complete state proof_name =
 	!proved_complete_gdk_color
       in
       pt.window#message message;
-      stop_proof_tree_last_selected pt state
+      stop_proof_tree_last_selected pt state;
+      if pt.incomplete_sequents_count = 0 then
+        emacs_confirm_proof_complete pt.proof_name
+      else
+        pt.proof_complete_confirmation_pending <- true
 
 
 (** Delete the proof tree structure with the given name from the lists
