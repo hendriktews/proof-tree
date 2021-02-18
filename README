@@ -7,7 +7,7 @@ Prooftree is a program for proof tree visualization during interactive
 proof development in Proof General. Currently, it only supports Coq. See
 http://askra.de/software/prooftree/ for more information.
 
-This version of prooftree requires Proof General later than June 2020 and
+This version of prooftree requires Proof General later than March 2021 and
 Coq version >= 8.11. These versions of Proof General and Coq must be
 installed separately.
 

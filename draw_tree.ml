@@ -129,6 +129,15 @@ type existential_status =
     The external name should only be present for non-instantiated
     evars. The code however does neither enforce nor rely on this
     invariant.
+
+   The field [evar_deps] builds the dependency or instantiation tree
+   of existential variables. This tree must be downward closed on
+   registered sequents. That is, any [(state, sequent)] pair present
+   in [evar_sequents] must also be present in all existentials in
+   [evar_deps]. This property is maintained in
+   {!Proof_tree.instantiate_existential} (via
+   {!Proof_tree.propagate_registered_sequents}) and in
+   {!Proof_tree.evar_register_sequent}.
 *)
 type existential_variable = {
   evar_internal_name : string;		(** The internal Coq ID *)

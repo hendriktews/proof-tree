@@ -83,6 +83,7 @@
     protocol version NN. If proof assistant PA or version NN is not
     supported, Prooftree displays an error message and exits. The name
     PA might contain arbitrary characters but no quotation mark ( '"' ).
+    This version of Prooftree only supports Coq at protocol version 04.
     {%html: <p> %}
 
     There must always be exectly one configure message, which must be
@@ -115,9 +116,10 @@
     [Grab Existential Variables].}
     }
     
-    For case 1 or case 4 [new-layer] must be given. Otherwise,
-    [current-layer] must be specified and Prooftree decides with the
-    help of its internal state whether case 2 or 3 applies.
+    For case 4 [new-layer] must be given, for case 1 it is optional.
+    Otherwise, [current-layer] must be specified. For [current-layer]
+    Prooftree decides with its internal state whether case 2 or 3 or 
+    possibly 1 applies.
     {%html: <p> %}
     
     For the second and the third case, the set of open goals in the 4th
@@ -147,8 +149,10 @@
     {%html: <p> %}
 
     For newly spawned subgoals of this command, Prooftree knows only
-    their sequent ID, but cannot display any sequent text. Therefore,
-    for each newly spawned subgoal, Prooftree sends a show-goal request
+    their sequent ID, but cannot display any sequent text. Such sequents
+    are called incomplete. They stay incomplete, until their first sequent
+    text arrives via an update-sequent command.
+    For each newly spawned subgoal, Prooftree sends a show-goal request
     to Proof General. Additionally, also for sequents that contain an
     existential variable that was instantiated by this proof command
     command, Prooftree sends a show-goal command to Proof General in
@@ -217,9 +221,19 @@
     completed and will further not be updated. After sending
     [proof-complete] Proof General blocks processing the queue region 
     until it receives a [confirm-proof-complete] request message. This
-    way, Proof General will process all pending [show-goal] request
-    messages before continuing with the queue region and before
-    disableing the dependent evar line in Coq.
+    way, Proof General will process all [show-goal] request message
+    necessary for this proof before disabling the dependent evar line
+    in Coq and proceeding with the queue region. The [show-goal] messages
+    for incomplete sequents have been sent out when [proof-complete] is
+    processed here, however the corresponding [update-sequent] might
+    arrive later. Therefore Prooftree might send out [show-goal] messages
+    for evar instantiations after receiving [proof-complete] and after
+    receiving all [update-sequent] messages for all incomplete sequents.
+    {%html: <p> %}
+
+    The last open branch should have been closed via [branch-finished]
+    before [proof-complete] arrives, otherwise the proof will be in a
+    strange state.
     {%html: <p> %}
 
     The only data section of [proof-complete] is:
@@ -362,6 +376,7 @@ module U = Unix
 (** Version number of the communication protocol described and
     implemented by this module.
 *)
+(* update documentation for configure message when changed *)
 let protocol_version = 4
 
 
@@ -475,7 +490,7 @@ let local_input buf start len =
 
 
 (** [get_string_cont s i len cont ()] 
-    fills buffer [s] and continue parsing with [cont]. This
+    fills buffer [s] and continues parsing with [cont]. This
     is a utility function for {!Input.get_string}. [get_string_cont s i
     len cont ()] reads [len - i] bytes from the input channel and
     stores them in [s] at position [i]. When finished it calles
@@ -572,7 +587,7 @@ let configure_prooftree proof_assistant pg_protocol_version =
   (match proof_assistant with
     | "Coq" -> 
       parse_existential_info := coq_evar_parser
-    | "HOL Light" -> ()
+    (* | "HOL Light" -> () *)
     | _ -> 
       raise (Protocol_error ("Unknown proof assistant " ^ proof_assistant,
 			     None))

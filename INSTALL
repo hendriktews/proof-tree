@@ -2,7 +2,7 @@
   PREREQUISITES
 ============================================================================
 
-Make sure you have Proof General later than June 2020 and Coq 8.11 or
+Make sure you have Proof General later than March 2021 and Coq 8.11 or
 better.
 
 If you want to install Prooftree from sources you need OCaml with the Gtk

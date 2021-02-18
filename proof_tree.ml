@@ -86,8 +86,17 @@
    sequent does not trigger any [show goal] messages. These messages
    are only necessary when an existential is instantiated, when a new
    complete sequent arrives or when the first sequent text arrives for
-   an incomplete seqent. Therefore, prooftree only has to delay the
+   an incomplete sequent. Therefore, prooftree only has to delay the
    [confirm-proof-complete] message until all sequents are complete.
+
+   However, the [show-goal] request for an incomplete sequent might be
+   still on its way to Proof General when a proof is finished and the
+   [proof-complete] message arrives. Therefore this module counts the
+   incomplete sequents for the current proof and delays the
+   [confirm-proof-complete] message until this count is zero. It is
+   important to send this [confirm-proof-complete] message only after
+   instantiation of existential variables, such that all [show-goal]
+   messages for evar instantiation have been issued already.
  *)
 
 (*****************************************************************************
@@ -180,7 +189,7 @@ type proof_tree = {
 
   mutable proof_complete_confirmation_pending : bool;
   (** [true] after receiving a proof complete message until
-     {open_goals_count} becomes zero and the confirmation message is
+     {incomplete_sequents_count} becomes zero and the confirmation message is
      sent
    *)
 
@@ -292,8 +301,8 @@ let reinit_surviver pt state =
 
    Note further, that it is not necessary to issue update sequent
    commands for sequents added to already instantiated evars for the
-   following reason. First, {instantiate_existential} triggers update
-   sequent commands for all existentials that get instantiated in a
+   following reason. First, {!instantiate_existential} triggers update
+   sequent commands for all existentials that got instantiated in a
    particular state. Second, Coq does not permit to instantiate an
    existential with a term containing an instantiated existential
    (this is actually an assumption here, that I validated with some
@@ -324,8 +333,9 @@ let rec propagate_registered_sequents ex =
     ex.evar_deps      
 
 (** Mark the given existential as instantiated, link it with its
-   dependencies and initiate sequents updates for all sequents
-   containing the existential. Argument proof_name makes a round trip
+   dependencies, initiate sequents updates for all sequents containing
+   the existential and propagate sequents registered for the evar
+   downward to the dependencies. Argument proof_name makes a round trip
    to PG, in order to identify the proof tree window when it comes
    back. Argument state is the undo state und dependency_names is the
    list of internal evar names occuring in the instantiation of evar
@@ -415,7 +425,9 @@ let update_existential_status ex_hash =
    several existentials. Newly created existentials are registered in
    the hash of existential variables. Instantiated existentials are
    updated and for all goals that contain a newly instantiated
-   existential, a show goal command is sent to Coq. Argument [state]
+   existential, a show goal command is sent to Coq. Downward closure
+   of sequents in the evar dependency tree is maintained here by
+   propagating sequents down on instantiation. Argument [state]
    is the proof assistant state from which the information about
    existential variables was collected. It is needed for triggering
    sequent updates for sequents containing newly instantiated evars.
@@ -517,7 +529,7 @@ let filter_current_open_existentials ex_hash evar_info goal_evars =
    an update sequent command. If [evar] has been instantiated since
    state [state], then the show goal command is sent immediately here
    and the register process is done recursively on the dependencies.
-   Argument [proof_name] identifies the proof tree window and makes a
+   Argument [proof_name] identifies the proof-tree window and makes a
    round trip to Proof General. Argument [state] is also used for undo
    in the {!Util.Int_map} in
    {!Draw_tree.existential_variable.evar_sequents}. *)
@@ -592,7 +604,8 @@ let add_undo_action pt pa_state undo_fun =
        | Some fs -> Some (undo_fun :: fs))
       pt.undo_actions
 
-(** Closes the proof tree [pt] by leaving the current branch open.
+(** Closes the proof tree [pt], leaving the current branch open if
+    there is a current branch.
     Additionally clear {!current_proof_tree}.
 *)
 let stop_proof_tree pt pa_state = 
@@ -978,8 +991,8 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   pt.window#message message;
   pt.window#ext_dialog_add new_evars;
                                       (***************** inside add_new_goal *)
-  Printf.fprintf (debugc()) "new goal %s incomp count %d\n%!"
-    sw#id pt.incomplete_sequents_count;
+  (* Printf.fprintf (debugc()) "new goal %s incomp count %d\n%!"
+   *   sw#id pt.incomplete_sequents_count; *)
   let undo () =
     pc#delete_non_sticky_external_windows;
     List.iter (fun s -> s#delete_non_sticky_external_windows) all_subgoals;
@@ -1161,14 +1174,16 @@ let process_current_goals state proof_name proof_command cheated_flag
 	current_sequent_text additional_ids evar_info current_evar_names
 
 
-(** Udate the sequent text for some sequent text and set an
+(** Udate the sequent text for some sequent and set an
    appropriate undo action. For incomplete sequents (i.e.,
    additionally spawned subgoals that now receive their initial
    sequent text) the dependent evars info comming from the evar parser
    (arguments [evar_info] and [current_evar_names]) is processed to
    register this sequent for sequent updates on all evars that were
-   open in state [state] where sequent [sw] was created.
-*)
+   open in state [state] where sequent [sw] was created. All
+   necessary sequent updates are requested immediately. If necessary
+   and if the counter of incomplete sequences reaches zero, the
+   [confirm-proof-complete] message is sent. *)
 let update_sequent_element pt state sw sequent_text evar_info
       current_evar_names =
   (* Printf.fprintf (debugc()) "!! update %s sequent %s incomp count %d\n%!"
@@ -1386,6 +1401,9 @@ let process_proof_complete state proof_name =
 	!proved_complete_gdk_color
       in
       pt.window#message message;
+      (* XXX show goal commands might come later, therefore maybe stop
+       * the current proof tree only when they will have all arrived.
+       *)
       stop_proof_tree_last_selected pt state;
       if pt.incomplete_sequents_count = 0 then
         emacs_confirm_proof_complete pt.proof_name
@@ -1409,6 +1427,7 @@ let clear_proof_tree_lists proof_name =
   original_proof_trees := 
     List.fold_left proof_tree_list_fold_fun [] !original_proof_trees
 
+(* see mli for doc *)
 let quit_proof proof_name =
   (match !current_proof_tree with 
     | None -> ()
@@ -1424,6 +1443,7 @@ let quit_proof proof_name =
 let _ = delete_proof_tree_callback := quit_proof
 
 
+(* see mli for doc *)
 let finish_drawing () = match !current_proof_tree with
   | None -> ()
   | Some pt -> 

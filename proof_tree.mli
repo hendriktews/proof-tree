@@ -35,7 +35,8 @@ open Evar_types
     new proof display is created or a previous display is emptied and
     reused. If [layer_flag] is set, the [current_sequent] and the
     additional sequents (from [additional_ids]) form all root nodes of
-    independent proof trees.
+    independent proof trees. For the (first) root goal of a new proof it
+    is actually optional to set [layer_flag].
 
     If [layer_flag] is false, the following cases are distinguished,
     using {!current_proof_tree}:
@@ -53,9 +54,10 @@ open Evar_types
     hash of known sequents. As a special exception, this case does
     also apply when the new current sequent equals the old current
     sequent and is therefore found in the hash of known sequents (this
-    happens if the user applied a non-failing command, that didn't
+    happens when the user applies a non-failing command, that doesn't
     change the goal, auch as [auto] in some cases.)
-    } }
+    }
+    {- A new proof was started. } }
 
     @param state state for undo
     @param proof_name name of the proof
@@ -114,8 +116,11 @@ val process_branch_finished : int -> string -> string -> bool ->
   evar_info list -> string list -> unit
 
 
-(** Display a "Complete" message, retire the current proof and sent a 
-    confirmation message to Proof General.
+(** Display a "Complete" message and retire the current proof. If the
+   counter of incomplete sequents is zero, sent a confirmation message
+   to Proof General. Otherwise set the flag that the confirmation
+   message is pending, such that it is sent when some incomplete
+   sequent is updated in the future.
 
     @param state state for undo
     @param proof_name name of the completed proof

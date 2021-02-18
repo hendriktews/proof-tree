@@ -83,6 +83,12 @@ Provide more details on errors.
 .IP "-help-dialog"
 Open the help dialog on startup. Mainly useful for proofreading
 the help text.
+.\" ======================================= -test-coq-evar-parser ============
+.IP "-test-coq-evar-parser \fIdata\fR"
+Call the Coq evar parser on
+.I data\fR,
+pretty print the result and exit. Useful for debugging the evar
+parser only.
 .\"
 .\" ==========================================================================
 .\" ================ Main Window =============================================
@@ -303,12 +309,7 @@ followed by the name of the customization group inside
 .SH LIMITATIONS
 In additional sequent displays, the information about existential
 variables is only shown for the latest version of the sequent and
-not for older versions in the instantiation history. The current
-communication protocol between
-.B Proof General
-and
-.B Prooftree
-does not permit more.
+not for older versions in the instantiation history.
 .\"
 .\" ==========================================================================
 .\" ================ Prerequisites ===========================================
@@ -322,7 +323,7 @@ requires
 8.11 or better
 and 
 .B Proof General
-from June 2020 or later.
+from March 2021 or later.
 .\"
 .\" ==========================================================================
 .\" ================ Files ===================================================
@@ -394,7 +395,7 @@ completely. In 2019, Jim Fehrle added the necessary support for
 .B Prooftree
 again to
 .B Coq
-8,11. The existential variable printout and the
+8.11. The existential variable printout and the
 .I Show Goal
 command were slightly generalized, making it possible to simplify
 the proof tree code in
