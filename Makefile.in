@@ -127,7 +127,7 @@ Makefile.deps : $(SOURCES)
 
 include Makefile.deps
 
-OCAMLFLAGS:=-safe-string -w Aem-48 -g -I $(LABLGTKDIR)
+OCAMLFLAGS:=-safe-string -w +A-4-7-48-70 -g -I $(LABLGTKDIR)
 
 %.cmx: %.ml
 	$(OCAMLC) -c $(OCAMLFLAGS) $<
