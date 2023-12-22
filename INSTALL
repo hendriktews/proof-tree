@@ -32,7 +32,9 @@ must be installed.
 
    make all
 
-3. Acquire the necessary rights and install with
+3. This step only installs the man page and the executable. You can omit
+   this step and run the prooftree executable out of this directory. If you
+   want to install, acquire the necessary rights and install with
 
    make install
 
