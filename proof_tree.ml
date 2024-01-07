@@ -413,7 +413,7 @@ let update_existential_status ex_hash =
 
 
 (** Update the hash of existential variables and the existentials
-   themselves. Returns three list of
+   themselves. Returns three lists of
    {!Draw_tree.existential_variable}, the newly created evars, the
    instantiated ones and those open in the current goal. Arguments
    [evar_info] and [current_goal_evars] are the evar information as

@@ -133,7 +133,7 @@
     the current command. 
     [current-sequent %s] denotes the ID of the current sequent. The 
     cheated flag tells Prooftree whether the new proof state was 
-    obtained by a cheating command such as [admit] or [sorry]. 
+    obtained by a cheating command such as [admit]. 
     The data sections are:
     {ol
     {- Full name of the proof}
@@ -159,7 +159,7 @@
     order to update the display of the affected sequent. Because Proof
     General and Prooftree progress asynchronously, it may happen, that
     Proof General processes all these show-goal requests only
-    subtabtially later. Each show-goal request will be answered by an
+    substantially later. Each show-goal request will be answered by an
     update-sequent display command (see below) by Proof General.
     }
     {- {v update-sequent state %d sequent %s proof-name-bytes %d \
@@ -288,7 +288,7 @@
 
     This command requests Proof General to send an [update-sequent] display
     message for the specified goal in the specified state. All data, the goal
-    id, the state and the proof name actually makes a round trip to Proof
+    id, the state and the proof name, actually makes a round trip to Proof
     General and comes back in the [update-sequent] command. Note that the
     state might be an arbitrary previous state of the current proof,
     occurring in a preceding [current-goals] command.

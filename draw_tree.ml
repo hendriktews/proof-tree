@@ -165,7 +165,7 @@ type existential_variable = {
                             is an undo state, it is mapped to all turnstiles
                             that started to contain this evar in this state.
                             Thus for undo, one can chop off some upper
-                            portion of this map.To get all turnstiles to
+                            portion of this map. To get all turnstiles to
                             be updated, one has to iterate over all keys. *)
 }
 
