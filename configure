@@ -135,14 +135,20 @@ check_lablgtk () {
     fi
 }
 
+echo trying to find LablGtk2 without ocamlfind...
 if check_lablgtk "+lablgtk2" ; then
+    echo ...succeeded.
     lablgtkdir="+lablgtk2"
-elif ocamlfind query lablgtk2 > /dev/null ; then
-    lablgtkdir=$(ocamlfind query lablgtk2)
-    if check_lablgtk $lablgtkdir ; then
-	true
-    else
-	lablgtkdir=""
+else
+    echo ...unsuccessful. Now trying to find LablGtk2 with ocamlfind...
+    if ocamlfind query lablgtk2 > /dev/null ; then
+        lablgtkdir=$(ocamlfind query lablgtk2)
+        if check_lablgtk $lablgtkdir ; then
+	    echo ...successful.
+        else
+            echo ...unsuccessful.
+	    lablgtkdir=""
+        fi
     fi
 fi
 

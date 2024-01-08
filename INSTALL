@@ -26,7 +26,10 @@ must be installed.
    ./configure
 
    optionally supply -prefix <dir> or -bindir <dir> to set the installation
-   directories. 
+   directories. The configure script does trial-and-error to find LablGtk2.
+   You might therefore see spurious compilation errors. If the script is
+   successful, it prints "Configuration successful." together with a
+   summary.
 
 2. Compile with
 
