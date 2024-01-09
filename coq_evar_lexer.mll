@@ -26,8 +26,13 @@
   open Coq_evar_parser
 }
 
-let letter = ['A'-'Z''a'-'z''_']
-let alphanum = ['0'-'9''A'-'Z''a'-'z''_']
+(* Non-ascii UTF-8 unicode has the highest bit set. We trust PG to only
+ * sent valid UTF-8 and accept here all bytes with highest bit set as
+ * letters.
+ *)
+
+let letter = ['A'-'Z''a'-'z''_''\x80'-'\xff']
+let alphanum = ['0'-'9''A'-'Z''a'-'z''_''\'''\x80'-'\xff']
 
 rule evar_token = parse
     '('			{ Paren_open }

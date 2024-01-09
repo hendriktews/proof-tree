@@ -29,6 +29,15 @@
  * or
  *
  *     (dependent evars: ?X4:?P, ?X5 using ?X10 ?X11, ?X10 using ?X11, ?X11:?Goal1; in current goal: ?X4 ?X5 ?X10 ?X11)
+ *
+ * Note that the external name of an evars may contain ':
+ *      (dependent evars: ?X5:?n'; in current goal: ?X5)
+ *
+ * It may also contain unicode letters from Latin, Greek, Gothic,
+ *   Cyrillic, Arabic, Hebrew, Georgian, Hangul, Hiragana and Katakana
+ *   characters, CJK ideographs, mathematical letter-like symbols and
+ *   non-breaking space, eg:
+ *      (dependent evars: ?X5:?nö; in current goal: ?X5)
  */
 
 
