@@ -335,24 +335,38 @@ let rec propagate_registered_sequents ex =
 (** Mark the given existential as instantiated, link it with its
    dependencies, initiate sequents updates for all sequents containing
    the existential and propagate sequents registered for the evar
-   downward to the dependencies. Argument proof_name makes a round trip
-   to PG, in order to identify the proof tree window when it comes
-   back. Argument state is the undo state und dependency_names is the
-   list of internal evar names occuring in the instantiation of evar
-   ex.
+   downward to the dependencies. Argument proof_name makes a round
+   trip to PG, in order to identify the proof tree window when it
+   comes back. Argument state is the undo state und dependency_names
+   is the list of internal evar names occuring in the instantiation of
+   evar ex. Argument sw_hash contains those sequents (as key, mapped
+   to true) for which a sequent update request for this state state
+   has already been sent (for a different evar that got also
+   instantiated in this state).
 *)
-let instantiate_existential proof_name state ex_hash ex dependency_names =
+let instantiate_existential proof_name state ex_hash sw_hash ex dep_names =
   (* Printf.fprintf (debugc()) "inst %s at state %d\n%!"
    *   ex.evar_internal_name state;
    *)
   assert(ex.evar_deps = []);
   ex.evar_status <- Partially_instantiated;
   ex.evar_inst_state <- state;
-  ex.evar_deps <- List.rev_map (Hashtbl.find ex_hash) dependency_names;
+  ex.evar_deps <- List.rev_map (Hashtbl.find ex_hash) dep_names;
   Int_map.iter
-    (fun _ -> List.iter (fun s -> emacs_send_show_goal proof_name state s#id))
+    (fun _ ->
+      List.iter
+        (fun s ->
+          if not (Hashtbl.mem sw_hash s) then
+            begin
+              (* Printf.fprintf (debugc()) "request update for sequent %s\n%!"
+               *   s#id;
+               *)
+              emacs_send_show_goal proof_name state s#id;
+              Hashtbl.add sw_hash s true
+            end))
     ex.evar_sequents;
   propagate_registered_sequents ex
+
 
 (** Reset the given list of existential variables to not being
     instantiated.
@@ -411,32 +425,25 @@ let update_existential_status ex_hash =
   Hashtbl.iter (fun _ ext -> collect ext) ex_hash
 
 
+(** Register new existentials in the hash of existential variables and
+   filter newly instanciated existentials (without instanciating
+   them).
 
-(** Update the hash of existential variables and the existentials
-   themselves. Returns three lists of
-   {!Draw_tree.existential_variable}, the newly created evars, the
-   instantiated ones and those open in the current goal. Arguments
-   [evar_info] and [current_goal_evars] are the evar information as
-   returned from the evar information parser. They are scanned for new
+   Returns two lists, of which the first one contains the new
+   existentials as {!Draw_tree.existential_variable}. The second list
+   is a list of pairs [(ex, deps)] of a newly instanciated existential
+   together with the list of evars appearing in the instanciation.
+   Argument [evar_info] is the (first part of the) evar information
+   returned from the evar information parser. It is scanned for new
    existentials and newly instantiated ones. Note that new
    existentials can even be found in the dependencies of instantiated
    existentials, because the order inside [evar_info] may be arbitrary
    and also because some complex strategy might create and instantiate
    several existentials. Newly created existentials are registered in
-   the hash of existential variables. Instantiated existentials are
-   updated and for all goals that contain a newly instantiated
-   existential, a show goal command is sent to Coq. Downward closure
-   of sequents in the evar dependency tree is maintained here by
-   propagating sequents down on instantiation. Argument [state]
-   is the proof assistant state from which the information about
-   existential variables was collected. It is needed for triggering
-   sequent updates for sequents containing newly instantiated evars.
-   Argument [proof_name] makes a round trip to Proof General in show
-   goal commands to identify the proof tree window in the sequent
-   update. *)
-let update_existentials proof_name state ex_hash evar_info current_goal_evars
-                    : (existential_variable list * existential_variable list *
-                                                   existential_variable list) =
+   the hash of existential variables.
+ *)
+let create_and_filter_new_existentials ex_hash evar_info
+    : (existential_variable list * (existential_variable * string list) list) =
   (* Create one existential_variable record for ex_name, if ex_name is new
    * and append it to accumulator argument accu_new. We might see an evar
    * in the dependency list, before we see that it is uninstantiated and
@@ -450,12 +457,11 @@ let update_existentials proof_name state ex_hash evar_info current_goal_evars
          accu_new
       | None -> (make_new_existential ex_hash int_name ex_name) :: accu_new
   in
-  (* Process evar info, create and instantiate evars as needed, return
-   * the list of new evars and the list of instantiated evars (both
-   * for undo)
+  (* Process evar info, create evars as needed, return the list of new
+   * evars and the list of instantiated evars, the latter without
+   * instantiating them.
    *)
   let process_evar_info (accu_new, accu_inst) = function
-                                       (********** inside update_existentials *)
     | Noninstantiated(int_name, ex_name)->
         ((test_and_create_ex accu_new int_name (Some ex_name)), accu_inst)
     | Instantiated(int_name, deps) ->
@@ -473,35 +479,71 @@ let update_existentials proof_name state ex_hash evar_info current_goal_evars
         let ex = Hashtbl.find ex_hash int_name in
         let accu_inst =
           if ex.evar_status = Uninstantiated
-          then begin
-            instantiate_existential proof_name state ex_hash ex deps;
-            ex :: accu_inst
-          end
+          then (ex, deps) :: accu_inst
           else accu_inst
-                                       (********** inside update_existentials *)
         in
         (accu_new, accu_inst)
   in
-  (* XXX update mappings in evar records? Check that nothing changed? *)
   (* XXX sort the new evars? With a coq specific comparison function? *)
-  let (evar_new, evar_inst) =
-    List.fold_left process_evar_info ([], []) evar_info
-  in
-  (* Filter the open evars from the list of evars in the current goal.
-     Coq reports all evars, also the instantiated ones. *)
-  let current_open =
-    List.fold_left
-      (fun current_open int_name ->
-        let ex = Hashtbl.find ex_hash int_name in
-        match ex.evar_status with
-          | Uninstantiated ->  ex :: current_open
-          | Partially_instantiated
-          | Fully_instantiated -> current_open)
-      []
-      current_goal_evars
-  in
-  (evar_new, evar_inst, current_open)
+  List.fold_left process_evar_info ([], []) evar_info
 
+
+(** Create and instantiate existentials and filter newly instanciated
+   evars.
+
+   Returns two lists of {!Draw_tree.existential_variable}: the new
+   evars and the instantiated ones. Argument [evar_info] is the (first
+   part of the) evar information returned from the evar information
+   parser. It is scanned for new existentials and newly instantiated
+   ones. Newly created existentials are registered in the hash of
+   existential variables. Instantiated existentials are updated and
+   update sequent requests are sent for affected sequents. Downward
+   closure of sequents in the evar dependency tree is maintained here
+   by propagating sequents down on instantiation. Argument [state] is
+   the proof assistant state from which the information about
+   existential variables was collected. It is needed for triggering
+   sequent updates for sequents containing newly instantiated evars.
+   Argument [proof_name] makes a round trip to Proof General in show
+   goal commands to identify the proof tree window in the sequent
+   update. *)
+let create_and_instanciate_existentials proof_name state ex_hash evar_info
+                    : (existential_variable list * existential_variable list) =
+  let (new_existentials, inst_existentials) =
+    create_and_filter_new_existentials ex_hash evar_info in
+  (* A sequent might contain several evars that all get instantiated
+   * at the same time. We should nevertheless send out only one update
+   * sequent request.
+   *)
+  let requested_update_hash = Hashtbl.create 256 in
+  let inst_existentials =
+    List.rev_map
+      (fun (ex, dep_names) ->
+        instantiate_existential proof_name state ex_hash requested_update_hash
+          ex dep_names;
+        ex)
+      inst_existentials
+  in
+  (new_existentials, inst_existentials)
+
+
+(** Filter those evars from [current_goal_evars] that are not
+   instantiated in the current state. This can simply be done by
+   looking them up in the existential hash. Return the list of open
+   evars as {!Draw_tree.existential_variable}. Argument
+   [current_goal_evars] is the second part returned from the evar
+   information parser.
+ *)
+let filter_open_existentials_current_state ex_hash current_goal_evars =
+  List.fold_left
+    (fun current_open int_name ->
+      let ex = Hashtbl.find ex_hash int_name in
+      match ex.evar_status with
+        | Uninstantiated ->  ex :: current_open
+        | Partially_instantiated
+        | Fully_instantiated -> current_open)
+    []
+    current_goal_evars
+  
 
 (** Filter the list of open existentals in the current goal from
    argument [goal_evars] for a previous state. Argument [ex_hash] is
@@ -511,7 +553,7 @@ let update_existentials proof_name state ex_hash evar_info current_goal_evars
    might already be instantiated in [ex_hash] and the information
    about open existentials must be taken from [evar_info].
  *)
-let filter_current_open_existentials ex_hash evar_info goal_evars =
+let filter_open_existentials_old_state ex_hash evar_info goal_evars =
   let open_evars = Hashtbl.create 57 in
   List.iter
     (function
@@ -804,9 +846,8 @@ let create_new_layer pt state current_sequent_id current_sequent_text
   assert(List.for_all (fun id -> Hashtbl.mem pt.sequent_hash id = false)
 	   (current_sequent_id :: additional_ids));
   assert(pt.open_goals_count = 0);
-  let (new_evars, inst_evars, _) =
-    update_existentials pt.proof_name state
-      pt.existential_hash evar_info current_evar_names in
+  let (new_evars, inst_evars) =
+    create_and_filter_new_existentials pt.existential_hash evar_info in
   (* Printf.fprintf (debugc())
    *   "new layer %s at state %d, inst %s, this goal open none\n%!"
    *   current_sequent_id
@@ -814,7 +855,9 @@ let create_new_layer pt state current_sequent_id current_sequent_text
    *   (String.concat " "
    *      (List.rev_map (fun e -> e.evar_internal_name) inst_evars));
    *)
-  (* schedule an existential status update when this assert goes away *)
+  (* If this assertion breaks, something more must be done about the
+   * part that is not empty any more.
+   *)
   assert (new_evars = [] && inst_evars = [] && current_evar_names = []);
   let first_sw =
     pt.window#new_turnstile state current_sequent_id 
@@ -894,14 +937,12 @@ let create_new_layer pt state current_sequent_id current_sequent_text
 let add_new_goal pt state proof_command cheated_flag current_sequent_id
     current_sequent_text additional_ids evar_info current_evar_names =
   assert(cheated_flag = false);
-  let (new_evars, inst_evars, current_open_evars) =
-    (* XXX the show goal command sent out here for instantiated
-       existentials might get processed only after the proof has been
-       finished and after printing existentials has been switched off
-       with Unset Printing Dependent Evars Line. Then, prooftree will
-       crash with a parsing error on the missing existential info. *)
-    update_existentials pt.proof_name state
-      pt.existential_hash evar_info current_evar_names in
+  let (new_evars, inst_evars) =
+    create_and_instanciate_existentials
+      pt.proof_name state pt.existential_hash evar_info in
+  let current_open_evars =
+    filter_open_existentials_current_state pt.existential_hash current_evar_names
+  in
   (* Printf.fprintf (debugc())
    *   "new goal %s at state %d, inst %s, this goal open %s\n%!"
    *   current_sequent_id
@@ -1029,14 +1070,14 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
     {!internal_switch_to}.
 *)
 let finish_branch pt state proof_command cheated_flag evar_info
-                  current_evar_names =
-  (* Ignore the current open evars returned here. They might actually
+                  _current_evar_names =
+  (* Ignore the current current_evar_names here. They might actually
    * contain something if this function is called as part of
    * finish_branch_and_switch_to.
    *)
-  let (new_evars, inst_evars, _) =
-    update_existentials pt.proof_name state
-      pt.existential_hash evar_info current_evar_names
+  let (new_evars, inst_evars) =
+    create_and_instanciate_existentials
+      pt.proof_name state pt.existential_hash evar_info
   in
   (* Printf.fprintf (debugc()) "branch at %d, inst %s\n%!"
    *   state
@@ -1195,7 +1236,7 @@ let update_sequent_element pt state sw sequent_text evar_info
        * this sequent in all its existentials.
        *)
       let current_open_evars =
-        filter_current_open_existentials
+        filter_open_existentials_old_state
           pt.existential_hash evar_info current_evar_names in
       (* Printf.fprintf (debugc()) "update %s for %d, this goal open %s\n%!"
        *   sw#id state
