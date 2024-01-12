@@ -59,10 +59,10 @@ object (self)
   val mutable node = Some node
 
   (** Local copy of the sequent text history. Used for the feature
-      that sticky node windows don't change their display and history.
-      For proof commands, this holds always just the current proof
-      command.
-  *)
+      that sticky node windows don't change their display and history
+      and, additionally, for possibly displaying older content. For
+      proof commands, this holds always just the current proof command.
+     *)
   val mutable sequent_history = sequent_history
 
   (** The element of the sequent history that is currently on display.
@@ -160,10 +160,11 @@ object (self)
 	     (sequent_history_len - sequent_history_pos) sequent_history_len)
     )
 
-  (** Update the content in the text buffer of this node window. The
-      argument tells how much the history length grew (greater zero)
-      or shrunk (lesser zero).
-  *)
+  (** Update the history of text content of this node window. This
+      will also update the displayed content. This is mainly used for
+      sequent windows when the sequent changes because of instantiation
+      of existential variables.
+   *)
   method update_content new_history =
     if not detach_button#active then begin
       if sequent_history_pos > 0 then begin

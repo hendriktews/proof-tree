@@ -70,7 +70,7 @@
    Under this assumption it is sufficient to keep the dependency tree
    of existential variables downward closed on registered sequents to
    maintain the following invariant: For all complete sequents and all
-   known existentian variables,
+   known existential variables,
    {ul
    {- the [show goal] request message for all instantiated existentials 
       has been sent, and}
@@ -1223,7 +1223,7 @@ let update_sequent_element pt state sw sequent_text evar_info
      - the third one is instantiated before the second one
      then, if Coq is quick enough, prooftree might issue show goal
      commands for the first and the second, before the sequent update
-     cause by the first arrives and prooftree. Therefore, when
+     caused by the first arrives in prooftree. Therefore, when
      prooftree issues the show goal command for the third one, the
      updated sequent text for the second one is in flight already and
      the sequent text will appear out of order in the sequent history.
