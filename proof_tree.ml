@@ -68,9 +68,10 @@
    }
 
    Under this assumption it is sufficient to keep the dependency tree
-   of existential variables downward closed on registered sequents to
-   maintain the following invariant: For all complete sequents and all
-   known existential variables,
+   of existential variables downward closed on registered sequents
+   (see {!Draw_tree.existential_variable}) to maintain the following
+   invariant: For all complete sequents and all known existential
+   variables,
    {ul
    {- the [show goal] request message for all instantiated existentials 
       has been sent, and}
@@ -498,14 +499,15 @@ let create_and_filter_new_existentials ex_hash evar_info
    ones. Newly created existentials are registered in the hash of
    existential variables. Instantiated existentials are updated and
    update sequent requests are sent for affected sequents. Downward
-   closure of sequents in the evar dependency tree is maintained here
-   by propagating sequents down on instantiation. Argument [state] is
-   the proof assistant state from which the information about
-   existential variables was collected. It is needed for triggering
-   sequent updates for sequents containing newly instantiated evars.
-   Argument [proof_name] makes a round trip to Proof General in show
-   goal commands to identify the proof tree window in the sequent
-   update. *)
+   closure of sequents in the evar dependency tree (see
+   {!Draw_tree.existential_variable}) is maintained here by
+   propagating sequents down on instantiation. Argument [state] is the
+   proof assistant state from which the information about existential
+   variables was collected. It is needed for triggering sequent
+   updates for sequents containing newly instantiated evars. Argument
+   [proof_name] makes a round trip to Proof General in show goal
+   commands to identify the proof tree window in the sequent update.
+   *)
 let create_and_instanciate_existentials proof_name state ex_hash evar_info
                     : (existential_variable list * existential_variable list) =
   let (new_existentials, inst_existentials) =
@@ -565,39 +567,71 @@ let filter_open_existentials_old_state ex_hash evar_info goal_evars =
     (list_filter_rev (Hashtbl.mem open_evars) goal_evars)
 
 
-(** Register sequent in evar, such that a show goal command can be
-   scheduled when evar is instantiated. Argument [state] might be an
-   old state, because [sequent] and [evar] might themselves come from
-   an update sequent command. If [evar] has been instantiated since
-   state [state], then the show goal command is sent immediately here
-   and the register process is done recursively on the dependencies.
-   Argument [proof_name] identifies the proof-tree window and makes a
-   round trip to Proof General. Argument [state] is also used for undo
-   in the {!Util.Int_map} in
-   {!Draw_tree.existential_variable.evar_sequents}. *)
-let rec evar_register_sequent proof_name state sequent evar =
-  (* Printf.fprintf (debugc()) "register %s at %s\n%!"
-   *   sequent#id evar.evar_internal_name;
+(** Register sequent in all evars in evar list [evars], such that a
+   show goal command can be scheduled when some evar from [evars] is
+   instantiated. Argument [state] might be an old state, because
+   [sequent] and [evars] might themselves come from an update sequent
+   command. If some evar in [evars] has been instantiated since state
+   [state], then the show goal command is sent here and the register
+   process is done recursively on the dependencies. Argument
+   [proof_name] identifies the proof-tree window and makes a round
+   trip to Proof General. Argument [state] is also used for undo in
+   the {!Util.Int_map} in
+   {!Draw_tree.existential_variable.evar_sequents}. Take special care
+   to send out update sequent requests ordered by ascending states
+   (same order as during slow single stepping) and to send at most one
+   such request for each state. This is achieved by collecting the
+   states for which a request needs to be sent in an {!Util.Int_set}.
    *)
-  evar.evar_sequents <-
-    Int_map.update state
-      (function
-       | None -> Some [sequent]
-       | Some seqs -> Some (sequent :: seqs))
-      evar.evar_sequents;
-  match evar.evar_status with
-    | Uninstantiated -> ()
-    | Partially_instantiated
-    | Fully_instantiated ->
-       (* XXX this may get called twice for the same goal, if two
-          existentials get instantiated in the same state. Maybe
-          remember in the sequent, for which states a show goal was
-          issued already?
-        *)
-       emacs_send_show_goal proof_name evar.evar_inst_state sequent#id;
-       List.iter
-         (evar_register_sequent proof_name evar.evar_inst_state sequent)
-         evar.evar_deps
+let register_and_update_sequent proof_name state sequent evars =
+  let state_set = Int_set.empty in
+  (* Evar [evar] appeared in state [state] in [sequent] and therefore
+   * needs to be registered in evar. If evar is instantiated already,
+   * we need an update for sequent in the state in which it got
+   * instantiated. Besides, for downward closure (see
+   * {!Draw_tree.existential_variable}), we need to recurse on
+   * instantiated evars.
+   *)
+  let rec do_evar state evar state_set =
+    (* Printf.fprintf (debugc()) "register seq %s in evar %s with state %d\n%!"
+     *   sequent#id evar.evar_internal_name state;
+     *)
+    evar.evar_sequents <-
+      Int_map.update state
+        (function
+         | None -> Some [sequent]
+         | Some seqs -> Some (sequent :: seqs))
+        evar.evar_sequents;
+    match evar.evar_status with
+      | Uninstantiated -> state_set
+      | Partially_instantiated
+      | Fully_instantiated ->
+         let inst_state = evar.evar_inst_state in
+         let state_set = Int_set.add inst_state state_set in
+         (* Printf.fprintf (debugc()) "evar inst in state %d with deps %s\n%!"
+          *   inst_state
+          *   (String.concat " " (List.map (fun e -> e.evar_internal_name)
+          *                         evar.evar_deps));
+          *)
+         List.fold_left
+           (fun state_set dep -> do_evar inst_state dep state_set)
+           state_set
+           evar.evar_deps
+  in
+  let state_set =
+    List.fold_left
+      (fun state_set evar -> do_evar state evar state_set)
+      state_set
+      evars
+  in
+  Int_set.iter
+    (fun state ->
+      (* Printf.fprintf (debugc()) "request sequent %s for state %d\n%!"
+       *   sequent#id state;
+       *)
+      emacs_send_show_goal proof_name state sequent#id)
+    state_set
+
 
 (** Delete all sequents registered after state [undo_state] in the map
    for registered sequents of evar [ex]. Used for undo in the current
@@ -995,9 +1029,8 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   in
   let all_subgoals = sw :: new_goals in
   set_children pc all_subgoals;
-  List.iter
-    (evar_register_sequent pt.proof_name state (sw :> turnstile_interface))
-    current_open_evars;
+  register_and_update_sequent
+    pt.proof_name state (sw :> turnstile_interface) current_open_evars;
   let new_incomplete_sequents_count = List.length new_goals in
   let unhash_sequent_ids = current_sequent_id :: new_goal_ids_rev in
   let old_current_sequent_id = pt.current_sequent_id in
@@ -1215,16 +1248,18 @@ let process_current_goals state proof_name proof_command cheated_flag
 	current_sequent_text additional_ids evar_info current_evar_names
 
 
-(** Udate the sequent text for some sequent and set an
-   appropriate undo action. For incomplete sequents (i.e.,
-   additionally spawned subgoals that now receive their initial
-   sequent text) the dependent evars info comming from the evar parser
-   (arguments [evar_info] and [current_evar_names]) is processed to
-   register this sequent for sequent updates on all evars that were
-   open in state [state] where sequent [sw] was created. All
-   necessary sequent updates are requested immediately. If necessary
-   and if the counter of incomplete sequences reaches zero, the
-   [confirm-proof-complete] message is sent. *)
+(** Udate the sequent text for some sequent and set an appropriate
+   undo action. For incomplete sequents (i.e., additionally spawned
+   subgoals that now receive their initial sequent text) the dependent
+   evars info comming from the evar parser (arguments [evar_info] and
+   [current_evar_names]) is processed to register this sequent for
+   sequent updates on all evars that were open in state [state] where
+   sequent [sw] was created. All necessary sequent updates are
+   requested immediately. If necessary and if the counter of
+   incomplete sequences reaches zero, the [confirm-proof-complete]
+   message is sent. Argument [state] is the potentially old state for
+   which the sequent update was requested.
+ *)
 let update_sequent_element pt state sw sequent_text evar_info
       current_evar_names =
   (* Printf.fprintf (debugc()) "!! update %s sequent %s incomp count %d\n%!"
@@ -1243,9 +1278,8 @@ let update_sequent_element pt state sw sequent_text evar_info
        *   (String.concat " "
        *      (List.rev_map (fun e -> e.evar_internal_name) current_open_evars));
        *)
-      List.iter
-        (evar_register_sequent pt.proof_name state (sw :> turnstile_interface))
-        current_open_evars;
+      register_and_update_sequent pt.proof_name state
+        (sw :> turnstile_interface) current_open_evars;
       pt.incomplete_sequents_count <- pt.incomplete_sequents_count - 1;
       if pt.incomplete_sequents_count = 0
          && pt.proof_complete_confirmation_pending
@@ -1258,17 +1292,6 @@ let update_sequent_element pt state sw sequent_text evar_info
      * registered in all existentials.
      *)
     ();
-  (* XXX Imagine 
-     - the initial version of sw contains two existentials
-     - the first one is instantiated using a third one
-     - the third one is instantiated before the second one
-     then, if Coq is quick enough, prooftree might issue show goal
-     commands for the first and the second, before the sequent update
-     caused by the first arrives in prooftree. Therefore, when
-     prooftree issues the show goal command for the third one, the
-     updated sequent text for the second one is in flight already and
-     the sequent text will appear out of order in the sequent history.
-   *)
   sw#update_sequent sequent_text;
   if sw#is_selected then 
     pt.sequent_area_needs_refresh <- true;

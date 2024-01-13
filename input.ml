@@ -176,8 +176,10 @@
     the first display command with the same state was processed.
     {%html: <p> %}
 
-    The state number is for undo and the sequent ID denotes the 
+    The state number is the (potentially old) state for which the sequent
+    text was requested by Prooftree. The sequent ID denotes the 
     sequent to update. The data sections are:
+
     {ol
     {- Full name of the proof}
     {- new sequent text}

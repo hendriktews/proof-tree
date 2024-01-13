@@ -43,13 +43,17 @@ let access_option = function
 
 
 (****************************************************************************)
-(** {2 Maps} *)
+(** {2 Maps and sets} *)
 (****************************************************************************)
 
 (** Applicative [int] map, see {xref stdlib mod Map.S}; 
     this is used with different types for storing undo actions.
  *)
 module Int_map = Map.Make(struct type t = int let compare = ( - ) end)
+
+
+(** Applicative [int] set, see {xref stdlib mod Set.S}. *)
+module Int_set = Set.Make(struct type t = int let compare = ( - ) end)
 
 
 (****************************************************************************)

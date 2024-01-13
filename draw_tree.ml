@@ -137,7 +137,7 @@ type existential_status =
    [evar_deps]. This property is maintained in
    {!Proof_tree.instantiate_existential} (via
    {!Proof_tree.propagate_registered_sequents}) and in
-   {!Proof_tree.evar_register_sequent}.
+   {!Proof_tree.register_and_update_sequent}.
 *)
 type existential_variable = {
   evar_internal_name : string;		(** The internal Coq ID *)
