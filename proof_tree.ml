@@ -898,13 +898,14 @@ let create_new_layer pt state current_sequent_id current_sequent_text
       (Some current_sequent_text) in
   Hashtbl.add pt.sequent_hash current_sequent_id first_sw;
   let first_sw = (first_sw :> proof_tree_element) in
+  List.iter (emacs_send_show_goal pt.proof_name state) additional_ids;
   let other_sw =
-    List.fold_right
-      (fun id res ->
+    List.map
+      (fun id ->
 	let sw = pt.window#new_turnstile state id None in
 	Hashtbl.add pt.sequent_hash id sw;
-	(sw :> proof_tree_element) :: res)
-      additional_ids []
+	(sw :> proof_tree_element))
+      additional_ids
   in
                                                   (* inside create_new_layer *)
   let new_incomplete_sequents_count = List.length other_sw in
