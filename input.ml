@@ -90,7 +90,7 @@
     the first message. 
     }
     {-  {v current-goals state %d current-sequent %s \
-    {cheated | not-cheated} {new-layer | current-layer} proof-name-bytes %d \
+    {cheated | not-cheated} proof-name-bytes %d \
     command-bytes %d sequent-text-bytes %d additional-id-bytes %d \
     existential-bytes %d\n\
     <data-proof-name>\n\
@@ -112,16 +112,14 @@
     subgoals}
     {- A new set of proof-tree root goal nodes is associated with the
     current proof. This happens for instance, when Coq transformes
-    open existential variables into proof goals with the command 
-    [Grab Existential Variables].}
+    open existential variables into proof goals with [Unshelve].}
     }
-    
-    For case 4 [new-layer] must be given, for case 1 it is optional.
-    Otherwise, [current-layer] must be specified. For [current-layer]
-    Prooftree decides with its internal state whether case 2 or 3 or 
-    possibly 1 applies.
+
+    Prooftree decides with its internal state which case applies. Case
+    1 and 4 are identically treated internally. Case 1 and 4 are taken
+    if the number of open goals is zero.
     {%html: <p> %}
-    
+
     For the second and the third case, the set of open goals in the 4th
     data section (additional-ids, see below) does not
     need to represent the total set of all open subgoals, but it must
@@ -613,7 +611,6 @@ let parse_configure com_buf =
 (******************************************************************************
  ******************************************************************************
  * current-goals state %d current-sequent %s {cheated | not-cheated} \
- * {new-layer | current-layer}
  * proof-name-bytes %d command-bytes %d sequent-text-bytes %d \
  * additional-id-bytes %d existential-bytes %d\n\
  * <data-proof-name>\n\
@@ -635,8 +632,6 @@ let parse_configure com_buf =
            line of the command
     @param cheated_string either "cheated" or "not-cheated" from the 
            first line of the command
-    @param layer_string either "new-layer" of "current-layer" from the
-           first line of the command
     @param proof_name name of the current proof
     @param proof_command text of the last proof command (or garbage if 
     this is the first state of the proof)
@@ -647,7 +642,7 @@ let parse_configure com_buf =
 
 *)
 let parse_current_goals_finish state current_sequent_id cheated_string 
-    layer_string proof_name proof_command current_sequent_text 
+    proof_name proof_command current_sequent_text 
     additional_ids_string existentials_string =
   (* Printf.fprintf (debugc()) "PCGF\n%!"; *)
   let cheated_flag = match cheated_string with
@@ -659,15 +654,6 @@ let parse_current_goals_finish state current_sequent_id cheated_string
 		  "Expected \"cheated\" or \"not-cheated\" as 6th word.",
 	       None))
   in
-  let layer_flag = match layer_string with
-    | "new-layer" -> true
-    | "current-layer" -> false
-    | _ ->
-      raise(Protocol_error
-	      ("Parse error in current-goals command. " ^
-		  "Expected \"new-layer\" or \"current-layer\" as 7th word.",
-	       None))
-  in
   let proof_name = chop_final_newlines proof_name in
   let proof_command = chop_final_newlines proof_command in
   let current_sequent_text = chop_final_newlines current_sequent_text in
@@ -676,7 +662,7 @@ let parse_current_goals_finish state current_sequent_id cheated_string
   let (evar_info, current_evar_names) =
     !parse_existential_info existentials_string in
   Proof_tree.process_current_goals state proof_name proof_command cheated_flag
-    layer_flag current_sequent_id current_sequent_text additional_ids 
+    current_sequent_id current_sequent_text additional_ids 
     evar_info current_evar_names;
   current_parser := !message_start_parser
 
@@ -690,10 +676,10 @@ let parse_current_goals_finish state current_sequent_id cheated_string
 let parse_current_goals com_buf =
   check_if_configured ();
   Scanf.bscanf com_buf 
-    (" state %d current-sequent %s %s %s proof-name-bytes %d "
+    (" state %d current-sequent %s %s proof-name-bytes %d "
      ^^ "command-bytes %d sequent-text-bytes %d "
      ^^ "additional-id-bytes %d existential-bytes %d")
-    (fun state current_sequent_id cheated_string layer_string 
+    (fun state current_sequent_id cheated_string
       proof_name_bytes command_bytes sequent_text_bytes additional_id_bytes
       existential_bytes ->
         (*
@@ -716,7 +702,7 @@ let parse_current_goals com_buf =
 			get_string existential_bytes
 			  (fun existentials_string ->
 			    parse_current_goals_finish state current_sequent_id
-			      cheated_string layer_string
+			      cheated_string
 			      proof_name proof_command current_sequent_text
 			      additional_ids_string existentials_string))))))
 

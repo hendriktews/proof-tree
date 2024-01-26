@@ -27,19 +27,14 @@ open Evar_types
 
 
 (** Process a current-goals command from Proof General, updating the
-    proof-tree display in the right way. If the [layer_flag] is set,
-    new root goals for independent proof trees are added in a new
-    layer to the display. In this case there must be no open goal. If
-    no proof display for [proof_name] is currently in progress, this
-    function assumes that a new proof has just been started. Then a
-    new proof display is created or a previous display is emptied and
-    reused. If [layer_flag] is set, the [current_sequent] and the
-    additional sequents (from [additional_ids]) form all root nodes of
-    independent proof trees. For the (first) root goal of a new proof it
-    is actually optional to set [layer_flag].
-
-    If [layer_flag] is false, the following cases are distinguished,
-    using {!current_proof_tree}:
+    proof-tree display in the right way. If no proof display for
+    [proof_name] is currently in progress, this function assumes that a
+    new proof has just been started. Then a new proof display is
+    created or a previous display is emptied and reused. If the current
+    proof display does not contain any open goals a new layer is
+    created. If there is more than one goal for the initial layer, a
+    warning is displayed. If there are open goals in the current proof
+    display, the following cases are distinguished:
 
     {ol
     {- The old current branch has been finished (possibly with a
@@ -56,14 +51,12 @@ open Evar_types
     sequent and is therefore found in the hash of known sequents (this
     happens when the user applies a non-failing command, that doesn't
     change the goal, auch as [auto] in some cases.)
-    }
-    {- A new proof was started. } }
+    } }
 
     @param state state for undo
     @param proof_name name of the proof
     @param proof_command command issued to the prover
     @param cheated_flag is true if the command is a cheating one
-    @param layer_flag is true if the command adds a new layer of proof goals
     @param current_sequent_id ID of current sequent
     @param current_sequent_text the current sequent itself
     @param additional_ids ID's of the additionally open goals
@@ -72,7 +65,7 @@ open Evar_types
 *)
 val process_current_goals :
   int -> string -> string -> 
-  bool -> bool -> string -> string -> string list -> evar_info list ->
+  bool -> string -> string -> string list -> evar_info list ->
   string list -> unit
 
 
@@ -148,7 +141,7 @@ val quit_proof : string -> unit
 
 (** For efficiency in proof replay the proof tree display and the
     sequent area are not redrawn after every change. Changes are only
-    recorded in the internal data structures. This function cases a
+    recorded in the internal data structures. This function causes a
     redisplay of those items.
 *)
 val finish_drawing : unit -> unit

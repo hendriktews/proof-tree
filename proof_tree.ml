@@ -877,6 +877,9 @@ let start_new_proof state proof_name =
 *)
 let create_new_layer pt state current_sequent_id current_sequent_text
     additional_ids evar_info current_evar_names =
+  (* XXX check what happens when a goal is shelved and only unshelved
+   * after the end
+   *)
   assert(List.for_all (fun id -> Hashtbl.mem pt.sequent_hash id = false)
 	   (current_sequent_id :: additional_ids));
   assert(pt.open_goals_count = 0);
@@ -1008,18 +1011,17 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   Hashtbl.add pt.sequent_hash current_sequent_id sw;
   let sw = (sw :> proof_tree_element) in
   let new_goal_ids_rev = 
-    list_filter_rev 
+    list_filter_rev
       (fun id -> not (Hashtbl.mem pt.sequent_hash id))
       additional_ids in
   List.iter (emacs_send_show_goal pt.proof_name state) new_goal_ids_rev;
   let new_goals =
-    List.fold_left
-      (fun res id ->
+    List.rev_map
+      (fun id ->
 	let sw = pt.window#new_turnstile state id None in
 	Hashtbl.add pt.sequent_hash id sw;
-	let sw = (sw :> proof_tree_element) in
-	sw :: res)
-      [] new_goal_ids_rev
+	(sw :> proof_tree_element))
+      new_goal_ids_rev
   in
   let position_hints = match new_goals with
     | [] -> [[pc]]
@@ -1135,6 +1137,7 @@ let finish_branch pt state proof_command cheated_flag evar_info
   let old_current_sequent = parent in
   let old_current_sequent_id = pt.current_sequent_id in
   let old_open_goals_count = pt.open_goals_count in
+                                      (***************** inside finish_branch *)
   let undo () =
     pc#delete_non_sticky_external_windows;
     clear_children old_current_sequent;
@@ -1218,22 +1221,21 @@ let finish_branch_and_switch_to pt state proof_command cheated_flag
 
 (* See mli for doc *)
 let process_current_goals state proof_name proof_command cheated_flag
-    layer_flag current_sequent_id current_sequent_text additional_ids 
+    current_sequent_id current_sequent_text additional_ids 
     evar_info current_evar_names =
   (match !current_proof_tree with
     | Some pt -> 
       if pt.proof_name <> proof_name 
       then stop_proof_tree_last_selected pt state
     | None -> ());
-  let layer_flag = layer_flag || !current_proof_tree = None in
   let pt = match !current_proof_tree with
     | None -> start_new_proof state proof_name
-    | Some pt ->
-      assert ((iff (pt.current_sequent = None) (pt.current_sequent_id = None))
-	      && (iff layer_flag (pt.current_sequent = None)));
-      pt
+    | Some pt -> pt
   in
-  if layer_flag
+  let need_new_layer = pt.open_goals_count = 0 in
+  assert ((iff (pt.current_sequent = None) (pt.current_sequent_id = None))
+	  && (iff need_new_layer (pt.current_sequent = None)));
+  if need_new_layer
   then begin
     assert (cheated_flag = false);
     create_new_layer pt state current_sequent_id current_sequent_text
