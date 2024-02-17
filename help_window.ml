@@ -275,7 +275,16 @@ To visit a customization group, type ");
    (Italic, "M-x customize-group");
    (Default, " followed by the name of the customization group inside ");
    bold_proof_general;
-   (Default, ".");
+   (Default, ".\n\
+\n");
+   (*************************************************************************)
+   (***************************** Limitations *******************************)
+   (*************************************************************************)
+   (Heading, "Limitations");
+   (Default, "\n\n\
+See the ");
+   bold_proof_tree;
+   (Default, " man page for a number of limitations and race conditions.");
   ]
 
 

@@ -312,6 +312,18 @@ followed by the name of the customization group inside
 In additional sequent displays, the information about existential
 variables is only shown for the latest version of the sequent and
 not for older versions in the instantiation history.
+.\" ==========================================================================
+.P
+The synchronization between Proof General and Prooftree is not
+perfect. There are a few race conditions which are unlikely to occur
+during interactive proof development but can be triggered by asserting
+larger parts of a proof.
+.IP \(bu
+In a situation, where a goal contains an existential variable, this
+variable is instantiated (in different branch of the proof), and the
+goal is shelved and quickly unshelved, it might happen that the
+updated sequent text (containing the instantiating of the existential
+variable) is associated with the unshelved version of the goal.
 .\"
 .\" ==========================================================================
 .\" ================ Prerequisites ===========================================

@@ -158,8 +158,10 @@ type proof_tree = {
   sequent_hash : (string, turnstile) Hashtbl.t;
   (** Hash table mapping all currently known sequents of this proof
       tree to {!class: Draw_tree.turnstile} objects. Used to detect new
-      sequents and to update sequents.
-  *)
+      sequents and to update sequents. Note that an id might be mapped
+      twice in this hash. This happens when a goal is shelved and
+      unshelved later.
+   *)
 
   mutable current_sequent_id : string option;
   (** The ID of the current sequent, if there is one. Needed to
@@ -877,11 +879,12 @@ let start_new_proof state proof_name =
 *)
 let create_new_layer pt state current_sequent_id current_sequent_text
     additional_ids evar_info current_evar_names =
-  (* XXX check what happens when a goal is shelved and only unshelved
-   * after the end
+  (* Note that the current and additional sequent id's are not
+   * necessarily new. When a goal has been shelved in the proof, it's
+   * id is already present in pt.sequent_hash when it arrives here
+   * again because of an Unshelve. We simply add the id a second time
+   * then.
    *)
-  assert(List.for_all (fun id -> Hashtbl.mem pt.sequent_hash id = false)
-	   (current_sequent_id :: additional_ids));
   assert(pt.open_goals_count = 0);
   let (new_evars, inst_evars) =
     create_and_filter_new_existentials pt.existential_hash evar_info in
@@ -1332,13 +1335,10 @@ let update_sequent state proof_name sequent_id sequent_text
         * upate sequent command might arrive here, after the undo
         * deleted the sequent already.
         *)
-       (* if sequent_id = "552" then
-        *   List.iter
-        *     (fun sw ->
-        *       Printf.fprintf (debugc()) "!! sw#id %s -> [%s]\n%!"
-        *         sw#id
-        *         (String.concat " | " (sw#sequent_text_history)))
-        *     (Hashtbl.find_all pt.sequent_hash sequent_id); 
+       (* XXX When a current goal is shelved, Unshelve will add the
+        * same goal a second time with the same sequent_id in
+        * pt.sequent_hash. Then an update-sequent command for the old,
+        * shelved goal might be assigned to the new unshelved one.
         *)
        update_sequent_element pt state
 	 (Hashtbl.find pt.sequent_hash sequent_id) sequent_text
