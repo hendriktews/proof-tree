@@ -317,13 +317,21 @@ not for older versions in the instantiation history.
 The synchronization between Proof General and Prooftree is not
 perfect. There are a few race conditions which are unlikely to occur
 during interactive proof development but can be triggered by asserting
-larger parts of a proof.
+larger parts of a proof or by very quick user actions.
 .IP \(bu
 In a situation, where a goal contains an existential variable, this
 variable is instantiated (in different branch of the proof), and the
 goal is shelved and quickly unshelved, it might happen that the
 updated sequent text (containing the instantiating of the existential
 variable) is associated with the unshelved version of the goal.
+.IP \(bu
+Spawned subgoals and the instantiating of existential variables cause
+asynchronous update-sequent messages sent to
+.B Prooftree\fR.
+When quickly retracting portions of the proof, the corresponding undo
+message might overtake same update-sequent messages and thereby
+confuse
+.B Prooftree\fR.
 .\"
 .\" ==========================================================================
 .\" ================ Prerequisites ===========================================

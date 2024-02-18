@@ -181,7 +181,11 @@ type proof_tree = {
   *)
 
   mutable incomplete_sequents_count : int;
-  (** Counter for the number of incomplete sequents *)
+  (** Counter for the number of incomplete sequents. Set to zero on
+      undo/retract on the possibly wrong assumption that all update
+      sequent requests have been processed before the user could
+      retract.
+   *)
 
   existential_hash : (string, existential_variable) Hashtbl.t;
   (** Mapping containing all existential variables in the proof tree.
@@ -775,61 +779,66 @@ let undo_tree pt pa_state =
     | Some cpt -> pt == cpt
     | None -> false
   in
-  if pa_state < pt.pa_start_state
-  then begin
-    if pt.window#survive_undo_before_start 
+  let res =
+    if pa_state < pt.pa_start_state
     then begin
-      pt.window#message "Retract before start";
-      if pt_is_current then
-	stop_proof_tree pt (-1)
-      else 
-	pt.pa_end_state <- -1;
-      pt.window#clear_position_hints;
-      PT_undo_keep
-    end
-    else begin
-      pt.window#delete_proof_window;
-      PT_undo_delete
-    end
-  end
-  else if pt.pa_end_state >= 0 && pa_state >= pt.pa_end_state 
-  then begin
-    assert(pt_is_current = false);
-    PT_undo_keep
-  end
-  else (* pt.pa_start_state <= pa_state < pt.pa_end_state *)
-    if pt_is_current 
-    then
-      begin
-        undo_inside_tree pt pa_state;
-	mark_current_sequent_maybe pt.current_sequent;
-	set_current_node_wrapper pt pt.current_sequent;
-	pt.window#message (Printf.sprintf "Retract to %d" pa_state);
-	pt.need_redraw <- true;
-	pt.window#clear_position_hints;
-	PT_undo_current
+        if pt.window#survive_undo_before_start 
+        then begin
+            pt.window#message "Retract before start";
+            if pt_is_current then
+	      stop_proof_tree pt (-1)
+            else 
+	      pt.pa_end_state <- -1;
+            pt.window#clear_position_hints;
+            PT_undo_keep
+          end
+        else begin
+            pt.window#delete_proof_window;
+            PT_undo_delete
+          end
       end
-    else 
-      begin
-	if pt.window#survive_undo_before_start 
-	then begin
-	  pt.window#message "Retract before start";
-	  pt.pa_end_state <- -1;
+    else if pt.pa_end_state >= 0 && pa_state >= pt.pa_end_state 
+    then begin
+        assert(pt_is_current = false);
+        PT_undo_keep
+      end
+    else (* pt.pa_start_state <= pa_state < pt.pa_end_state *)
+      if pt_is_current 
+      then
+        begin
+          undo_inside_tree pt pa_state;
+	  mark_current_sequent_maybe pt.current_sequent;
+	  set_current_node_wrapper pt pt.current_sequent;
+	  pt.window#message (Printf.sprintf "Retract to %d" pa_state);
+	  pt.need_redraw <- true;
 	  pt.window#clear_position_hints;
-	  PT_undo_keep
-	end
-	else begin
-	  pt.window#delete_proof_window;
-	  PT_undo_delete
-	end
-      end 
-
+	  PT_undo_current
+        end
+      else 
+        begin
+	  if pt.window#survive_undo_before_start 
+	  then begin
+	      pt.window#message "Retract before start";
+	      pt.pa_end_state <- -1;
+	      pt.window#clear_position_hints;
+	      PT_undo_keep
+	    end
+	  else begin
+	      pt.window#delete_proof_window;
+	      PT_undo_delete
+	    end
+        end
+  in
+  res
 
 (** Perform undo to state [pa_state] in all non-cloned proof trees
     ({!original_proof_trees}). As result some of the proof windows
     might get deleted, some proof trees might get changed, and some
     might be kept as surviver. {!current_proof_tree} might be cleared.
-*)
+    In many cases undo resets fields in the proof tree record to the
+    values they had after [pa_state]. One exception is
+    {!proof_tree.incomplete_sequents_count}, which is reset to zero.
+ *)
 let undo pa_state =
   let new_current = ref None in
   original_proof_trees :=
@@ -918,7 +927,6 @@ let create_new_layer pt state current_sequent_id current_sequent_text
   let all_roots = first_sw :: other_sw in
   let layer = new tree_layer all_roots in
   let layer_undo_pos = pt.window#layer_stack#add_layer layer in
-  let old_incomplet_sequents_count = pt.incomplete_sequents_count in
   pt.current_sequent_id <- Some current_sequent_id;
   pt.current_sequent <- Some first_sw;
   pt.open_goals_count <- new_incomplete_sequents_count + 1;
@@ -946,7 +954,7 @@ let create_new_layer pt state current_sequent_id current_sequent_text
     pt.current_sequent_id <- None;
     pt.current_sequent <- None;
     pt.open_goals_count <- 0;
-    pt.incomplete_sequents_count <- old_incomplet_sequents_count;
+    pt.incomplete_sequents_count <- 0;
   in
                                                   (* inside create_new_layer *)
   (* Printf.fprintf (debugc()) "new layer incomp count %d\n%!"
@@ -1042,7 +1050,6 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
   let old_current_sequent_id = pt.current_sequent_id in
   let old_current_sequent = parent in
   let old_open_goals_count = pt.open_goals_count in
-  let old_incomplet_sequents_count = pt.incomplete_sequents_count in
                                       (***************** inside add_new_goal *)
   pt.current_sequent_id <- Some current_sequent_id;
   pt.current_sequent <- Some sw;
@@ -1086,7 +1093,7 @@ let add_new_goal pt state proof_command cheated_flag current_sequent_id
     pt.current_sequent_id <- old_current_sequent_id;
     pt.current_sequent <- Some old_current_sequent;
     pt.open_goals_count <- old_open_goals_count;
-    pt.incomplete_sequents_count <- old_incomplet_sequents_count;
+    pt.incomplete_sequents_count <- 0;
     List.iter
       (fun ex -> Hashtbl.remove pt.existential_hash ex.evar_internal_name)
       new_evars;
@@ -1333,7 +1340,8 @@ let update_sequent state proof_name sequent_id sequent_text
     | Some pt ->
        (* XXX A quick undo might overtake show goal requests. The
         * upate sequent command might arrive here, after the undo
-        * deleted the sequent already.
+        * deleted the sequent already. Or, if the sequent still
+        * exists, might make incomplete_sequents_count negative.
         *)
        (* XXX When a current goal is shelved, Unshelve will add the
         * same goal a second time with the same sequent_id in
@@ -1521,7 +1529,8 @@ let finish_drawing () = match !current_proof_tree with
       pt.window#update_ext_dialog;
     end;
     pt.sequent_area_needs_refresh <- false;
-    pt.need_redraw <- false
+    pt.need_redraw <- false;
+    ()
       
 
 (** Take the necessary actions when the configuration record changed.

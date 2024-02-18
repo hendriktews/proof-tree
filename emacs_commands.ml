@@ -79,7 +79,9 @@ let emacs_send_proof_script script =
     can be delayed arbitrarily.
 *)
 let emacs_send_show_goal proof_name state goal_id =
-  (* Printf.fprintf (debugc()) "request %s at state %d\n%!" goal_id state; *)
+  (* Printf.fprintf (debugc()) "emacsrequest goal %s at state %d\n%!"
+   *   goal_id state;
+   *)
   emacs_callback (Printf.sprintf "show-goal \"%s\" at %d for \"%s\""
                     goal_id state proof_name)
 
@@ -87,4 +89,5 @@ let emacs_send_show_goal proof_name state goal_id =
     commands will follow.
 *)
 let emacs_confirm_proof_complete proof_name =
+  (* Printf.fprintf (debugc()) "emacs_confirm_proof_complete\n%!"; *)
   emacs_callback (Printf.sprintf "confirm-proof-complete \"%s\"" proof_name)
