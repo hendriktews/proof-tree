@@ -55,7 +55,7 @@ if [ $commit_changes = "yes" ] ; then
 
     echo
     echo Commit and copy patched [recent-]changes.html : 
-    echo 'git add changes.html && git commit -a -m "$message" ?'
+    echo git add changes.html \&\& git commit -a -m "$message" ?
     echo -n [Y/n]?
     read answer
 
@@ -219,7 +219,7 @@ git status
 git diff
 
 echo
-echo git commit -a -m "$message" ??
+echo git add version.txt \&\& git commit -a -m "$message" ??
 echo -n [Y/n]?
 read answer
 
