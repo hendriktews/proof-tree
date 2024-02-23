@@ -27,7 +27,7 @@ timestamp=$(date '+%Y-%m-%d')
 
 dir="prooftree-$timestamp"
 
-webdir=/home/tews/www/alfa-www/askra-root/software/prooftree
+webdir=/home/tews/www/askra-root/software/prooftree
 
 version=$(cat version.txt)
 
@@ -50,21 +50,12 @@ if [ $commit_changes = "yes" ] ; then
 
     message="prepare changes.html for release"
 
-    cat - ChangeLog > newchangelog <<EOF
-$(date +%Y-%m-%d)  Hendrik Tews <prooftree@askra.de>
-
-	* $message
-
-EOF
-
-    mv newchangelog ChangeLog
-
     git status
     git diff
 
     echo
     echo Commit and copy patched [recent-]changes.html : 
-    echo git commit -a -m "$message" ?
+    echo 'git add changes.html && git commit -a -m "$message" ?'
     echo -n [Y/n]?
     read answer
 
@@ -72,7 +63,7 @@ EOF
 	exit 0
     fi
 
-    git commit -a -m "$message"
+    git add changes.html && git commit -a -m "$message"
     cp changes.html $webdir
 
     sed -n -e '/RECENT CHANGES START/,/RECENT CHANGES END/p' \
@@ -202,7 +193,7 @@ if [  ${answer:=y} = n -o $answer = N ] ; then
     exit 0
 fi
 
-/home/tews/www/update-sys -web
+unison-2.40.102 www
 
 
 echo
@@ -223,15 +214,6 @@ echo 0.$pt_version > version.txt
 
 releasetime=$(TZ=UTC date '+%Y-%m-%d %H:%M:%S %Z')
 message="release version 0.$pt_old_version on $releasetime"
-
-cat - ChangeLog > newchangelog <<EOF
-$(date +%Y-%m-%d)  Hendrik Tews <prooftree@askra.de>
-
-	* $message
-
-EOF
-
-mv newchangelog ChangeLog
 
 git status
 git diff
