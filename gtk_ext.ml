@@ -29,7 +29,7 @@
 *)
 class better_drawable ?colormap w pc = 
 object
-  inherit GDraw.drawable ?colormap w
+  inherit GDraw.drawable ?colormap w as super
 
   (** Link a writable Pango context for easy access. *)
   val pango_context = (pc : GPango.context_rw)
@@ -37,15 +37,28 @@ object
   (** Return a writable Pango context. *)
   method pango_context = pango_context    
 
+  val mutable fg_color = GDraw.color (`NAME "black");
+  val mutable bg_color = GDraw.color (`NAME "white");
+
   (** Return the current foreground color of the graphics context of
       this drawable. 
   *)
-  method get_foreground = (Gdk.GC.get_values gc).Gdk.GC.foreground
+  method get_foreground = fg_color;
 
   (** Return the current background color of the graphics context of
       this drawable. 
   *)
-  method get_background = (Gdk.GC.get_values gc).Gdk.GC.background
+  method get_background = bg_color;
+
+  (* override GDraw.drawable#set_foreground *)
+  method set_foreground c =
+    super#set_foreground c;
+    fg_color <- GDraw.color c
+ 
+  (* override GDraw.drawable#set_background *)
+  method set_background c =
+    super#set_background c;
+    bg_color <- GDraw.color c                          
 end
 
 
